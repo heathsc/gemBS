@@ -38,14 +38,14 @@ Once GSL is already available on your system then you can compile and install ge
 Documentation
 -------------
 
-Documentation can be found at [gemBS] (http://statgen.cnag.cat/gemBS/)
+Documentation can be found at [gemBS](http://statgen.cnag.cat/gemBS/)
 
 
 ----------
 Changelog:
 ----------
 
-    0.0 Initial Release  
+    1.5 Initial Release  
 
 
 -----------
