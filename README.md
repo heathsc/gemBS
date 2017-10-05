@@ -9,6 +9,14 @@ Licensing
 
 gemBS is licensed under GPL.
 
+--------
+Download
+--------
+
+To download the code use git clone --recursive in order to get the source code from external projects (bs_call and gem3-mapper)
+
+    git clone --recursive https://github.com/heathsc/gemBS.git
+
 ------------
 Installation
 ------------

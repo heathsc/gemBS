@@ -67,23 +67,23 @@ def _install_bundle(install_dir):
             os.chmod(result_file, 0755)
 
     # copy compiled bs_call tools
-    bins = [x for x in os.listdir("bs_call/bin")]
+    bins = [x for x in os.listdir("tools/bs_call/bin")]
     for file in bins:
         print "Copy binary: %s to %s" % (file, install_dir)
         result_file = "%s/%s" % (install_dir, file)
         if os.path.exists(result_file):
             os.remove(result_file)
-        shutil.copy("%s/%s" % ("bs_call/bin", file), install_dir)
+        shutil.copy("%s/%s" % ("tools/bs_call/bin", file), install_dir)
         os.chmod(result_file, 0755)
 
     # copy compiled bs_call tools
-    bins = [x for x in os.listdir("gem3-mapper/bin")]
+    bins = [x for x in os.listdir("tools/gem3-mapper/bin")]
     for file in bins:
         print "Copy binary: %s to %s" % (file, install_dir)
         result_file = "%s/%s" % (install_dir, file)
         if os.path.exists(result_file):
             os.remove(result_file)
-        shutil.copy("%s/%s" % ("gem3-mapper/bin", file), install_dir)
+        shutil.copy("%s/%s" % ("tools/gem3-mapper/bin", file), install_dir)
         os.chmod(result_file, 0755)
 
 
