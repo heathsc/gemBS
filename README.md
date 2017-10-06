@@ -63,7 +63,7 @@ Changelog:
 Developers
 ----------
  
- gemBS:
+ GEMBS:
  * Marcos Fernandez-Callejo - marcos.fernandez@cnag.crg.eu
  
  gem mapper:
