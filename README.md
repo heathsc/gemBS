@@ -1,7 +1,7 @@
-*GEM*BS
+GEMBS
 =======
 
-*GEM*BS is a bioinformatic pipeline designed for hightroughput analysis of DNA methylation from whole genome bisulfites sequencing data (WGBS). It implements GEM3, a high performance read aligner and BScall, a variant caller specifically for bisulfite sequencing data.
+GEMBS is a bioinformatic pipeline designed for hightroughput analysis of DNA methylation from whole genome bisulfites sequencing data (WGBS). It implements GEM3, a high performance read aligner and BScall, a variant caller specifically for bisulfite sequencing data.
 
 
 The manuscript describing the pipeline is available [here](http://www.webmanuscript.com)
@@ -10,7 +10,7 @@ The manuscript describing the pipeline is available [here](http://www.webmanuscr
 Licensing
 ---------
 
-*GEM*BS is licensed under GPL.
+GEMBS is licensed under GPL.
 
 --------
 Download
@@ -24,11 +24,11 @@ Use ``git clone --recursive`` to retrieve the complete source code including the
 Installation
 ------------
 
-1) Before starting the installation of *GEM*BS, please check if your system has the GSL library already installed.
+1) Before starting the installation of GEMBS, please check if your system has the GSL library already installed.
 
 1.1) If your system does not have GSL library then you can download it from [GSL](https://www.gnu.org/software/gsl/) and follow the installation steps. 
 
-1.2) Once GSL is already available on your system then you can compile and install *GEM*BS.
+1.2) Once GSL is already available on your system then you can compile and install GEMBS.
 
 2) Change GSL library paths. In order to compile bscall you must specify the GSL headers and library directories. 
    To do that, edit file ./tools/bs_call/Gsl.mk file with the proper paths. Just modify two lines starting with GSL_LIB and GSL_INC.
@@ -49,7 +49,7 @@ Installation
 Documentation
 -------------
 
-Documentation can be found at [*GEM*BS](http://statgen.cnag.cat/gemBS/)
+Documentation can be found at [GEMBS](http://statgen.cnag.cat/gemBS/)
 
 
 ----------
