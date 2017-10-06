@@ -1,7 +1,7 @@
-``GEM``BS
-=========
+*GEM*BS
+=======
 
-``GEM``BS is a bioinformatic pipeline designed for hightroughput analysis of DNA methylation from whole genome bisulfites sequencing data (WGBS). It implements GEM3, a high performance read aligner and BScall, a variant caller specifically for bisulfite sequencing data.
+*GEM*BS is a bioinformatic pipeline designed for hightroughput analysis of DNA methylation from whole genome bisulfites sequencing data (WGBS). It implements GEM3, a high performance read aligner and BScall, a variant caller specifically for bisulfite sequencing data.
 
 
 The manuscript describing the pipeline is available [here](http://www.webmanuscript.com)
@@ -10,7 +10,7 @@ The manuscript describing the pipeline is available [here](http://www.webmanuscr
 Licensing
 ---------
 
-``GEM``BS is licensed under GPL.
+*GEM*BS is licensed under GPL.
 
 --------
 Download
@@ -24,16 +24,16 @@ Use ``git clone --recursive`` to retrieve the complete source code including the
 Installation
 ------------
 
-1) Before starting the installation of gemBS, please check if your system has the GSL library already installed.
+1) Before starting the installation of *GEM*BS, please check if your system has the GSL library already installed.
 
-If your system does not have GSL library then you can download it from [GSL](https://www.gnu.org/software/gsl/) and follow the installation steps. 
+1.1) If your system does not have GSL library then you can download it from [GSL](https://www.gnu.org/software/gsl/) and follow the installation steps. 
 
-Once GSL is already available on your system then you can compile and install ``GEM``BS.
+1.2) Once GSL is already available on your system then you can compile and install *GEM*BS.
 
 2) Change GSL library paths. In order to compile bscall you must specify the GSL headers and library directories. 
    To do that, edit file ./tools/bs_call/Gsl.mk file with the proper paths. Just modify two lines starting with GSL_LIB and GSL_INC.
 
-./tools/bs_call/Gsl.mk:
+    ./tools/bs_call/Gsl.mk:
 
     #1. MODIFY HERE THE GSL LIBRARY LOCATION. FOR Example: GSL_LIB = -L/path/to/gsl/lib
     GSL_LIB = -L/path/to/GSL/lib/
@@ -42,14 +42,14 @@ Once GSL is already available on your system then you can compile and install ``
 
 3) Use python install command:
 
-    python setup.py install --user
+    ``python setup.py install --user``
 
 
 -------------
 Documentation
 -------------
 
-Documentation can be found at [gemBS](http://statgen.cnag.cat/gemBS/)
+Documentation can be found at [*GEM*BS](http://statgen.cnag.cat/gemBS/)
 
 
 ----------
