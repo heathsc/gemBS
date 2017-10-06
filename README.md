@@ -33,9 +33,7 @@ Installation
 2) Change GSL library paths. In order to compile bscall you must specify the GSL headers and library directories. 
    To do that, edit file ./tools/bs_call/Gsl.mk file with the proper paths. Just modify two lines starting with GSL_LIB and GSL_INC.
 
-    ./tools/bs_call/Gsl.mk:
-
-    ::
+    ./tools/bs_call/Gsl.mk:  
 
         #1. MODIFY HERE THE GSL LIBRARY LOCATION. FOR Example: GSL_LIB = -L/path/to/gsl/lib
         GSL_LIB = -L/path/to/GSL/lib/
