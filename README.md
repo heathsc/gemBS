@@ -1,19 +1,22 @@
-gemBS
-=====
+``GEM``BS
+=========
 
-gemBS is a wrapper to perform a set of different steps involved in the Bisulfite pipeline (Sequencing Mapping and Methylation Calling).
+``GEM``BS is a bioinformatic pipeline designed for hightroughput analysis of DNA methylation from whole genome bisulfites sequencing data (WGBS). It implements GEM3, a high performance read aligner and BScall, a variant caller specifically for bisulfite sequencing data.
+
+
+The manuscript describing the pipeline is available [here](http://www.webmanuscript.com)
 
 ---------   
 Licensing
 ---------
 
-gemBS is licensed under GPL.
+``GEM``BS is licensed under GPL.
 
 --------
 Download
 --------
 
-To download the code use git clone --recursive in order to get the source code from external projects (bs_call and gem3-mapper)
+Use ``git clone --recursive`` to retrieve the complete source code including the code from external projects such as ``bs_call`` and ``gem3-mapper``.
 
     git clone --recursive https://github.com/heathsc/gemBS.git
 
@@ -21,11 +24,11 @@ To download the code use git clone --recursive in order to get the source code f
 Installation
 ------------
 
-1) Before starting the installation of gemBS, you should check if your system has the GSL library already installed.
+1) Before starting the installation of gemBS, please check if your system has the GSL library already installed.
 
 If your system does not have GSL library then you can download it from [GSL](https://www.gnu.org/software/gsl/) and follow the installation steps. 
 
-Once GSL is already available on your system then you can compile and install gemBS.
+Once GSL is already available on your system then you can compile and install ``GEM``BS.
 
 2) Change GSL library paths. In order to compile bscall you must specify the GSL headers and library directories. 
    To do that, edit file ./tools/bs_call/Gsl.mk file with the proper paths. Just modify two lines starting with GSL_LIB and GSL_INC.
@@ -56,11 +59,9 @@ Changelog:
     1.5 Initial Release  
 
 
------------
-Maintainers
------------
-
-Current maintainers:
+----------
+Developers
+----------
  
  gemBS:
  * Marcos Fernandez-Callejo - marcos.fernandez@cnag.crg.eu
