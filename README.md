@@ -35,13 +35,12 @@ Installation
 
     ./tools/bs_call/Gsl.mk:
 
-    #1. MODIFY HERE THE GSL LIBRARY LOCATION. FOR Example: GSL_LIB = -L/path/to/gsl/lib
+    ::
 
-    GSL_LIB = -L/path/to/GSL/lib/
-
-    #2. MODIFY HERE THE GSL HEADERS LOCATION. FOR Example: GSL_LIB = -L/path/to/gsl/include
-
-    GSL_INC = -I/path/to/GSL/include/ 
+        #1. MODIFY HERE THE GSL LIBRARY LOCATION. FOR Example: GSL_LIB = -L/path/to/gsl/lib
+        GSL_LIB = -L/path/to/GSL/lib/
+        #2. MODIFY HERE THE GSL HEADERS LOCATION. FOR Example: GSL_LIB = -L/path/to/gsl/include
+        GSL_INC = -I/path/to/GSL/include/ 
 
 3) Use python install command:
 
