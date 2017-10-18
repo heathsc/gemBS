@@ -832,8 +832,8 @@ class IndexHtml(BasicHtml):
         
         for sampleStats in self.vector_samples:
             sampleHtml = "%s/%s.html" %(self.output_dir,sampleStats.name)
-            isizeHistogram = "%s/%s.isize.png" %(os.path.dirname(self.output_dir),sampleStats.name)
-            png_mapq_histogram = "%s/%s.mapq.png" %(os.path.dirname(self.output_dir),sampleStats.name)
+            isizeHistogram = "%s/%s.isize.png" %(self.output_dir,sampleStats.name)
+            png_mapq_histogram = "%s/%s.mapq.png" %(self.output_dir,sampleStats.name)
             sampleReport = SampleHtml(project_name=self.name_project,sample_stats=sampleStats,html_parent_path=self.project_html_document,\
                                       html_sample=sampleHtml,png_insert_size_histogram=isizeHistogram,png_mapq_histogram=png_mapq_histogram)
             vSampleHtml = []
