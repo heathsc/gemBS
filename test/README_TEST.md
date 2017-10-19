@@ -13,8 +13,8 @@ Commands Performed
 
 1) Build Index for the reference
 
-
     cd references
+
     gemBS index -i yeast.fa
 
 
