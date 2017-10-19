@@ -13,8 +13,9 @@ Commands Performed
 
 1) Build Index for the reference
 
-    cd references
+::
 
+    cd references
     gemBS index -i yeast.fa
 
 2) Create JSON metadata file from CSV file
