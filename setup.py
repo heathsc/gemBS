@@ -15,7 +15,7 @@ import subprocess
 import shutil
 
 __VERSION_MAJOR = "1"
-__VERSION_MINOR = "5"
+__VERSION_MINOR = "6"
 __VERSION__ = "%s.%s" % (__VERSION_MAJOR, __VERSION_MINOR)
 
 def compile_gemBS_tools():

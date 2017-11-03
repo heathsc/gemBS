@@ -9,7 +9,7 @@ import signal
 
 import src
 
-__VERSION__ = "1.5"
+__VERSION__ = "1.6"
 
 def gemBS():
     try:

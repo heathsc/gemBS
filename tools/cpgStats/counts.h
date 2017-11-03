@@ -11,21 +11,21 @@
 #include "common.h"
 
 struct Counts {
-   unsigned int homozygousMethylated[4];
-   unsigned int homozygousInterMethylated[4];
-   unsigned int homozygousUnMethylated[4];
+   unsigned int homozygousMethylated[2];
+   unsigned int homozygousInterMethylated[2];
+   unsigned int homozygousUnMethylated[2];
 
-   unsigned int heterozygousMethylated[4];
-   unsigned int heterozygousInterMethylated[4];
-   unsigned int heterozygousUnMethylated[4];
+   unsigned int alternativeCXMethylated[2];
+   unsigned int alternativeCXInterMethylated[2];
+   unsigned int alternativeCXUnMethylated[2];
 
-   unsigned int deNovoCpgMethylated[4];
-   unsigned int deNovoCpgInterMethylated[4];
-   unsigned int deNovoCpgUnMethylated[4];
+   unsigned int nonReferenceCpgMethylated[2];
+   unsigned int nonReferenceCpgInterMethylated[2];
+   unsigned int nonReferenceCpgUnMethylated[2];
 
-   unsigned int cpgWithSnpMethylated[4];
-   unsigned int cpgWithSnpInterMethylated[4];
-   unsigned int cpgWithSnpUnMethylated[4];
+   unsigned int snpsReferenceCpGsMethylated[2];
+   unsigned int snpsReferenceCpGsInterMethylated[2];
+   unsigned int snpsReferenceCpGsUnMethylated[2];
 } counts;
 
 //Declare a new vector
@@ -36,77 +36,64 @@ void initCounts();
 void addRecordStats(struct Record * record);
 
 unsigned int getTotalHomozygous();
-unsigned int getTotalHomozygousHighQuality();
-unsigned int getTotalHeterozygous();
-unsigned int getTotalHeterozygousHighQuality();
+unsigned int getTotalHomozygousQuality20();
+unsigned int getTotalAlternativeCX();
+unsigned int getTotalAlternativeCXQuality20();
 
 unsigned int getTotalMethylated();
-unsigned int getTotalMethylatedHighQuality();
+unsigned int getTotalMethylatedQuality20();
 
 unsigned int getTotalIntermediateMethylated();
-unsigned int getTotalIntermediateMethylatedHighQuality();
+unsigned int getTotalIntermediateMethylatedQuality20();
 
 unsigned int getTotalUnMethylated();
-unsigned int getTotalUnMethylatedHighQuality();
+unsigned int getTotalUnMethylatedQuality20();
 
 unsigned int getTotalMethylatedHomozygous();
-unsigned int getTotalMethylatedHomozygousHighQuality();
+unsigned int getTotalMethylatedHomozygousQuality20();
 
 unsigned int getTotalIntermediateMethylatedHomozygous();
-unsigned int getTotalIntermediateMethylatedHomozygousHighQuality();
+unsigned int getTotalIntermediateMethylatedHomozygousQuality20();
 
 unsigned int getTotalUnMethylatedHomozygous();
-unsigned int getTotalUnMethylatedHomozygousHighQuality();
+unsigned int getTotalUnMethylatedHomozygousQuality20();
 
-unsigned int getTotalMethylatedHeterozygous();
-unsigned int getTotalMethylatedHeterozygousHighQuality();
+unsigned int getTotalMethylatedAlternativeCX();
+unsigned int getTotalMethylatedAlternativeCXQuality20();
 
-unsigned int getTotalIntermediateMethylatedHeterozygous();
-unsigned int getTotalIntermediateMethylatedHeterozygousHighQuality();
+unsigned int getTotalIntermediateMethylatedAlternativeCX();
+unsigned int getTotalIntermediateMethylatedAlternativeCXQuality20();
 
-unsigned int getTotalUnMethylatedHeterozygous();
-unsigned int getTotalUnMethylatedHeterozygousHighQuality();
+unsigned int getTotalUnMethylatedAlternativeCX();
+unsigned int getTotalUnMethylatedAlternativeCXQuality20();
 
-unsigned int getTotalQualityUnder10();
-unsigned int getTotalQualityBetween10_20();
-unsigned int getTotalQualityBetween20_30();
-unsigned int getTotalHighQuality();
+unsigned int getTotalQuality20();
 
-/*De Novo Cpgs Stats*/
-unsigned int getTotalDeNovoCpgs();
-unsigned int getTotalDeNovoCpgsHighQuality();
-unsigned int getTotalDeNovoCpgsQuality_over20();
+/*Non References Cpgs Stats*/
+unsigned int getTotalNonReferenceCpgs();
+unsigned int getTotalNonReferenceCpgsQuality20();
 
-unsigned int getTotalDeNovoCpgsMethylated();
-unsigned int getTotalDeNovoCpgsMethylatedHighQuality();
-unsigned int getTotalDeNovoCpgsMethylatedQuality_over20();
+unsigned int getTotalNonReferenceCpgsMethylated();
+unsigned int getTotalNonReferenceCpgsMethylatedQuality20();
 
-unsigned int getTotalDeNovoCpgsIntermediateMethylated();
-unsigned int getTotalDeNovoCpgsIntermediateMethylatedHighQuality();
-unsigned int getTotalDeNovoCpgsIntermediateMethylatedQuality_over20();
+unsigned int getTotalNonReferenceCpgsIntermediateMethylated();
+unsigned int getTotalNonReferenceCpgsIntermediateMethylatedQuality20();
 
-unsigned int getTotalDeNovoCpgsUnMethylated();
-unsigned int getTotalDeNovoCpgsUnMethylatedHighQuality();
-unsigned int getTotalDeNovoCpgsUnMethylatedQuality_over20();
+unsigned int getTotalNonReferenceCpgsUnMethylated();
+unsigned int getTotalNonReferenceCpgsUnMethylatedQuality20();
 
+/*SNPs (CX) at Reference CpGs*/
+unsigned int getTotalSnpsReferenceCpGs();
+unsigned int getTotalSnpsReferenceCpGsQuality20();
 
-/*Reference CpG With Snps Detected*/
-unsigned int getTotalCpgSnp();
-unsigned int getTotalCpgSnpHighQuality();
-unsigned int getTotalCpgSnpQuality_over20();
+unsigned int getTotalSnpsReferenceCpGsMethylated();
+unsigned int getTotalSnpsReferenceCpGsMethylatedQuality20();
 
-unsigned int getTotalCpgSnpMethylated();
-unsigned int getTotalCpgSnpMethylatedHighQuality();
-unsigned int getTotalCpgSnpMethylatedQuality_over20();
+unsigned int getTotalSnpsReferenceCpGsIntermediateMethylated();
+unsigned int getTotalSnpsReferenceCpGsIntermediateMethylatedQuality20();
 
-unsigned int getTotalCpgSnpIntermediateMethylated();
-unsigned int getTotalCpgSnpIntermediateMethylatedHighQuality();
-unsigned int getTotalCpgSnpIntermediateMethylatedQuality_over20();
-
-unsigned int getTotalCpgSnpUnMethylated();
-unsigned int getTotalCpgSnpUnMethylatedHighQuality();
-unsigned int getTotalCpgSnpUnMethylatedQuality_over20();
-
+unsigned int getTotalSnpsReferenceCpGsUnMethylated();
+unsigned int getTotalSnpsReferenceCpGsUnMethylatedQuality20();
 
 float getPercentage(unsigned int concept, unsigned int totalValue);
 

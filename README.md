@@ -56,6 +56,13 @@ Documentation can be found at [GEMBS](http://statgen.cnag.cat/gemBS/)
 Changelog:
 ----------
 
+    1.6 New CpGs Density plot, include box plos, bar plot and fitting curve
+    1.6 Change name at CpG report:
+        "Heterozygous" for "Alternative CX"
+        "De Novo CpGs Methylation Status" for "Non Reference CpGs"
+        "CpGs with SNP" for "SNPs (CX) at Reference CpGs"
+    1.6 CpGs Report Simplified to Q>20
+    1.6 BigWig Default parameters for filtering CpG per a given quality and a total number of supported informative reads   
     1.5 Initial Release  
 
 

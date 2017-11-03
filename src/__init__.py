@@ -676,13 +676,15 @@ def bsConcat(list_bcfs=None,sample=None,output_dir=None):
     return os.path.abspath("%s" %bcfSample)
     
     
-def cpgBigWigConversion(name=None,output_dir=None,cpg_file=None,chr_len=None):
+def cpgBigWigConversion(name=None,output_dir=None,cpg_file=None,chr_len=None,quality="20",informative_reads="5"):
     """ Builds coverage and methylation BigWig files. Firstly creates wig files and then transforms it to BigWig.
     
         name -- General Name used to automatically create BigWig Files
         output_dir -- output directory path
         cpg_file -- Gzipped CpG File
         chr_len --  File of chromosomes and its lengths
+        quality -- Quality Filtering to remove CpGs from Genome Browser tracks
+        informative_reads -- Informative Reads to remove CpGs from Genome Browser tracks
     """
     
     #Check output directory
@@ -704,13 +706,13 @@ def cpgBigWigConversion(name=None,output_dir=None,cpg_file=None,chr_len=None):
                         chromosome = fields[0]
                         location = fields[1]
                         genotype_context = fields[3]
-                        quality = int(fields[4])
+                        qual = int(fields[4])
                         meth_value = fields[5]
                         conv_reads = int(fields[7])
                         unconv_reads = int(fields[8])
                         cov = conv_reads + unconv_reads
                         #Check filtering
-                        if genotype_context == "CG" and quality >= 2 and meth_value != "-":
+                        if genotype_context == "CG" and qual >= int(quality) and cov >= int(informative_reads) and meth_value != "-":
                             if chromosome != lastChromosome[0]:
                                 callFile.write("variableStep\tchrom=%s\tspan=2\n" %(chromosome))
                                 covFile.write("variableStep\tchrom=%s\tspan=2\n" %(chromosome))

@@ -991,6 +991,8 @@ class CpgBigwig(BasicPipeline):
         parser.add_argument('-l','--chrom-length', dest="chrom_length", help="""Chromosome Length Text File.
                                                                                  Format: Two Columns: <chromosome name> <size in bases>""",required=True,default=None)
         parser.add_argument('-n','--name', dest="name", metavar="NAME", help='Output basic name',required=True)
+        parser.add_argument('-q', '--quality', dest="quality", metavar="QUAL", help='Quality filtering criteria for the CpGs. By default 20.',required=False,default="20")
+        parser.add_argument('-i', '--informative-reads', dest="informative_reads", metavar="READS", help='Total number of informative reads to filter CpGs.By default 5.',required=False,default="5")   
         parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',required=True,default=None)
                                                                                  
 
@@ -999,6 +1001,8 @@ class CpgBigwig(BasicPipeline):
         self.output_dir = args.output_dir
         self.cpg_file = args.cpg_file
         self.chrom_length = args.chrom_length
+        self.quality = args.quality
+        self.informative_reads = args.informative_reads
                 
         #Check CpG gzipped compressed file
         if not os.path.isfile(args.cpg_file):
@@ -1014,7 +1018,8 @@ class CpgBigwig(BasicPipeline):
         self.log_parameter()
         logging.gemBS.gt("CpG BigWig Conversion...")
                 
-        ret = src.cpgBigWigConversion(name=self.name,output_dir=self.output_dir,cpg_file=self.cpg_file,chr_len=self.chrom_length)
+        ret = src.cpgBigWigConversion(name=self.name,output_dir=self.output_dir,cpg_file=self.cpg_file,
+                                      chr_len=self.chrom_length,quality=self.quality,informative_reads=self.informative_reads)
         if ret:
             logging.gemBS.gt("CpG Bigwig Conversion Done: %s" %(ret))
             
@@ -1027,6 +1032,8 @@ class CpgBigwig(BasicPipeline):
         printer("Name            : %s", self.name)
         printer("CpG File        : %s", self.cpg_file)
         printer("Chrom Length    : %s", self.chrom_length)
+        printer("Quality         : %s", self.quality)
+        printer("Info. Reads     : %s", self.informative_reads)
         printer("")       
             
        

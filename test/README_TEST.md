@@ -51,7 +51,7 @@ Commands Performed
 7) Merge Chromosome Calls
 
 
-    gemBS bscall-concatenate -s test -l ./data/chr_snp_calls/test_chrI.bcf ./data/chr_snp_calls/test_chrIII.bcf -o ./data/merged_calls/
+    gemBS bscall-concatenate -s test -l ./data/chr_snp_calls/test_chrIII.bcf -o ./data/merged_calls/
 
 
 8) Methylation Filtering

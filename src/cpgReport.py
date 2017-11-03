@@ -9,6 +9,8 @@ import os
 import json
 import matplotlib.pyplot as plt
 import matplotlib.pylab as pylab
+import matplotlib.mlab as mlab
+import numpy as np
 
 from variantsReport import HtmlVariantsReport
 from reportStats import RunBasicStats
@@ -45,14 +47,10 @@ class CpgStats(object):
         vector = []
         
         nTotal = self.data["TotalDinucleotides"]
-        nTotalQ30 = self.data["TotalHighQuality"]
-        nTotalQ20 = self.data["TotalHighQuality"] + self.data["TotalQuality_20_30"]
-        nTotalQ10 = self.data["TotalHighQuality"] + self.data["TotalQuality_20_30"] + self.data["TotalQuality_10_20"]
+        nTotalQ20 = self.data["TotalQuality20"]
         
         vector.append(["Dinucleotides",self.data["TotalDinucleotides"],"100 %"])
-        vector.append(["Q>30","%i" %(nTotalQ30),"%.2f %%" %(self.getPercentage(nTotal,nTotalQ30))])
         vector.append(["Q>20","%i" %(nTotalQ20),"%.2f %%" %(self.getPercentage(nTotal,nTotalQ20))])
-        vector.append(["Q>10","%i" %(nTotalQ10),"%.2f %%" %(self.getPercentage(nTotal,nTotalQ10))])
                 
         return vector
 
@@ -62,14 +60,14 @@ class CpgStats(object):
         
         nTotal = self.data["TotalDinucleotides"]
         nTotalHomozygous = self.data["TotalHomozygous"]
-        nTotalHomozygousQ30 = self.data["TotalHomozygousHighQuality"]
-        nTotalHeterozygous = self.data["TotalHeterozygous"]
-        nTotalHeterozygousQ30 = self.data["TotalHeterozygousHighQuality"]
+        nTotalHomozygousQ20 = self.data["TotalHomozygousQuality20"]
+        nTotalAlternativeCX = self.data["TotalAlternativeCX"]
+        nTotalAlternativeCXQ20 = self.data["TotalAlternativeCXQuality20"]
         
         vector.append(["Homozygous","%i"%(nTotalHomozygous),"%.2f %%" %(self.getPercentage(nTotal,nTotalHomozygous))])
-        vector.append(["Homozygous Q>30","%i"%(nTotalHomozygousQ30),"%.2f %%" %(self.getPercentage(nTotal,nTotalHomozygousQ30))])
-        vector.append(["Heterozygous","%i"%(nTotalHeterozygous),"%.2f %%" %(self.getPercentage(nTotal,nTotalHeterozygous))])
-        vector.append(["Heterozygous Q>30","%i"%(nTotalHeterozygousQ30),"%.2f %%" %(self.getPercentage(nTotal,nTotalHeterozygousQ30))])
+        vector.append(["Homozygous Q>20","%i"%(nTotalHomozygousQ20),"%.2f %%" %(self.getPercentage(nTotal,nTotalHomozygousQ20))])
+        vector.append(["AlternativeCX","%i"%(nTotalAlternativeCX),"%.2f %%" %(self.getPercentage(nTotal,nTotalAlternativeCX))])
+        vector.append(["AlternativeCX Q>20","%i"%(nTotalAlternativeCXQ20),"%.2f %%" %(self.getPercentage(nTotal,nTotalAlternativeCXQ20))])
         
         return vector
 
@@ -80,18 +78,18 @@ class CpgStats(object):
         
         nTotal = self.data["TotalDinucleotides"]
         nTotalMethylated = self.data["TotalMethylated"]
-        nTotalMethylatedQ30 = self.data["TotalMethylatedHighQuality"]
+        nTotalMethylatedQ20 = self.data["TotalMethylatedQuality20"]
         nTotalIntermediateMethylated = self.data["TotalIntermediateMethylated"]
-        nTotalIntermediateMethylatedQ30 = self.data["TotalIntermediateMethylatedHighQuality"]
+        nTotalIntermediateMethylatedQ20 = self.data["TotalIntermediateMethylatedQuality20"]
         nTotalUnmethylated = self.data["TotalUnMethylated"]
-        nTotalUnmethylatedQ30 = self.data["TotalUnmethylatedHighQuality"]
+        nTotalUnmethylatedQ20 = self.data["TotalUnmethylatedQuality20"]
 
         vector.append(["Methylated","%i"%(nTotalMethylated),"%.2f %%" %(self.getPercentage(nTotal,nTotalMethylated))])
-        vector.append(["Methylated Q>30","%i"%(nTotalMethylatedQ30),"%.2f %%" %(self.getPercentage(nTotal,nTotalMethylatedQ30))])
+        vector.append(["Methylated Q>20","%i"%(nTotalMethylatedQ20),"%.2f %%" %(self.getPercentage(nTotal,nTotalMethylatedQ20))])
         vector.append(["Intermediate Methylated","%i"%(nTotalIntermediateMethylated),"%.2f %%" %(self.getPercentage(nTotal,nTotalIntermediateMethylated))])
-        vector.append(["Intermediate Methylated Q>30","%i"%(nTotalIntermediateMethylatedQ30),"%.2f %%" %(self.getPercentage(nTotal,nTotalIntermediateMethylatedQ30))])
+        vector.append(["Intermediate Methylated Q>20","%i"%(nTotalIntermediateMethylatedQ20),"%.2f %%" %(self.getPercentage(nTotal,nTotalIntermediateMethylatedQ20))])
         vector.append(["UnMethylated","%i"%(nTotalUnmethylated),"%.2f %%" %(self.getPercentage(nTotal,nTotalUnmethylated))])
-        vector.append(["UnMethylated Q>30","%i"%(nTotalUnmethylatedQ30),"%.2f %%" %(self.getPercentage(nTotal,nTotalUnmethylatedQ30))])
+        vector.append(["UnMethylated Q>20","%i"%(nTotalUnmethylatedQ20),"%.2f %%" %(self.getPercentage(nTotal,nTotalUnmethylatedQ20))])
         
         return vector
         
@@ -100,21 +98,17 @@ class CpgStats(object):
         vector = []
         
         nTotal = self.data["TotalDinucleotides"]
-        nDenovoCGs = self.data["TotalDeNovoCpGs"]
-        nDenovoCGsQ20 = self.data["TotalDeNovoCpGsQualityO20"]
-        nDenovoCGsQ30 = self.data["TotalDeNovoCpGsHighQuality"]
+        nNonReferenceCGs = self.data["TotalNonReferenceCpGs"]
+        nNonReferenceCGsQ20 = self.data["TotalNonReferenceCpGsQuality20"]
         
-        nCGsSNPs = self.data["TotalCpGwithSNPCalled"]
-        nCGsSNPsQ20 = self.data["TotalCpGwithSNPCalledQualityO20"]
-        nCGsSNPsQ30 = self.data["TotalCpGwithSNPCalledHighQuality"]
+        nCGsSNPs = self.data["TotalSnpsReferenceCpGsCalled"]
+        nCGsSNPsQ20 = self.data["TotalSnpsReferenceCpGsCalledQuality20"]
         
-        vector.append(["DeNovo CpGs","%i"%(nDenovoCGs),"%.2f %%" %(self.getPercentage(nTotal,nDenovoCGs))])
-        vector.append(["DeNovo CpGs Q>20","%i"%(nDenovoCGsQ20),"%.2f %%" %(self.getPercentage(nTotal,nDenovoCGsQ20))])
-        vector.append(["DeNovo CpGs Q>30","%i"%(nDenovoCGsQ30),"%.2f %%" %(self.getPercentage(nTotal,nDenovoCGsQ30))])
+        vector.append(["Non Reference CpGs","%i"%(nNonReferenceCGs),"%.2f %%" %(self.getPercentage(nTotal,nNonReferenceCGs))])
+        vector.append(["Non Reference CpGs Q>20","%i"%(nNonReferenceCGsQ20),"%.2f %%" %(self.getPercentage(nTotal,nNonReferenceCGsQ20))])
         
-        vector.append(["CpGs with SNP","%i"%(nCGsSNPs),"%.2f %%" %(self.getPercentage(nTotal,nCGsSNPs))])
-        vector.append(["CpGs with SNP Q>20","%i"%(nCGsSNPsQ20),"%.2f %%" %(self.getPercentage(nTotal,nCGsSNPsQ20))])
-        vector.append(["CpGs with SNP Q>30","%i"%(nCGsSNPsQ30),"%.2f %%" %(self.getPercentage(nTotal,nCGsSNPsQ30))])
+        vector.append(["SNPs (CX) at Reference CpGs","%i"%(nCGsSNPs),"%.2f %%" %(self.getPercentage(nTotal,nCGsSNPs))])
+        vector.append(["SNPs (CX) at Reference CpGs Q>20","%i"%(nCGsSNPsQ20),"%.2f %%" %(self.getPercentage(nTotal,nCGsSNPsQ20))])
         
         return vector
         
@@ -123,66 +117,59 @@ class CpgStats(object):
         vector = []
         
         vector.append(["HomozygousMethylated",self.data["TotalHomozygousMethylated"]])
-        vector.append(["HomozygousMethylated Q>30",self.data["TotalHomozygousMethylatedHighQuality"]])
+        vector.append(["HomozygousMethylated Q>20",self.data["TotalHomozygousMethylatedQuality20"]])
         
         vector.append(["HomozygousIntermediateMethylated",self.data["TotalHomozygousIntermediateMethylated"]])
-        vector.append(["HomozygousIntermediateMethylated Q>30",self.data["TotalHomozygousIntermediateMethylatedHighQuality"]])
+        vector.append(["HomozygousIntermediateMethylated Q>20",self.data["TotalHomozygousIntermediateMethylatedQuality20"]])
         
         vector.append(["HomozygousUnMethylated",self.data["TotalHomozygousUnMethylated"]])
-        vector.append(["HomozygousUnMethylated Q>30",self.data["TotalHomozygousUnMethylatedHighQuality"]])
+        vector.append(["HomozygousUnMethylated Q>20",self.data["TotalHomozygousUnMethylatedQuality20"]])
         
         return vector
         
-    def getTableStatusHeterozygosity(self):
+    def getTableStatusAlternativeCX(self):
         """ Returns Vector Status Heterozygosity """
         vector = []
         
-        vector.append(["HeterozygousMethylated",self.data["TotalHeterozygousMethylated"]])
-        vector.append(["HeterozygousMethylated Q>30",self.data["TotalHeterozygousMethylatedHighQuality"]])
+        vector.append(["AlternativeCXMethylated",self.data["TotalAlternativeCXMethylated"]])
+        vector.append(["AlternativeCXMethylated Q>20",self.data["TotalAlternativeCXMethylatedQuality20"]])
         
-        vector.append(["HeterozygousIntermediateMethylated",self.data["TotalHeterozygousIntermediateMethylated"]])
-        vector.append(["HeterozygousIntermediateMethylated Q>30",self.data["TotalHeterozygousIntermediateMethylatedHighQuality"]])
+        vector.append(["AlternativeCXIntermediateMethylated",self.data["TotalAlternativeCXIntermediateMethylated"]])
+        vector.append(["AlternativeCXIntermediateMethylated Q>20",self.data["TotalAlternativeCXIntermediateMethylatedQuality20"]])
         
-        vector.append(["HeterozygousUnMethylated",self.data["TotalHeterozygousUnMethylated"]])
-        vector.append(["HeterozygousUnMethylated Q>30",self.data["TotalHeterozygousUnMethylatedHighQuality"]])
+        vector.append(["AlternativeCXUnMethylated",self.data["TotalAlternativeCXUnMethylated"]])
+        vector.append(["AlternativeCXUnMethylated Q>20",self.data["TotalAlternativeCXUnMethylatedQuality20"]])
         
         return vector
         
-    def getTableStatusDeNovo(self):
-        """ Returns Vector Status De Novo CGs """
+    def getTableStatusNonReference(self):
+        """ Returns Vector Status Non Reference CGs """
         vector = []
         
-        vector.append(["DeNovoCpGsMethylated",self.data["TotalDeNovoCpGsMethylated"]])
-        vector.append(["DeNovoCpGsMethylated Q>20",self.data["TotalDeNovoCpGsMethylatedQualityO20"]])
-        vector.append(["DeNovoCpGsMethylated Q>30",self.data["TotalDeNovoCpGsMethylatedHighQuality"]])
+        vector.append(["NonReferenceCpGsMethylated",self.data["TotalNonReferenceCpGsMethylated"]])
+        vector.append(["NonReferenceCpGsMethylated Q>20",self.data["TotalNonReferenceCpGsMethylatedQuality20"]])
         
-        vector.append(["DeNovoCpGsIntermediateMethylated",self.data["TotalDeNovoCpGsIntermediateMethylated"]])
-        vector.append(["DeNovoCpGsIntermediateMethylated Q>20",self.data["TotalDeNovoCpGsIntermediateMethylatedQualityO20"]])
-        vector.append(["DeNovoCpGsIntermediateMethylated Q>30",self.data["TotalDeNovoCpGsIntermediateMethylatedHighQuality"]])
+        vector.append(["NonReferenceCpGsIntermediateMethylated",self.data["TotalNonReferenceCpGsIntermediateMethylated"]])
+        vector.append(["NonReferenceCpGsIntermediateMethylated Q>20",self.data["TotalNonReferenceCpGsIntermediateMethylatedQuality20"]])
         
-        vector.append(["DeNovoCpGsUnMethylated",self.data["TotalDeNovoCpGsUnMethylated"]])
-        vector.append(["DeNovoCpGsUnMethylated Q>20",self.data["TotalDeNovoCpGsUnMethylatedQualityO20"]])
-        vector.append(["DeNovoCpGsUnMethylated Q>30",self.data["TotalDeNovoCpGsUnMethylatedHighQuality"]])
-        
-        
+        vector.append(["NonReferenceCpGsUnMethylated",self.data["TotalNonReferenceCpGsUnMethylated"]])
+        vector.append(["NonReferenceCpGsUnMethylated Q>20",self.data["TotalNonReferenceCpGsUnMethylatedQuality20"]])
+                
         return vector
 
 
-    def getTableStatusCpgSnp(self):
+    def getTableStatusSNPsReferenceCpGs(self):
         """ Returns Vector Status CpGs SNPs """
         vector = []
         
-        vector.append(["CpGwithSNPCalledMethylated",self.data["TotalCpGwithSNPCalledMethylated"]])
-        vector.append(["CpGwithSNPCalledMethylated Q>20",self.data["TotalCpGwithSNPCalledMethylatedQualityO20"]])
-        vector.append(["CpGwithSNPCalledMethylated Q>30",self.data["TotalCpGwithSNPCalledMethylatedHighQuality"]])
+        vector.append(["SnpsReferenceCpGsCalledMethylated",self.data["TotalSnpsReferenceCpGsCalledMethylated"]])
+        vector.append(["SnpsReferenceCpGsCalledMethylated Q>20",self.data["TotalSnpsReferenceCpGsCalledMethylatedQuality20"]])
 
-        vector.append(["CpGwithSNPCalledIntermediateMethylated",self.data["TotalCpGwithSNPCalledIntermediateMethylated"]])
-        vector.append(["CpGwithSNPCalledIntermediateMethylated Q>20",self.data["TotalCpGwithSNPCalledIntermediateMethylatedQualityO20"]])
-        vector.append(["CpGwithSNPCalledIntermediateMethylated Q>30",self.data["TotalCpGwithSNPCalledIntermediateMethylatedHighQuality"]])
+        vector.append(["SnpsReferenceCpGsCalledIntermediateMethylated",self.data["TotalSnpsReferenceCpGsCalledIntermediateMethylated"]])
+        vector.append(["SnpsReferenceCpGsCalledIntermediateMethylated Q>20",self.data["TotalSnpsReferenceCpGsCalledIntermediateMethylatedQuality20"]])
 
-        vector.append(["CpGwithSNPCalledUnMethylated",self.data["TotalCpGwithSNPCalledUnMethylated"]])
-        vector.append(["CpGwithSNPCalledUnMethylated Q>20",self.data["TotalCpGwithSNPCalledUnMethylatedQualityO20"]])
-        vector.append(["CpGwithSNPCalledUnMethylated Q>30",self.data["TotalCpGwithSNPCalledUnMethylatedHighQuality"]])
+        vector.append(["SnpsReferenceCpGsCalledUnMethylated",self.data["TotalSnpsReferenceCpGsCalledUnMethylated"]])
+        vector.append(["SnpsReferenceCpGsCalledUnMethylated Q>20",self.data["TotalSnpsReferenceCpGsCalledUnMethylatedQuality20"]])
         
         return vector
 
@@ -190,48 +177,7 @@ class CpgStats(object):
         """ Returns a vector of Methylation Values """        
         return self.methylation["MethValues"]
 
-
-    def barplotCluster3(self,pngFile=None,vectorValues=None,title='DeNovo CpGs Status',yLabel='#CpGs'):
-        """ Prints Clustered plot in a png file 
-            Conceptual cluester plot
-            
-            pngFile - PNG file to store the data
-            vectorValues - Vector of values to be printed as a bar plot
-            title - Title of the plot
-        """
-            
-        wholeValues = (vectorValues[0][1],vectorValues[3][1],vectorValues[6][1])
-        q20Values = (vectorValues[1][1],vectorValues[4][1],vectorValues[7][1])
-        q30Values = (vectorValues[2][1],vectorValues[5][1],vectorValues[8][1])
-        
-        xLabels = ('Methylated','Intermediate','UnMethylated')
-                   
-        # the x locations for the groups
-        groupsRange = [0, 4, 8]
-        # the width of the bars
-        width = 1
-        
-        figure, ax = plt.subplots()
-        
-        rects1 = ax.bar(groupsRange, wholeValues, width, color='r')
-        rects2 = ax.bar([x+width for x in groupsRange], q20Values, width, color='y')
-        rects3 = ax.bar([x+ 2*width for x in groupsRange], q30Values, width, color='b')
-        
-        # add some text for labels, title and axes ticks
-        ax.set_ylabel(yLabel)
-        ax.set_title(title)
-        ax.set_xticks([ (x+width) for x in groupsRange] )
-        ax.set_xticks([ (x+ 2*width) for x in groupsRange] )
-        ax.set_xticklabels(xLabels)
-        
-        ax.legend((rects1[0], rects2[0], rects3[0]), ('Total', 'Q>20', 'Q>30'),loc='best')
-
-        pylab.savefig(pngFile)
-        
-        plt.close(figure)
-        
-        
-    def barplotCluster2(self,pngFile=None,vectorValues=None,title='Heterozygous Status',yLabel='#Dinucleotides'):
+    def barplotCluster2(self,pngFile=None,vectorValues=None,title='Alternative CX Status',yLabel='#Dinucleotides'):
         """ Prints Clustered plot in a png file 
             Conceptual cluester plot
             
@@ -242,12 +188,12 @@ class CpgStats(object):
         """
             
         wholeValues = (vectorValues[0][1],vectorValues[2][1],vectorValues[4][1])
-        q30Values = (vectorValues[1][1],vectorValues[3][1],vectorValues[5][1])
+        q20Values = (vectorValues[1][1],vectorValues[3][1],vectorValues[5][1])
         
         xLabels = ('Methylated','Intermediate','UnMethylated')
                    
         # the x locations for the groups
-        groupsRange = [0, 4, 8]
+        groupsRange = [0, 3, 7]
         
         # the width of the bars
         width = 1
@@ -255,7 +201,7 @@ class CpgStats(object):
         figure, ax = plt.subplots()
         
         rects1 = ax.bar(groupsRange, wholeValues, width, color='r')
-        rects2 = ax.bar([x+width for x in groupsRange], q30Values, width, color='y')
+        rects2 = ax.bar([x+width for x in groupsRange], q20Values, width, color='y')
         
         # add some text for labels, title and axes ticks
         ax.set_ylabel(yLabel)
@@ -263,7 +209,7 @@ class CpgStats(object):
         ax.set_xticks([ (x+width) for x in groupsRange] )
         ax.set_xticklabels(xLabels)
         
-        ax.legend((rects1[0], rects2[0]), ('Total','Q>30'),loc='best')
+        ax.legend((rects1[0], rects2[0]), ('Total','Q>20'),loc='best')
 
         pylab.savefig(pngFile)
         
@@ -276,21 +222,37 @@ class CpgStats(object):
             pngFile - PNG file to store the data
             vectorValues - Vector of values to be printed as a bar plot
         """
-        
-        # horizontal boxes
-        figure, ax = plt.subplots()
-        #plt.boxplot(self.getVectorMethylationValues(), 0, 'rs', 0)
-        plt.boxplot(self.getVectorMethylationValues(),0,'b+',0)
-        ax.set_xlabel("Methylation Values")
-        ax.set_yticklabels(["CGs Q>20"])
+        #1. Plot Configuration
+        figure, ax = plt.subplots(1,1)
         ax.set_title("Methylation Levels CGs Q>20")
+
+        #2. Fitting Line for the histogram distribution
+        #2.0 Vector of value
+        x = self.getVectorMethylationValues()
+        #2.1 Mean of distribution
+        mu = np.mean(x)
+        #2.2 Standard Deviation of distribution
+        sigma = np.std(x)
+        #2.3 Number of bins
+        num_bins = 50
+        #2.4 Data histogram
+        n, bins,patches = ax.hist(x,num_bins,normed=1,facecolor='green',alpha=0.5)
+        y = mlab.normpdf(bins,mu,sigma)
+        ax.plot(bins,y,'r-')
+        axes = plt.gca()
+        ylim = axes.get_ylim()
+                       
+        #3. Axis Configuration
+        ax.set_xlabel("Methylation Values")
+        ax.set_ylabel("Density")
+        
+        #2.5 Horizontal Boxplot
+        ax.boxplot(x,0,'b+',0, widths = ylim[-1]/4,positions=[ylim[-1]/2],manage_xticks=False) 
+        ax.axes.set_ylim(ylim)
+
         pylab.savefig(pngFile)        
         plt.close(figure)
                 
-
-
-        
-
 
 class HtmlCpgReport(HtmlVariantsReport):
     """ Builds Html CpG Report """
@@ -393,27 +355,27 @@ class HtmlCpgReport(HtmlVariantsReport):
         cpgStats.barplotCluster2(pngFile=homozygousPlot,vectorValues=cpgStats.getTableStatusHomozygosity(),title='Homozygous Status',yLabel='#Dinucleotides')
         vectorHtml.extend(self.buildPlot(color="blue",tableTitle="Homozygous Status",pathImage="IMG/%s"%(os.path.basename(homozygousPlot))))
         
-        #7. BarPlot Heterozygous Methylation Status  
+        #7. BarPlot AlternativeCX Methylation Status  
         self.addSpaceSection(vectorHtml=vectorHtml) 
-        heterozygousPlot = "%s/IMG/%s.heterozygous.png" %(output_dir,name)
-        cpgStats.barplotCluster2(pngFile=heterozygousPlot,vectorValues=cpgStats.getTableStatusHeterozygosity(),title='Heterozygous Status',yLabel='#Dinucleotides')
-        vectorHtml.extend(self.buildPlot(color="green",tableTitle="Heterozygous Status",pathImage="IMG/%s"%(os.path.basename(heterozygousPlot))))
+        alternativeCXPlot = "%s/IMG/%s.alternativeCXPlot.png" %(output_dir,name)
+        cpgStats.barplotCluster2(pngFile=alternativeCXPlot,vectorValues=cpgStats.getTableStatusAlternativeCX(),title='Alternative (CX) Status',yLabel='#Dinucleotides')
+        vectorHtml.extend(self.buildPlot(color="green",tableTitle="Alternative (CX) Status",pathImage="IMG/%s"%(os.path.basename(alternativeCXPlot))))
 
-        #8. DeNovo and CPGs with Snps Tables
+        #8. NonReference and SNPs (CX) at Reference CpGs Tables
         self.addSpaceSection(vectorHtml=vectorHtml) 
         vectorHtml.extend(self.createStatsTable(color='blue',cpgValues=cpgStats.getTableCGs(),tableTitle="CpGs Statistics",headers=["Type","#","%"]))
     
-        #9. BarPlot CpG DeNovo Status 
+        #9. BarPlot CpG NonReference Status 
         self.addSpaceSection(vectorHtml=vectorHtml) 
-        statusDeNovoPlot = "%s/IMG/%s.status.cpg.denovo.png" %(output_dir,name)         
-        cpgStats.barplotCluster3(pngFile=statusDeNovoPlot,vectorValues=cpgStats.getTableStatusDeNovo(),title='De Novo CpGs Methylation Status',yLabel='#CpGs') 
-        vectorHtml.extend(self.buildPlot(color="green",tableTitle="DeNovo CpGs Status",pathImage="IMG/%s"%(os.path.basename(statusDeNovoPlot))))
+        statusNonReferencePlot = "%s/IMG/%s.status.cpg.nonreference.png" %(output_dir,name)         
+        cpgStats.barplotCluster2(pngFile=statusNonReferencePlot,vectorValues=cpgStats.getTableStatusNonReference(),title='Non Reference CpGs Methylation Status',yLabel='#CpGs') 
+        vectorHtml.extend(self.buildPlot(color="green",tableTitle="NonReference CpGs Status",pathImage="IMG/%s"%(os.path.basename(statusNonReferencePlot))))
     
-        #10. BarPlot CpGs With SNP
+        #10. BarPlot SNPs (CX) at Reference CpGs
         self.addSpaceSection(vectorHtml=vectorHtml) 
         cpgSnpPlots =  "%s/IMG/%s.status.cpg.snp.png" %(output_dir,name)
-        cpgStats.barplotCluster3(pngFile=cpgSnpPlots,vectorValues=cpgStats.getTableStatusCpgSnp(),title='CpGs with SNP Methylation Status',yLabel='#CpGs') 
-        vectorHtml.extend(self.buildPlot(color="blue",tableTitle="CpGs with SNP Status",pathImage="IMG/%s"%(os.path.basename(cpgSnpPlots))))
+        cpgStats.barplotCluster2(pngFile=cpgSnpPlots,vectorValues=cpgStats.getTableStatusSNPsReferenceCpGs(),title='SNPs (CX) at Reference CpGs Methylation Status',yLabel='#CpGs') 
+        vectorHtml.extend(self.buildPlot(color="blue",tableTitle="SNPs (CX) at Reference CpGs Status",pathImage="IMG/%s"%(os.path.basename(cpgSnpPlots))))
 
 
 class IndexCpgHtml(HtmlCpgReport):
@@ -650,40 +612,40 @@ class SphinxCpgsReport(BasicSphinx):
         vectorSphinx.append("\n")
           
         #5. BarPlot Homozygous Methylation Status    
-        self.addSubSubSection(ident=ident,vectorSphinx=vectorSphinx,title="Homosygous Status")
+        self.addSubSubSection(ident=ident,vectorSphinx=vectorSphinx,title="Homozygous Status")
         vectorSphinx.append("\n")
         homozygousPlot = "%s/IMG/%s_homozygous.png" %(output_dir,name)
         cpgStats.barplotCluster2(pngFile=homozygousPlot,vectorValues=cpgStats.getTableStatusHomozygosity(),title='Homozygous Status',yLabel='#Dinucleotides')
         vectorSphinx.extend(self.buildImage(ident=0,pathImage="./IMG/%s"%(os.path.basename(homozygousPlot))))
         vectorSphinx.append("\n")
               
-        #6. BarPlot Heterozygous Methylation Status  
-        self.addSubSubSection(ident=ident,vectorSphinx=vectorSphinx,title="Heterozygous Status")
+        #6. BarPlot AlternativeCX Methylation Status  
+        self.addSubSubSection(ident=ident,vectorSphinx=vectorSphinx,title="Alternative (CX) Status")
         vectorSphinx.append("\n")
-        heterozygousPlot = "%s/IMG/%s_heterozygous.png" %(output_dir,name)
-        cpgStats.barplotCluster2(pngFile=heterozygousPlot,vectorValues=cpgStats.getTableStatusHeterozygosity(),title='Heterozygous Status',yLabel='#Dinucleotides')
-        vectorSphinx.extend(self.buildImage(ident=0,pathImage="./IMG/%s"%(os.path.basename(heterozygousPlot))))
+        alternativeCXPlot = "%s/IMG/%s_alternativeCX.png" %(output_dir,name)
+        cpgStats.barplotCluster2(pngFile=alternativeCXPlot,vectorValues=cpgStats.getTableStatusAlternativeCX(),title='alternativeCX Status',yLabel='#Dinucleotides')
+        vectorSphinx.extend(self.buildImage(ident=0,pathImage="./IMG/%s"%(os.path.basename(alternativeCXPlot))))
         vectorSphinx.append("\n")
         
-        #7. DeNovo and CPGs with Snps Tables
+        #7. NonReference and SNPs (CX) at Reference CpGss Tables
         self.addSubSection(ident=ident,vectorSphinx=vectorSphinx,title="CpGs Statistics")
         vectorSphinx.append("\n")
         vectorSphinx.extend(self.createStatsTable(ident=ident,lenCell=lenCell,vectorValues=cpgStats.getTableCGs(),headers=["Type","#","%"]))
         vectorSphinx.append("\n")
 
-        #8. BarPlot CpG DeNovo Status 
-        self.addSubSection(ident=ident,vectorSphinx=vectorSphinx,title="DeNovo CpGs Status")
+        #8. BarPlot CpG NonReference Status 
+        self.addSubSection(ident=ident,vectorSphinx=vectorSphinx,title="NonReference CpGs Status")
         vectorSphinx.append("\n")
-        statusDeNovoPlot = "%s/IMG/%s_status_cpg_denovo.png" %(output_dir,name)         
-        cpgStats.barplotCluster3(pngFile=statusDeNovoPlot,vectorValues=cpgStats.getTableStatusDeNovo(),title='De Novo CpGs Methylation Status',yLabel='#CpGs') 
-        vectorSphinx.extend(self.buildImage(ident=0,pathImage="./IMG/%s"%(os.path.basename(statusDeNovoPlot))))
+        statusNonReferencePlot = "%s/IMG/%s_status_cpg_nonreference.png" %(output_dir,name)         
+        cpgStats.barplotCluster2(pngFile=statusNonReferencePlot,vectorValues=cpgStats.getTableStatusNonReference(),title='Non Reference CpGs Methylation Status',yLabel='#CpGs') 
+        vectorSphinx.extend(self.buildImage(ident=0,pathImage="./IMG/%s"%(os.path.basename(statusNonReferencePlot))))
         vectorSphinx.append("\n")
             
-        #9. BarPlot CpGs With SNP
-        self.addSubSection(ident=ident,vectorSphinx=vectorSphinx,title="CpGs with SNP Status")
+        #9. BarPlot SNPs (CX) at Reference CpGs
+        self.addSubSection(ident=ident,vectorSphinx=vectorSphinx,title="SNPs (CX) at Reference CpGs Status")
         vectorSphinx.append("\n")
         cpgSnpPlots =  "%s/IMG/%s_status_cpg_snp.png" %(output_dir,name)
-        cpgStats.barplotCluster3(pngFile=cpgSnpPlots,vectorValues=cpgStats.getTableStatusCpgSnp(),title='CpGs with SNP Methylation Status',yLabel='#CpGs')
+        cpgStats.barplotCluster2(pngFile=cpgSnpPlots,vectorValues=cpgStats.getTableStatusSNPsReferenceCpGs(),title='SNPs (CX) at Reference CpGs Methylation Status',yLabel='#CpGs')
         vectorSphinx.extend(self.buildImage(ident=0,pathImage="./IMG/%s"%(os.path.basename(cpgSnpPlots))))
         vectorSphinx.append("\n")       
         
@@ -820,33 +782,5 @@ def buildSphinxCpgReport(inputs=None,output_dir=None,name=None):
     #Config python file
     cfgFile = ConfigSphinx(path_config_file="%s/conf.py" %(output_dir),path_makefile_file="%s/Makefile" %(output_dir),master_file=name,project_name=name,main_title='CPGs REPORT')
     cfgFile.run()     
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-         
-       
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-    
-       
         
         
