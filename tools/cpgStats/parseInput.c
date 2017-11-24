@@ -25,6 +25,7 @@ void initRecord(struct Record * record)
 	record->methValue = 0.0;
 	record->methDev = 0.0;
 	record->noValue = 0;
+	record->infoReads = 0;
 }
 
 /**
@@ -75,6 +76,10 @@ void fromLineToRecord (char *line,struct Record * record)
 	        	{
 	        	    record->noValue = 1;
 	        	}
+	        	break;
+	        case 7:
+	        case 8:
+	        	record->infoReads = record->infoReads + atoi(content);
 	        	break;
 	    }
 

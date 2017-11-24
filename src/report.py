@@ -186,49 +186,80 @@ class BasicHtml(RunBasicStats):
         self.addRow(vTableHtml,self.mapping_stats.reads_overall_N,"Base Counts Overall N",True)
 
         #Base counts GeneralC2T
-        self.addRow(vTableHtml,self.mapping_stats.reads_general_C2T_A,"Base Counts GeneralC2T A",False)
-        self.addRow(vTableHtml,self.mapping_stats.reads_general_C2T_C,"Base Counts GeneralC2T C",True)
-        self.addRow(vTableHtml,self.mapping_stats.reads_general_C2T_G,"Base Counts GeneralC2T G",False)
-        self.addRow(vTableHtml,self.mapping_stats.reads_general_C2T_T,"Base Counts GeneralC2T T",True)
-        self.addRow(vTableHtml,self.mapping_stats.reads_general_C2T_N,"Base Counts GeneralC2T N",False)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_general_C2T_A,"Base Counts GeneralC2T A",False)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_general_C2T_C,"Base Counts GeneralC2T C",True)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_general_C2T_G,"Base Counts GeneralC2T G",False)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_general_C2T_T,"Base Counts GeneralC2T T",True)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_general_C2T_N,"Base Counts GeneralC2T N",False)
 
         #Base counts GeneralG2A
-        self.addRow(vTableHtml,self.mapping_stats.reads_general_G2A_A,"Base Counts GeneralG2A A",True)
-        self.addRow(vTableHtml,self.mapping_stats.reads_general_G2A_C,"Base Counts GeneralG2A C",False)
-        self.addRow(vTableHtml,self.mapping_stats.reads_general_G2A_G,"Base Counts GeneralG2A G",True)
-        self.addRow(vTableHtml,self.mapping_stats.reads_general_G2A_T,"Base Counts GeneralG2A T",False)
-        self.addRow(vTableHtml,self.mapping_stats.reads_general_G2A_N,"Base Counts GeneralG2A N",True)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_general_G2A_A,"Base Counts GeneralG2A A",True)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_general_G2A_C,"Base Counts GeneralG2A C",False)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_general_G2A_G,"Base Counts GeneralG2A G",True)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_general_G2A_T,"Base Counts GeneralG2A T",False)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_general_G2A_N,"Base Counts GeneralG2A N",True)
 
         #Base Counts UnderConversionControlC2T
-        self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_C2T_A,"Base Counts UnderConversionControlC2T A",False)
-        self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_C2T_C,"Base Counts UnderConversionControlC2T C",True)
-        self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_C2T_G,"Base Counts UnderConversionControlC2T G",False)
-        self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_C2T_T,"Base Counts UnderConversionControlC2T T",True)
-        self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_C2T_N,"Base Counts UnderConversionControlC2T N",False)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_C2T_A,"Base Counts UnderConversionControlC2T A",False)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_C2T_C,"Base Counts UnderConversionControlC2T C",True)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_C2T_G,"Base Counts UnderConversionControlC2T G",False)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_C2T_T,"Base Counts UnderConversionControlC2T T",True)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_C2T_N,"Base Counts UnderConversionControlC2T N",False)
 
         #Base Counts UnderConversionControlG2A
-        self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_G2A_A,"Base Counts UnderConversionControlG2A A",True)
-        self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_G2A_C,"Base Counts UnderConversionControlG2A C",False)
-        self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_G2A_G,"Base Counts UnderConversionControlG2A G",True)
-        self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_G2A_T,"Base Counts UnderConversionControlG2A T",False)
-        self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_G2A_N,"Base Counts UnderConversionControlG2A N",True)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_G2A_A,"Base Counts UnderConversionControlG2A A",True)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_G2A_C,"Base Counts UnderConversionControlG2A C",False)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_G2A_G,"Base Counts UnderConversionControlG2A G",True)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_G2A_T,"Base Counts UnderConversionControlG2A T",False)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_under_conversion_control_G2A_N,"Base Counts UnderConversionControlG2A N",True)
 
         #Base Counts OverConversionControl_C2T
-        self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_C2T_A,"Base Counts OverConversionControlC2T A",False)
-        self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_C2T_C,"Base Counts OverConversionControlC2T C",True)
-        self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_C2T_G,"Base Counts OverConversionControlC2T G",False)
-        self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_C2T_T,"Base Counts OverConversionControlC2T T",True)
-        self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_C2T_N,"Base Counts OverConversionControlC2T N",False)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_C2T_A,"Base Counts OverConversionControlC2T A",False)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_C2T_C,"Base Counts OverConversionControlC2T C",True)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_C2T_G,"Base Counts OverConversionControlC2T G",False)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_C2T_T,"Base Counts OverConversionControlC2T T",True)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_C2T_N,"Base Counts OverConversionControlC2T N",False)
         
         #Base Counts OverConversionControl_G2A
-        self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_G2A_A,"Base Counts OverConversionControlG2A A",True)
-        self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_G2A_C,"Base Counts OverConversionControlG2A C",False)
-        self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_G2A_G,"Base Counts OverConversionControlG2A G",True)
-        self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_G2A_T,"Base Counts OverConversionControlG2A T",False)
-        self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_G2A_N,"Base Counts OverConversionControlG2A N",True)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_G2A_A,"Base Counts OverConversionControlG2A A",True)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_G2A_C,"Base Counts OverConversionControlG2A C",False)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_G2A_G,"Base Counts OverConversionControlG2A G",True)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_G2A_T,"Base Counts OverConversionControlG2A T",False)
+        #self.addRow(vTableHtml,self.mapping_stats.reads_over_conversion_control_G2A_N,"Base Counts OverConversionControlG2A N",True)
         
         vTableHtml.append(" </TABLE>\n")
         return vTableHtml
+
+
+
+    def createOverlappedBasesTable(self,color='green',bases_overlapped=0,total_bases=0,average_overlapped_bases=0):
+        """ Create Overlapped Bases Table
+        
+            color - Table color, coould be green or blue
+            bases_overlapped -- Total estimated overlapping bases
+            total_bases -- Total number of bases 
+            average_overlapped_bases -- average overlapping bases
+            returns vector of HTML tags
+        """
+        vTableHtml = []
+        
+        #1.Table Definition
+        self.tableDefinition(vectorHtml=vTableHtml,color=color)
+        
+        #2. Table header
+        vTableHtml.append("   <TR>\n")
+        vTableHtml.append("    <TH scope=\"col\">Overlapped Bases (Properly Aligned) </TH> <TH scope=\"col\">Total Bases (Properly Aligned)</TH> <TH scope=\"col\">% Overlapping Bases (Properly Aligned)</TH>\n")
+        vTableHtml.append("   </TR>\n")
+        
+        #3.Stats table
+        #Read Values  
+        vTableHtml.append('  <TR>')
+        vTableHtml.append("   <TD> %i </TD>  <TD> %i </TD> <TD> %.2f %%</TD> \n" %(bases_overlapped,total_bases,average_overlapped_bases))
+        vTableHtml.append('  </TR>')
+
+        vTableHtml.append(" </TABLE>\n")
+        
+        return vTableHtml  
         
         
     def createBisulfiteConversionRate(self,color='blue'):
@@ -249,6 +280,7 @@ class BasicHtml(RunBasicStats):
         
         #3.Stats table
         #Read Values  
+        vTableHtml.append('  <TR>')
         vTableHtml.append("   <TD> %s </TD> <TD> %s </TD> \n" %("Under Conversion Rate",self.mapping_stats.getUnderConversionRate()))
         vTableHtml.append('  </TR>')
         vTableHtml.append('  <TR class="odd">')
@@ -277,6 +309,7 @@ class BasicHtml(RunBasicStats):
         
         #3.Stats table
         #Read Values  
+        vTableHtml.append('  <TR>')
         vTableHtml.append("   <TD> %s </TD> <TD> %s </TD> \n" %(name,value))
         vTableHtml.append("   </TR>\n")
         vTableHtml.append(" </TABLE>\n")
@@ -324,6 +357,7 @@ class BasicHtml(RunBasicStats):
                                     <TH scope=\"col\"> Average Unique </TH>  \
                                     <TH scope=\"col\"> Under Conversion Rate </TH>  \
                                     <TH scope=\"col\"> Over Conversion Rate </TH>  \
+                                    <TH scope=\"col\"> Overlapping Bases </TH>  \
                                     <TH scope=\"col\"> Report </TH>  \
                                     </TR> \n")
 	
@@ -341,11 +375,13 @@ class BasicHtml(RunBasicStats):
                                     <TD> %.2f %% </TD>  \
                                     <TD> %s </TD>  \
                                     <TD> %s </TD>  \
+                                    <TD> %.2f %% </TD>  \
                                     <TD> <a class=%s href=\"%s\"> &#187 %s </TD>  \
                                     </TR> \n" %(sampleStats.name,sampleStats.sequenced_reads.total,sampleStats.totalSampleUniqueReads,
                                                  sampleStats.averageSampleUniqueReads,sampleStats.getUnderConversionRate(),
-                                                 sampleStats.getOverConversionRate(),linksClass,
-                                                 sampleLink,sampleStats.name
+                                                 sampleStats.getOverConversionRate(),
+                                                 sampleStats.averageSampleOverlappedBases,
+                                                 linksClass,sampleLink,sampleStats.name
                                                  ))
             
             isOdd = not isOdd
@@ -573,27 +609,37 @@ class LaneHtml(BasicHtml):
         self.addSectionTitle(vectorHtml=vectorHtml,title="Mapping Stats (Bases)")
         vectorHtml.extend(self.createBasesStatsTable(color='blue'))
         
+        if self.is_paired:        
+            self.addSpaceSection(vectorHtml=vectorHtml)     
+            self.addSectionTitle(vectorHtml=vectorHtml,title="Estimated Overlapped Bases") 
+            
+            overlapped_bases = self.mapping_stats.getOverlappingBases()[0]
+            total_bases = self.mapping_stats.getOverlappingBases()[1]
+            average_bases = (float(overlapped_bases)/float(total_bases))*100
+                  
+            vectorHtml.extend(self.createOverlappedBasesTable(color='green',bases_overlapped=overlapped_bases,total_bases=total_bases,average_overlapped_bases=average_bases))
+        
         self.addSpaceSection(vectorHtml=vectorHtml)
         self.addSectionTitle(vectorHtml=vectorHtml,title="Bisulfite Conversion Rate")
-        vectorHtml.extend(self.createBisulfiteConversionRate(color='green'))
+        vectorHtml.extend(self.createBisulfiteConversionRate(color='blue'))
 
         if self.is_paired:
             self.addSpaceSection(vectorHtml=vectorHtml) 
             self.addSectionTitle(vectorHtml=vectorHtml,title="Correct Pairs")
-            vectorHtml.extend(self.createSingleValueTable(color='blue',name='Correct Pairs',value=self.mapping_stats.correct_pairs))
+            vectorHtml.extend(self.createSingleValueTable(color='green',name='Correct Pairs',value=self.mapping_stats.correct_pairs))
   
         self.addSpaceSection(vectorHtml=vectorHtml) 
         self.addSectionTitle(vectorHtml=vectorHtml,title="Mapping Quality")
-        vectorHtml.extend(self.buildMapqHistogram(color='green'))
+        vectorHtml.extend(self.buildMapqHistogram(color='blue'))
   
         self.addSpaceSection(vectorHtml=vectorHtml) 
         self.addSectionTitle(vectorHtml=vectorHtml,title="Read Length")
-        vectorHtml.extend(self.buildReadsLengthTable(color='blue'))
+        vectorHtml.extend(self.buildReadsLengthTable(color='green'))
         
         if self.is_paired:
             self.addSpaceSection(vectorHtml=vectorHtml) 
             self.addSectionTitle(vectorHtml=vectorHtml,title="Insert Size Plot")
-            vectorHtml.extend(self.buildInsertSizePlot(color='green'))
+            vectorHtml.extend(self.buildInsertSizePlot(color='blue'))
             self.closeHtmlReport(vectorHtml=vectorHtml)
                        
     def addHtmlStartReport(self,vectorHtml=None):
@@ -685,10 +731,9 @@ class SampleHtml(BasicHtml):
         BasicHtml.__init__(self,mapping_stats=sample_stats,png_mapq_histogram=png_mapq_histogram,png_insert_size_histogram=png_insert_size_histogram)        
         
         self.project_name = project_name
-        #self.mapping_stats = sample_stats
+        
         self.is_paired = sample_stats.is_paired
-        #self.png_insert_size_histogram = png_insert_size_histogram
-        #self.png_mapq_histogram = png_mapq_histogram
+                
         self.html_parent_path = html_parent_path
         self.html_sample = html_sample
         
@@ -712,15 +757,22 @@ class SampleHtml(BasicHtml):
         self.addSpaceSection(vectorHtml=vectorHtml)
         self.addSectionTitle(vectorHtml=vectorHtml,title="Mapping Stats (Bases)")
         vectorHtml.extend(self.createBasesStatsTable(color='blue'))
+
+        if self.is_paired:        
+            self.addSpaceSection(vectorHtml=vectorHtml)     
+            self.addSectionTitle(vectorHtml=vectorHtml,title="Estimated Overlapped Bases") 
+            vectorHtml.extend(self.createOverlappedBasesTable(color='green',bases_overlapped=self.mapping_stats.totalSampleOverlappedBases,
+                                                              total_bases=self.mapping_stats.totalSampleBases,average_overlapped_bases=self.mapping_stats.averageSampleOverlappedBases))
+                
         
         self.addSpaceSection(vectorHtml=vectorHtml)
         self.addSectionTitle(vectorHtml=vectorHtml,title="Bisulfite Conversion Rate")
-        vectorHtml.extend(self.createBisulfiteConversionRate(color='green'))        
+        vectorHtml.extend(self.createBisulfiteConversionRate(color='blue'))        
              
         if self.is_paired:
             self.addSpaceSection(vectorHtml=vectorHtml) 
             self.addSectionTitle(vectorHtml=vectorHtml,title="Correct Pairs")
-            vectorHtml.extend(self.createSingleValueTable(color='blue',name='Correct Pairs',value=self.mapping_stats.correct_pairs))
+            vectorHtml.extend(self.createSingleValueTable(color='green',name='Correct Pairs',value=self.mapping_stats.correct_pairs))
         
         #2. Lane Stats and links per lane
         vLaneLinksVector = []
@@ -737,18 +789,18 @@ class SampleHtml(BasicHtml):
         #3.Mapping Quality
         self.addSpaceSection(vectorHtml=vectorHtml) 
         self.addSectionTitle(vectorHtml=vectorHtml,title="Mapping Quality")
-        vectorHtml.extend(self.buildMapqHistogram(color='green'))
+        vectorHtml.extend(self.buildMapqHistogram(color='blue'))
      
         #4. Insert Size Plot    
         if self.is_paired:
             self.addSpaceSection(vectorHtml=vectorHtml) 
             self.addSectionTitle(vectorHtml=vectorHtml,title="Insert Size Plot")
-            vectorHtml.extend(self.buildInsertSizePlot(color='blue'))          
+            vectorHtml.extend(self.buildInsertSizePlot(color='green'))          
           
         #5.Links table
         self.addSpaceSection(vectorHtml=vectorHtml) 
         self.addSectionTitle(vectorHtml=vectorHtml,title="Mapping Lanes Reports")
-        self.createLinksTables(vectorHtml,vLaneLinksVector,title="LANE REPORTS",color="green")
+        self.createLinksTables(vectorHtml,vLaneLinksVector,title="LANE REPORTS",color="blue")
         #6. Close html
         self.closeHtmlReport(vectorHtml=vectorHtml)
             
@@ -849,13 +901,12 @@ class IndexHtml(BasicHtml):
         self.closeHtmlReport(vectorHtml=vectorHtml)
         
         
-def buildReport(inputs=None,output_dir=None,name=None,ref_length=""):
+def buildReport(inputs=None,output_dir=None,name=None):
     """ Build report per lane and sample.
     
         inputs -- Dictionary of samples and lanes [sample][fli]json_file
         output_dir -- Output directory to store html documents.
         name --  Name basic to build output results.
-        ref_length -- Length of the reference
     """
       
     #Check output directory
@@ -868,7 +919,7 @@ def buildReport(inputs=None,output_dir=None,name=None,ref_length=""):
         list_stats_lanes = []
         for fli,json_files in fli_json.iteritems():  
             for json_file in json_files:
-                lane = LaneStats(name=fli,json_file=json_file,ref_length = int(ref_length))
+                lane = LaneStats(name=fli,json_file=json_file)
                 list_stats_lanes.append(lane)
             
         vector_samples.append(SampleStats(name=sample,list_lane_stats=list_stats_lanes))    

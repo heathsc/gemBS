@@ -799,7 +799,6 @@ class MappingReports(BasicPipeline):
     def register(self,parser):
         ## Mapping report stats parameters
         parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.',required=True)
-        parser.add_argument('-r', '--ref-len', dest="ref_len", metavar="LENGTH", help='Length of the reference. Just to generate coverage stats. Not a mandatory argument.',required=False,default="0")
         parser.add_argument('-i', '--input-dir', dest="input_dir",metavar="PATH", help='Path were are located the JSON stat files.', required=True)
         parser.add_argument('-n', '--name', dest="name", metavar="NAME", help='Output basic name',required=True)
         parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",help='Output directory to store html report.',required=True)
@@ -808,7 +807,6 @@ class MappingReports(BasicPipeline):
     def run(self, args):
         self.name = args.name
         self.output_dir = args.output_dir
-        self.ref_len = args.ref_len
         
         #Recover json files from input-dir according to json file
         self.sample_lane_files = {}   
@@ -835,9 +833,9 @@ class MappingReports(BasicPipeline):
 
         self.log_parameter()
         logging.gemBS.gt("Building html reports...")
-        report.buildReport(inputs=self.sample_lane_files,output_dir=self.output_dir,name=self.name,ref_length=self.ref_len)
+        report.buildReport(inputs=self.sample_lane_files,output_dir=self.output_dir,name=self.name)
         logging.gemBS.gt("Building sphinx reports...")
-        sphinx.buildReport(inputs=self.sample_lane_files,output_dir="%s/SPHINX/" %(self.output_dir),name=self.name,ref_length=self.ref_len)
+        sphinx.buildReport(inputs=self.sample_lane_files,output_dir="%s/SPHINX/" %(self.output_dir),name=self.name)
         logging.gemBS.gt("Report Done.")
          
     def extra_log(self):
@@ -847,7 +845,6 @@ class MappingReports(BasicPipeline):
         
         printer("------- Mapping Report ----------")
         printer("Name            : %s", self.name)
-        printer("Ref Length      : %s", self.ref_len)
         printer("")             
         
 class VariantsReports(BasicPipeline):
@@ -950,8 +947,9 @@ class CpgReports(BasicPipeline):
         for k,v in FLIdata(args.json_file).sampleData.iteritems():
             fileJson = "%s/%s_cpg.json" %(args.input_dir,v.sample_barcode)
             fileMethJson = "%s/%s_cpg_meth.json" %(args.input_dir,v.sample_barcode)
+            fileInfoReadsJson = "%s/%s_cpg_informative_reads.json" %(args.input_dir,v.sample_barcode)
             if os.path.isfile(fileJson) and os.path.isfile(fileMethJson):
-                self.sample_cpg_files[v.sample_barcode] = [fileJson,fileMethJson]
+                self.sample_cpg_files[v.sample_barcode] = [fileJson,fileMethJson,fileInfoReadsJson]
                 
         #Check list of file
         self.log_parameter()

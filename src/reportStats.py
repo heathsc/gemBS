@@ -165,8 +165,7 @@ class BsStats(object):
         
         #Vector History Mapq (From Mapping Quality 0 to Mapping Quality 60)
         self.mapping_quality_reads = []   
-        self.lowestUniquelyQuality = 20  #Lowes mapping quality to consider a read as unique
-        self.reference_length = 0        #Reference length        
+        self.lowestUniquelyQuality = 20  #Lowes mapping quality to consider a read as unique      
         
         #read_length_histogram
         self.read_length_histogram = {}
@@ -352,19 +351,72 @@ class BsStats(object):
         for qual in range(0,highestQuality):
             totalMappedReads += self.mapping_quality_reads[qual]
         return totalMappedReads
+        
+    def getWeightedReadLength(self,dictLenReads={}):
+        """ From a set of read lengths and number of reads, gets a weighted read length 
+            
+            dictLenReads -- Dictionary of read lengths and total number of reads
+            return weigthed average read length
+        """        
+        #1. Read Length Estimation
+        total_reads = 0
+        read_distribution = []
+        for read_length,reads in dictLenReads.iteritems():
+            current_length = int(read_length)
+            total_reads += reads
+            read_distribution.append([current_length,reads])
+            
+        #1.1 Estimate Weighted average length Read 
+        weighted_read_len = 0
+        for len_reads in read_distribution:
+            weighted_read_len += len_reads[0]*(len_reads[1]/total_reads)
+            
+        return weighted_read_len        
+                
+    def getOverlappingBases(self):
+        """Gets How Many Bases are overlapped, overlapping pairs
            
+           returns a vector of total overlapped bases and total_bases, empty otherwise
+        """
+        if self.is_paired:
+            if len(self.read_length_histogram) == 2:
+                #1. Read One Length Estimation
+                read_one_len = self.getWeightedReadLength(dictLenReads=self.read_length_histogram[0])                
+                #2. Read Two Length Estimation                
+                read_two_len = self.getWeightedReadLength(dictLenReads=self.read_length_histogram[1])
+                #3. Get Minimum Insert Size
+                lim_insert_size = read_one_len + read_two_len
+                #4.Quantify total number of overlapping bases
+                total_bases = 0
+                total_overlapped_bases = 0                
+                for insert_size,reads in self.read_insert_size_histogram.iteritems():
+                    current_isize = int(insert_size)
+                    if current_isize < lim_insert_size:
+                        overlapped_bases = int((lim_insert_size - current_isize)*reads) 
+                        total_overlapped_bases += overlapped_bases
+
+                    total_bases += lim_insert_size * reads
+
+                return [total_overlapped_bases,total_bases]
+        
+        return []
+                    
+                    
+                
+                    
+          
+
             
         
 class LaneStats(BsStats):
     """Statistics per lane """
     
-    def __init__(self,name,json_file=None,ref_length = 0):
+    def __init__(self,name,json_file=None):
         
         #Call Parent class constructor
         super(LaneStats, self).__init__()
         
         self.name = name  
-        self.reference_length = ref_length
         
         #Parsing json file
         with open(json_file, 'r') as file_json:
@@ -494,13 +546,21 @@ class SampleStats(BsStats):
         self.totalSampleUniqueReads = 0
         self.totalSampleReads = 0
         self.averageSampleUniqueReads = 0
+        self.totalSampleOverlappedBases = 0
+        self.totalSampleBases = 0
+        self.averageSampleOverlappedBases = 0
         
         for lane_stats in list_lane_stats:
             self.sum_values(lane_stats)
             self.totalSampleUniqueReads += lane_stats.getUniqueMappedReads()
             self.totalSampleReads += lane_stats.getTotalMappedReads()
+            listOverlappingBases = lane_stats.getOverlappingBases()
+            if (len(listOverlappingBases) == 2):
+                self.totalSampleOverlappedBases += listOverlappingBases[0]
+                self.totalSampleBases += listOverlappingBases[1]
 
-        self.averageSampleUniqueReads = float(self.totalSampleUniqueReads)/float(self.totalSampleReads) * 100         
+        self.averageSampleUniqueReads = float(self.totalSampleUniqueReads)/float(self.totalSampleReads) * 100  
+        self.averageSampleOverlappedBases = (float(self.totalSampleOverlappedBases)/float(self.totalSampleBases)) * 100
            
         #List of lanes
         self.list_lane_stats = list_lane_stats

@@ -571,8 +571,9 @@ def bsCpgStats(cpgFile=None,output_dir=None):
     json_name = os.path.basename(cpgFile).replace(".txt.gz", ".json")
     json_output_file = "%s/%s" %(output_dir,json_name)
     json_meth_file = json_output_file.replace(".json", "_meth.json")
-  
-    cpgStats = ['%s' %(executables["cpgStats"]),'-i','%s'%(cpgFile),'-z','-o','%s' %(json_output_file),'-s','%s'%(json_meth_file)]
+    json_informative_reads_file = json_output_file.replace(".json", "_informative_reads.json")
+      
+    cpgStats = ['%s' %(executables["cpgStats"]),'-i','%s'%(cpgFile),'-z','-o','%s' %(json_output_file),'-s','%s'%(json_meth_file),'-r','%s'%(json_informative_reads_file)]
     
     process = utils.run_tools([cpgStats],name="CpG Stats File")
     if process.wait() != 0:

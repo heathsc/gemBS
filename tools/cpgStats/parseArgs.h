@@ -15,6 +15,7 @@ struct Args
 	char * cpgInputFile;
 	char * jsonFile;
 	char * methJsonFile;
+	char * infoReadsJsonFile;
 	char * bedFile;
 	char * annotatedFile;
 	int isZipped;

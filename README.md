@@ -44,6 +44,12 @@ Installation
 
     ``python setup.py install --user``
 
+-----------------------
+Check your installation
+-----------------------
+
+For checking your installation follow the commands found at [README_TEST.md] (/test/README_TEST.md).
+
 
 -------------
 Documentation
@@ -55,7 +61,16 @@ Documentation can be found at [GEMBS](http://statgen.cnag.cat/gemBS/)
 ----------
 Changelog:
 ----------
-
+    1.7 Added Overlapping Bases at Mapping Report
+    1.7 Modified Base Counts Overall, removed Base Counts general and Base Counts Overall
+    1.7 New Dinucleotide CpGs Report
+        New table dinucleotide stats
+        New plots for Informative Reads and CpGs
+        Methylation levels plots for different types of CpGs
+        Summary Table
+    1.7 New Readme file to inform about report test
+    1.7 New basic statis table for Variants Report
+    1.7 Removed parameter -r (reference length) parameter for mapping reports command (gemBS bsMap).
     1.6 New CpGs Density plot, include box plos, bar plot and fitting curve
     1.6 Change name at CpG report:
         "Heterozygous" for "Alternative CX"

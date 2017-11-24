@@ -18,6 +18,7 @@ struct Record
 	float methValue;           /*Methylation Value*/
 	float methDev;             /*Methilation Deviation*/
 	int noValue;               /*1 If there is no methylation Information*/
+	int infoReads;             /*Information Reads*/
 };
 
 struct Bed
@@ -86,6 +87,72 @@ void vector_double_capacity_if_full(Vector *vector);
  *\brief (so they can use any sort of pointer they like, be it stack or heap, and then clean up after themselves).
 */
 void vector_free(Vector *vector);
+
+
+
+
+/**********************************
+ *****VECTOR INFORMATION READS*****
+ **********************************/
+
+
+// Define a Info Reads Type
+typedef struct {
+  unsigned int informationReads;  // Total Number of Information Reads
+  unsigned int cpgs;  //Total Number of CpGs with a given number of information reads
+} InfoReads;
+
+// Define a vector of Information Readstype
+typedef struct {
+  int size;      // slots used so far
+  int capacity;  // total available slots
+  InfoReads *data;     // array of Information Reads we're storing
+} VectorInfoReads;
+
+
+/**
+ *\brief info_reads_init is a function that initializes a vector struct.
+ *\brief It sets size to 0, capacity to VECTOR_INITIAL_CAPACITY and allocates an appropriate amount of memory (vector->capacity * sizeof(InfoReads))
+ *\brief for the underlying data array.
+*/
+void info_reads_init(VectorInfoReads *vector);
+
+/**
+ *\brief info_reads_append appends the given value to the vector. If the underlying data array is full, then calling this function should cause
+ *\brief vector->data to expand to accept this value. Increments vector->size.
+*/
+void info_reads_append(VectorInfoReads *vector, InfoReads value);
+
+/**
+ *\brief info_reads_get returns a value out of a vector at the given index. If the index is below 0 or greater than vector->size - 1, this function
+ *\brief should complain about the index being out of bounds.
+*/
+InfoReads info_reads_get(VectorInfoReads *vector, int index);
+
+/**
+ *\brief info_reads_set sets the value at the given index to the given value. If the index is greater than the vector->size, this function should
+ *\brief expand the vector until it is big enough to contain the index and set the value at that index. It should zero-fill all values in between.
+ *\brief vector->size should be incremented accordingly.
+*/
+void info_reads_set(VectorInfoReads *vector, int index, InfoReads value);
+
+/**
+ *\brief info_reads_double_capacity_if_full doubles the underlying data array capacity if vector->size >= vector->capacity.
+ *\brief We'll find out later that changing the size of the array is expensive, so in order to minimize the number of times we need to resize,
+ *\brief we double the capacity each time.
+*/
+void info_reads_double_capacity_if_full(VectorInfoReads *vector);
+
+/**
+ *\brief info_reads_free frees the memory allocated for the data array.
+ *\brief We leave freeing of the Vector struct itself to client code
+ *\brief (so they can use any sort of pointer they like, be it stack or heap, and then clean up after themselves).
+*/
+void info_reads_free(VectorInfoReads *vector);
+
+
+
+
 
 
 

@@ -290,46 +290,46 @@ class BasicSphinx(RunBasicStats):
         self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_overall_N,name_concept="Base Counts Overall N")
 
         #Base counts GeneralC2T
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_C2T_A,name_concept="Base Counts GeneralC2T A")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_C2T_C,name_concept="Base Counts GeneralC2T C")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_C2T_G,name_concept="Base Counts GeneralC2T G")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_C2T_T,name_concept="Base Counts GeneralC2T T")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_C2T_N,name_concept="Base Counts GeneralC2T N")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_C2T_A,name_concept="Base Counts GeneralC2T A")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_C2T_C,name_concept="Base Counts GeneralC2T C")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_C2T_G,name_concept="Base Counts GeneralC2T G")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_C2T_T,name_concept="Base Counts GeneralC2T T")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_C2T_N,name_concept="Base Counts GeneralC2T N")
 
         #Base counts GeneralG2A
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_G2A_A,name_concept="Base Counts GeneralG2A A")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_G2A_C,name_concept="Base Counts GeneralG2A C")          
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_G2A_G,name_concept="Base Counts GeneralG2A G")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_G2A_T,name_concept="Base Counts GeneralG2A T")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_G2A_N,name_concept="Base Counts GeneralG2A N")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_G2A_A,name_concept="Base Counts GeneralG2A A")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_G2A_C,name_concept="Base Counts GeneralG2A C")          
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_G2A_G,name_concept="Base Counts GeneralG2A G")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_G2A_T,name_concept="Base Counts GeneralG2A T")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_general_G2A_N,name_concept="Base Counts GeneralG2A N")
         
         #Base Counts UnderConversionControlC2T
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_C2T_A,name_concept="Base Counts UnderConversionControlC2T A")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_C2T_C,name_concept="Base Counts UnderConversionControlC2T C")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_C2T_G,name_concept="Base Counts UnderConversionControlC2T G")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_C2T_T,name_concept="Base Counts UnderConversionControlC2T T")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_C2T_N,name_concept="Base Counts UnderConversionControlC2T N")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_C2T_A,name_concept="Base Counts UnderConversionControlC2T A")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_C2T_C,name_concept="Base Counts UnderConversionControlC2T C")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_C2T_G,name_concept="Base Counts UnderConversionControlC2T G")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_C2T_T,name_concept="Base Counts UnderConversionControlC2T T")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_C2T_N,name_concept="Base Counts UnderConversionControlC2T N")
 
         #Base Counts UnderConversionControlG2A
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_G2A_A,name_concept="Base Counts UnderConversionControlG2A A")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_G2A_C,name_concept="Base Counts UnderConversionControlG2A C")   
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_G2A_G,name_concept="Base Counts UnderConversionControlG2A G")   
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_G2A_T,name_concept="Base Counts UnderConversionControlG2A T")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_G2A_N,name_concept="Base Counts UnderConversionControlG2A N")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_G2A_A,name_concept="Base Counts UnderConversionControlG2A A")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_G2A_C,name_concept="Base Counts UnderConversionControlG2A C")   
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_G2A_G,name_concept="Base Counts UnderConversionControlG2A G")   
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_G2A_T,name_concept="Base Counts UnderConversionControlG2A T")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_under_conversion_control_G2A_N,name_concept="Base Counts UnderConversionControlG2A N")
         
         #Base Counts OverConversionControl_C2T
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_C2T_A,name_concept="Base Counts OverConversionControlC2T A")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_C2T_C,name_concept="Base Counts OverConversionControlC2T C")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_C2T_G,name_concept="Base Counts OverConversionControlC2T G")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_C2T_T,name_concept="Base Counts OverConversionControlC2T T")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_C2T_N,name_concept="Base Counts OverConversionControlC2T N")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_C2T_A,name_concept="Base Counts OverConversionControlC2T A")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_C2T_C,name_concept="Base Counts OverConversionControlC2T C")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_C2T_G,name_concept="Base Counts OverConversionControlC2T G")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_C2T_T,name_concept="Base Counts OverConversionControlC2T T")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_C2T_N,name_concept="Base Counts OverConversionControlC2T N")
                 
         #Base Counts OverConversionControl_G2A
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_G2A_A,name_concept="Base Counts OverConversionControlG2A A")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_G2A_C,name_concept="Base Counts OverConversionControlG2A C")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_G2A_G,name_concept="Base Counts OverConversionControlG2A G")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_G2A_T,name_concept="Base Counts OverConversionControlG2A T")
-        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_G2A_N,name_concept="Base Counts OverConversionControlG2A N")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_G2A_A,name_concept="Base Counts OverConversionControlG2A A")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_G2A_C,name_concept="Base Counts OverConversionControlG2A C")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_G2A_G,name_concept="Base Counts OverConversionControlG2A G")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_G2A_T,name_concept="Base Counts OverConversionControlG2A T")
+#        self.addRow(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,statValue=self.mapping_stats.reads_over_conversion_control_G2A_N,name_concept="Base Counts OverConversionControlG2A N")
         
         return vTableSphinx
                 
@@ -1025,13 +1025,12 @@ class ConfigSphinx(object):
                 fileDocument.write("%s\n" %(line))
 
            
-def buildReport(inputs=None,output_dir=None,name=None,ref_length=""):
+def buildReport(inputs=None,output_dir=None,name=None):
     """ Build report per lane and sample.
     
         inputs -- Dictionary of samples and lanes [sample][fli]json_file
         output_dir -- Output directory to store html documents.
         name --  Name basic to build output results.
-        ref_length -- Length of the reference
     """
       
     #Check output directory
@@ -1044,7 +1043,7 @@ def buildReport(inputs=None,output_dir=None,name=None,ref_length=""):
         list_stats_lanes = []
         for fli,json_files in fli_json.iteritems():  
             for json_file in json_files:
-                lane = LaneStats(name=fli,json_file=json_file,ref_length = int(ref_length))
+                lane = LaneStats(name=fli,json_file=json_file)
                 list_stats_lanes.append(lane)
             
         vector_samples.append(SampleStats(name=sample,list_lane_stats=list_stats_lanes))    

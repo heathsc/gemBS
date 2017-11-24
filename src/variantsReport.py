@@ -45,6 +45,23 @@ class VariantStats(object):
                 self.data[key] = self.data[key] + value
             else:
                 self.data[key] = value
+                
+                
+    def getBasicStatsTable(self):
+        """ Gets Basic Stats From Variants Reports Table 
+        
+            returns a vector of values
+        """
+        collection_values = []
+        
+        collection_values.append(["SNPs","%i"%(self.data["TotalSnps"]),"%i"%(self.data["q20Snps"]),"%.2f %%" %(self.getPercentage(self.data["TotalSnps"],self.data["q20Snps"]))])
+        collection_values.append(["InDels","%i"%(self.data["TotalInDels"]),"%i"%(self.data["q20InDels"]),"%.2f %%" %(self.getPercentage(self.data["TotalInDels"],self.data["q20InDels"]))])
+        collection_values.append(["Multiallelic","%i"%(self.data["TotalMultiallelic"]),"%i"%(self.data["q20Multiallelic"]),
+                                  "%.2f %%" %(self.getPercentage(self.data["TotalMultiallelic"],self.data["q20Multiallelic"]))])
+                                  
+        return collection_values
+                  
+
         
     def getPercentage(self,total,subtotal):
         """Calculates the percentage for a given value"""
@@ -204,6 +221,24 @@ class HtmlVariantsReport(object):
         vectorHtml.append("   <TD> %s </TD> <TD> %s </TD> \n" %(name_concept,value))
         vectorHtml.append("   </TR>\n")
         
+
+    def addRowDynamic(self,vectorHtml=None,values=None,isOdd=True):
+        """ Add Row html tags
+            
+            vectorHtml - Vector of tags to add
+            values - stats value
+            name_concept - Name of the concept
+        """
+        if isOdd == True: 
+            vectorHtml.append("   <TR class=\"odd\">\n")
+        else:
+            vectorHtml.append("   <TR>\n")
+        
+        for field in values:        
+            vectorHtml.append("   <TD> %s </TD> \n" %(field))
+            
+        vectorHtml.append("   </TR>\n")        
+        
     def tableDefinition(self,vectorHtml=None,color=None):
         """ HTML Table tag definition
         
@@ -249,6 +284,40 @@ class HtmlVariantsReport(object):
         return vTableHtml
         
         
+    def createGeneralTable(self,color=None,values=None,tableTitle=None,headers=None):
+        """Create Statistics Table
+        
+           color - Table color, could be green or blue  
+           values - Vector of values to be printed
+           tableTitle - Table Title
+           headers - list of values to be printed as headers
+           returns vector of HTML tags
+        """
+        vTableHtml = []   
+        
+        #0.Table Title
+        vTableHtml.append('<H3 id="section"> %s </H3>\n' %(tableTitle))
+     
+        #1.Table Definition
+        self.tableDefinition(vectorHtml=vTableHtml,color=color)
+
+        #2.Table header
+        vTableHtml.append("   <TR>\n")
+        for conceptHeader in headers:        
+            vTableHtml.append("    <TH scope=\"col\">%s</TH>\n"%(conceptHeader))
+            
+        vTableHtml.append("   </TR>\n")
+        
+        #3.Fullfill table
+        isOdd = True
+        for fields in values:    
+            self.addRowDynamic(vectorHtml=vTableHtml,values=fields,isOdd=isOdd)
+            isOdd = not isOdd
+        
+        vTableHtml.append(" </TABLE>\n")
+        return vTableHtml
+   
+        
     def buildPlot(self,color=None,tableTitle=None,pathImage=None):
         """Build Plot and locate on html report
         
@@ -270,6 +339,61 @@ class HtmlVariantsReport(object):
         
         return vTableHtml
         
+        
+    def buildTwoPlots(self,color=None,tableTitleFirst=None,tableTitleSecond=None,pathFirstImage=None,pathSecondImage=None):
+        """Build Plot and locate on html report
+        
+          color - Color for the table were the plot is going to be located
+          tableTitleFirst - Table First Title
+          tableTitleSecond - Table Second Title
+          pathFirstImage - Path to the first image to be shown
+          pathSecondImage - Path to the second image to be shown
+          returns Vector of HTML tags
+        """
+        vTableHtml = []
+        
+        #1. HTML TAG BUILDING 
+        vTableHtml = []
+   
+        self.tableDefinition(vectorHtml=vTableHtml,color=color)
+
+        vTableHtml.append("   <TR class=\"odd\"> <TH scope=\"col\"> %s </TH>  <TH scope=\"col\"> %s </TH> </TR> \n" %(tableTitleFirst,tableTitleSecond))
+        vTableHtml.append('   <TR> <TD> <img src="%s" alt="%s"> </TD> <TD> <img src="%s" alt="%s"> </TD> </TR> \n' %(pathFirstImage,pathFirstImage,pathSecondImage,pathSecondImage))
+        vTableHtml.append("  </TABLE>\n")
+        
+        return vTableHtml
+        
+        
+        
+    def buildThreePlots(self,color=None,tableTitleFirst=None,tableTitleSecond=None,tableTitleThird=None,
+                       pathFirstImage=None,pathSecondImage=None,pathThirdImage=None):
+        """Build Plot and locate on html report
+        
+          color - Color for the table were the plot is going to be located
+          tableTitleFirst - Table First Title
+          tableTitleSecond - Table Second Title
+          tableTitleThird - Table Third Title
+          pathFirstImage - Path to the first image to be shown
+          pathSecondImage - Path to the second image to be shown
+          pathThirdImage - Path to the third image to be shown
+          returns Vector of HTML tags
+        """
+        vTableHtml = []
+        
+        #1. HTML TAG BUILDING 
+        vTableHtml = []
+   
+        self.tableDefinition(vectorHtml=vTableHtml,color=color)
+
+        vTableHtml.append("   <TR class=\"odd\"> <TH scope=\"col\"> %s </TH>  <TH scope=\"col\"> %s </TH> <TH scope=\"col\"> %s </TH> </TR> \n" %(tableTitleFirst,tableTitleSecond,tableTitleThird))
+        vTableHtml.append('   <TR> <TD> <img src="%s" alt="%s"> </TD> <TD> <img src="%s" alt="%s"> </TD>  <TD> <img src="%s" alt="%s"> </TD> </TR> \n' 
+                          %(pathFirstImage,pathFirstImage,pathSecondImage,pathSecondImage,pathThirdImage,pathThirdImage))
+        vTableHtml.append("  </TABLE>\n")
+        
+        return vTableHtml
+        
+        
+        
     def run(self,vectorHtml=None,listOfConcepts=None,output_dir=None,name=None,parentName=None,parentDocument=None):
         """ Run Html Variants Report 
         
@@ -286,36 +410,32 @@ class HtmlVariantsReport(object):
         
         #2. Add Basic Stats Table    
         self.addSpaceSection(vectorHtml=vectorHtml) 
-        vectorHtml.extend(self.createStatsTable(color='blue',variantsValue=listOfConcepts[0].data,tableTitle="Variants Statistics",headers=["Type","Total"]))
-        
-        #3. Add High Quality Basic Stats Table    
-        self.addSpaceSection(vectorHtml=vectorHtml) 
-        vectorHtml.extend(self.createStatsTable(color='blue',variantsValue=listOfConcepts[1].data,tableTitle="Variants Statistics Q>20",headers=["Type","Total"]))
-        
-        #4. Add Density plot Coverage   
+        vectorHtml.extend(self.createGeneralTable(color='blue',values=listOfConcepts[0].getBasicStatsTable(),tableTitle="Variants Statistics",headers=["Type","Total","Q>20","%"]))       
+              
+        #3. Add Density plot Coverage   
         self.addSpaceSection(vectorHtml=vectorHtml) 
         coveragePlot = "%s/IMG/%s.coverage.png" %(output_dir,name)
-        listOfConcepts[2].coveragePlot(fileOutput=coveragePlot,concept="Depth of Coverage",title="Variants Coverage",xScale=10,nBins=20)
-        #listOfConcepts[2].densityplot(fileOutput=coveragePlot,scale=20,concept="Depth of Coverage",title="",bandwidth=0.45)        
+        listOfConcepts[1].coveragePlot(fileOutput=coveragePlot,concept="Depth of Coverage",title="Variants Coverage",xScale=10,nBins=20)
+        #listOfConcepts[1].densityplot(fileOutput=coveragePlot,scale=20,concept="Depth of Coverage",title="",bandwidth=0.45)        
         vectorHtml.extend(self.buildPlot(color="green",tableTitle="Variants Coverage",pathImage="IMG/%s"%(os.path.basename(coveragePlot))))
                 
-        #5. Genotype Quality plot Coverage   
+        #4. Genotype Quality plot Coverage   
         self.addSpaceSection(vectorHtml=vectorHtml) 
         genotypeQualityPlot = "%s/IMG/%s.genotype.qualities.png" %(output_dir,name)
-        #listOfConcepts[3].densityplot(fileOutput=genotypeQualityPlot,scale=20,concept="Genotype Quality",title="",bandwidth=0.01)  
-        listOfConcepts[3].coveragePlot(fileOutput=genotypeQualityPlot,concept="Genotype Quality",title="Variants Qualities",xScale=10,nBins=26)        
+        #listOfConcepts[2].densityplot(fileOutput=genotypeQualityPlot,scale=20,concept="Genotype Quality",title="",bandwidth=0.01)  
+        listOfConcepts[2].coveragePlot(fileOutput=genotypeQualityPlot,concept="Genotype Quality",title="Variants Qualities",xScale=10,nBins=26)        
         vectorHtml.extend(self.buildPlot(color="blue",tableTitle="Variants Qualities",pathImage="IMG/%s"%(os.path.basename(genotypeQualityPlot))))
         
+        #5. Mutation Profile    
+        self.addSpaceSection(vectorHtml=vectorHtml) 
+        vectorHtml.extend(self.createStatsTable(color='green',variantsValue=listOfConcepts[3].data,tableTitle="Mutation Profile",headers=["Type","Total"]))
+
         #6. Mutation Profile    
         self.addSpaceSection(vectorHtml=vectorHtml) 
-        vectorHtml.extend(self.createStatsTable(color='green',variantsValue=listOfConcepts[4].data,tableTitle="Mutation Profile",headers=["Type","Total"]))
-
-        #7. Mutation Profile    
-        self.addSpaceSection(vectorHtml=vectorHtml) 
-        vectorHtml.extend(self.createStatsTable(color='green',variantsValue=listOfConcepts[5].data,tableTitle="Mutation Profile Q>20",headers=["Type","Total"]))
+        vectorHtml.extend(self.createStatsTable(color='green',variantsValue=listOfConcepts[4].data,tableTitle="Mutation Profile Q>20",headers=["Type","Total"]))
         
-        #8. Transition / Transversion Ratio
-        tiTvRatioList = listOfConcepts[4].getTiTvRatio() 
+        #7. Transition / Transversion Ratio
+        tiTvRatioList = listOfConcepts[3].getTiTvRatio() 
         tiTvRatioDict = {}
         tiTvRatioDict["Ts/Tv"] = tiTvRatioList[0] 
         tiTvRatioDict["Ts"] = tiTvRatioList[1] 
@@ -323,8 +443,8 @@ class HtmlVariantsReport(object):
         self.addSpaceSection(vectorHtml=vectorHtml) 
         vectorHtml.extend(self.createStatsTable(color='blue',variantsValue=tiTvRatioDict,tableTitle="Transition Transversion",headers=["Type","Total"]))
         
-        #9. Transition / Transversion Ratio
-        tiTvRatioList = listOfConcepts[5].getTiTvRatio() 
+        #8. Transition / Transversion Ratio
+        tiTvRatioList = listOfConcepts[4].getTiTvRatio() 
         tiTvRatioDict = {}
         tiTvRatioDict["Ts/Tv"] = tiTvRatioList[0] 
         tiTvRatioDict["Ts"] = tiTvRatioList[1] 
@@ -455,6 +575,38 @@ class SphinxVariantsReport(BasicSphinx):
         self.addSimpleLine(ident=ident,vectorSphinx=vectorSphinx,cells=cells,lenCell=lenCell)
 
 
+    def addRowDynamic(self,ident=20,lenCell=30,vectorSphinx=None,rowValues=None): 
+        """ Add row sphinx
+            
+            ident - Characters to ident
+            lenCell - Length of the Cell in each row
+            vectorSphinx - Vector of tags to add
+            rowValues - Vector of values to be printed in a row
+        """
+        cells = 0
+        cellContents = ""
+        #Add ident chars
+        for i in range(ident):
+            cellContents += " " 
+ 
+        lenFields = len(rowValues)
+ 
+        for field in rowValues:
+            isLeft = False
+            isRight = False
+            if cells == 0:
+                isLeft = True
+            elif cells == (lenFields-1):
+                isRight = True            
+            
+            cellContents += self.addCell(text="%s" %(field),lenCell=lenCell,isLeft=isLeft,isRight=isRight)
+            cells += 1
+            
+        vectorSphinx.append(cellContents) 
+            
+        #Underline
+        self.addSimpleLine(ident=ident,vectorSphinx=vectorSphinx,cells=cells,lenCell=lenCell)
+
 
     def createStatsTable(self,ident=20,lenCell=30,dictValues=None,headers=None):
         """Create Statistics Table
@@ -505,6 +657,59 @@ class SphinxVariantsReport(BasicSphinx):
                
         return vTableSphinx
         
+
+    def createGeneralTable(self,ident=20,lenCell=30,values=[],headers=[]):
+        """ Create General Variants Table
+
+           ident - Characters to ident 
+           lenCell - Cell length
+           values - Array of values
+           headers - List Of Headers
+           returns vector of Sphinx tags
+        """
+        vTableSphinx = []   
+        cellsHeader = 0
+        
+        #1.Table header
+        cellsHeader = len(headers)
+        #2. Write overline
+        self.addSimpleLine(ident=ident,vectorSphinx=vTableSphinx,cells=cellsHeader,lenCell=lenCell)
+            
+        #3.Stats table
+        cellContents = ""
+        
+         #Add ident chars
+        for i in range(ident):
+            cellContents += " "  
+        
+        i = 0
+        total = len(headers)
+        
+        for conceptHeader in headers:
+            isLeft = False
+            isRight = False
+            if i == 0:
+                isLeft = True
+            elif i == total-1:
+                isRight = True
+                
+            cellContents += self.addCell(text=conceptHeader,lenCell=lenCell,isLeft=isLeft,isRight=isRight)
+            i = i + 1
+        
+        vTableSphinx.append(cellContents)
+            
+        #Header Line 
+        self.addHeaderLine(ident=ident,vectorSphinx=vTableSphinx,cells=cellsHeader,lenCell=lenCell)
+                
+        #2. Table Contents
+        for rowValues in values:        
+            self.addRowDynamic(ident=ident,lenCell=lenCell,vectorSphinx=vTableSphinx,rowValues=rowValues)    
+               
+        return vTableSphinx        
+        
+        
+        
+        
     def buildImage(self,ident=20,pathImage=None):
         """ Build image
   
@@ -536,24 +741,16 @@ class SphinxVariantsReport(BasicSphinx):
         
         #1. Add Basic Stas Table
         self.addSubSection(ident=ident,vectorSphinx=vectorSphinx,title="Basic Stats")
-        
-        self.addSubSubSection(ident=ident,vectorSphinx=vectorSphinx,title="Total")
         vectorSphinx.append("\n")
-        vectorSphinx.extend(self.createStatsTable(ident=ident,lenCell=lenCell,dictValues=listOfConcepts[0].data,headers=["Type","Total"]))
-        vectorSphinx.append("\n")
-
-        #3. Add Basic Stas Table
-        self.addSubSubSection(ident=ident,vectorSphinx=vectorSphinx,title="Quality > 20")
-        vectorSphinx.append("\n")
-        vectorSphinx.extend(self.createStatsTable(ident=ident,lenCell=lenCell,dictValues=listOfConcepts[1].data,headers=["Type","Total"]))
+        vectorSphinx.extend(self.createGeneralTable(ident=ident,lenCell=lenCell,values=listOfConcepts[0].getBasicStatsTable(),headers=["Type","Total","Q>20","%"]))        
         vectorSphinx.append("\n")
         
         #4. Add Density plot Coverage   
         self.addSubSection(ident=ident,vectorSphinx=vectorSphinx,title="Coverage density plot")
         vectorSphinx.append("\n")
         coveragePlot = "%s/IMG/%s_coverage.png" %(output_dir,name)
-        #listOfConcepts[2].densityplot(fileOutput=coveragePlot,scale=20,concept="Depth of Coverage",title="",bandwidth=0.45)
-        listOfConcepts[2].coveragePlot(fileOutput=coveragePlot,concept="Depth of Coverage",title="Variants Coverage",xScale=10,nBins=20)
+        #listOfConcepts[1].densityplot(fileOutput=coveragePlot,scale=20,concept="Depth of Coverage",title="",bandwidth=0.45)
+        listOfConcepts[1].coveragePlot(fileOutput=coveragePlot,concept="Depth of Coverage",title="Variants Coverage",xScale=10,nBins=20)
         vectorSphinx.extend(self.buildImage(ident=20,pathImage="./IMG/%s"%(os.path.basename(coveragePlot))))
         vectorSphinx.append("\n")
         
@@ -561,8 +758,8 @@ class SphinxVariantsReport(BasicSphinx):
         self.addSubSection(ident=ident,vectorSphinx=vectorSphinx,title="Genotype Quality density plot")
         vectorSphinx.append("\n")
         genotypeQualityPlot = "%s/IMG/%s_genotype_qualities.png" %(output_dir,name)
-        #listOfConcepts[3].densityplot(fileOutput=genotypeQualityPlot,scale=20,concept="Genotype Quality",title="",bandwidth=0.01) 
-        listOfConcepts[3].coveragePlot(fileOutput=genotypeQualityPlot,concept="Genotype Quality",title="Variants Qualities",xScale=10,nBins=26)
+        #listOfConcepts[2].densityplot(fileOutput=genotypeQualityPlot,scale=20,concept="Genotype Quality",title="",bandwidth=0.01) 
+        listOfConcepts[2].coveragePlot(fileOutput=genotypeQualityPlot,concept="Genotype Quality",title="Variants Qualities",xScale=10,nBins=26)
         vectorSphinx.extend(self.buildImage(ident=20,pathImage="./IMG/%s"%(os.path.basename(genotypeQualityPlot))))
         vectorSphinx.append("\n")
         
@@ -571,17 +768,17 @@ class SphinxVariantsReport(BasicSphinx):
         
         self.addSubSubSection(ident=ident,vectorSphinx=vectorSphinx,title="Total")
         vectorSphinx.append("\n")
-        vectorSphinx.extend(self.createStatsTable(ident=ident,lenCell=lenCell,dictValues=listOfConcepts[4].data,headers=["Type","Total"]))
+        vectorSphinx.extend(self.createStatsTable(ident=ident,lenCell=lenCell,dictValues=listOfConcepts[3].data,headers=["Type","Total"]))
         vectorSphinx.append("\n")
 
         #7. Mutation Profile    
         self.addSubSubSection(ident=ident,vectorSphinx=vectorSphinx,title="Quality >20")
         vectorSphinx.append("\n")
-        vectorSphinx.extend(self.createStatsTable(ident=ident,lenCell=lenCell,dictValues=listOfConcepts[5].data,headers=["Type","Total"]))
+        vectorSphinx.extend(self.createStatsTable(ident=ident,lenCell=lenCell,dictValues=listOfConcepts[4].data,headers=["Type","Total"]))
         vectorSphinx.append("\n")
 
         #8. Transition / Transversion Ratio
-        tiTvRatioList = listOfConcepts[4].getTiTvRatio() 
+        tiTvRatioList = listOfConcepts[3].getTiTvRatio() 
         tiTvRatioDict = {}
         tiTvRatioDict["Ts/Tv"] = "%.2f" %(tiTvRatioList[0]) 
         tiTvRatioDict["Ts"] = tiTvRatioList[1] 
@@ -594,7 +791,7 @@ class SphinxVariantsReport(BasicSphinx):
         vectorSphinx.append("\n")  
         
         #9. Transition / Transversion Ratio
-        tiTvRatioList = listOfConcepts[5].getTiTvRatio() 
+        tiTvRatioList = listOfConcepts[4].getTiTvRatio() 
         tiTvRatioDict = {}
         tiTvRatioDict["Ts/Tv"] = "%.2f" %(tiTvRatioList[0]) 
         tiTvRatioDict["Ts"] = tiTvRatioList[1] 
@@ -691,8 +888,9 @@ def buildVariantReport(inputs=None,output_dir=None,name=None):
         for json_file in chrom_json_files:    
             with open(json_file, 'r') as file_json:
                 data = json.load(file_json)
-                basicStats.addValues({"Total Snps":data["TotalSnps"],"Total indels":data["TotalIndels"],"Total Multiallelic":data["TotalMultiallelic"]})
-                q20BasicStats.addValues({"Q>20 Snps":data["q20Snps"],"Q>20 indels":data["q20Indels"],"Q>20 Multiallelic":data["q20Multiallelic"]})
+                basicStats.addValues({"TotalSnps":data["TotalSnps"],"TotalInDels":data["TotalIndels"],"TotalMultiallelic":data["TotalMultiallelic"],
+                                      "q20Snps":data["q20Snps"],"q20InDels":data["q20Indels"],"q20Multiallelic":data["q20Multiallelic"] })
+                                      
                 coverageStats.addValues(data["coverageVariants"])
                 genotypeQualityStats.addValues(data["qualityVariants"])
                 mutationChangesStats.addValues(data["mutations"])
@@ -700,7 +898,7 @@ def buildVariantReport(inputs=None,output_dir=None,name=None):
                 chromosomeStats.addValues(data["chromosomeVariants"])
                 
         #Create Build HTML
-        dict_samples[sample] = [basicStats,q20BasicStats,coverageStats,genotypeQualityStats,mutationChangesStats,mutationChangesQ20Stats,chromosomeStats]
+        dict_samples[sample] = [basicStats,coverageStats,genotypeQualityStats,mutationChangesStats,mutationChangesQ20Stats,chromosomeStats]
 
     #IndexHtml object
     vector_index_html = []
@@ -746,8 +944,9 @@ def buildSphinxVariantReport(inputs=None,output_dir=None,name=None):
         for json_file in chrom_json_files:    
             with open(json_file, 'r') as file_json:
                 data = json.load(file_json)
-                basicStats.addValues({"Total Snps":data["TotalSnps"],"Total indels":data["TotalIndels"],"Total Multiallelic":data["TotalMultiallelic"]})
-                q20BasicStats.addValues({"Q>20 Snps":data["q20Snps"],"Q>20 indels":data["q20Indels"],"Q>20 Multiallelic":data["q20Multiallelic"]})
+                basicStats.addValues({"TotalSnps":data["TotalSnps"],"TotalInDels":data["TotalIndels"],"TotalMultiallelic":data["TotalMultiallelic"],
+                                      "q20Snps":data["q20Snps"],"q20InDels":data["q20Indels"],"q20Multiallelic":data["q20Multiallelic"] })           
+                                
                 coverageStats.addValues(data["coverageVariants"])
                 genotypeQualityStats.addValues(data["qualityVariants"])
                 mutationChangesStats.addValues(data["mutations"])
@@ -755,7 +954,9 @@ def buildSphinxVariantReport(inputs=None,output_dir=None,name=None):
                 chromosomeStats.addValues(data["chromosomeVariants"])
                 
         #Create Build HTML
-        dict_samples[sample] = [basicStats,q20BasicStats,coverageStats,genotypeQualityStats,mutationChangesStats,mutationChangesQ20Stats,chromosomeStats]
+        dict_samples[sample] = [basicStats,coverageStats,genotypeQualityStats,mutationChangesStats,mutationChangesQ20Stats,chromosomeStats]
+
+
 
 
     #SumupSphinx object

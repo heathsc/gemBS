@@ -110,10 +110,11 @@ int bedAnnotation(char * cpgInputFile,char * bedFile,char * annotatedFile,char *
  * \param cpgInputFile CpG Input file
  * \param jsonFile JSON format input file
  * \param methJsonFile Methylation Values JSON output file
+ * \param infoReadsJsonFile Information Reads JSON output file.
  * \param isGzip 1 if input is zipped otherwise 0
  * \return 1 if everything goes well otherwise 0
  */
-int getStats(char * cpgInputFile, char * jsonFile,char * methJsonFile, int isGzip)
+int getStats(char * cpgInputFile, char * jsonFile,char * methJsonFile,char * infoReadsJsonFile, int isGzip)
 {
 	/*1. READ INPUT DATA LINE TO LINE TO GET RECORDS*/
 	struct Record record;
@@ -144,10 +145,16 @@ int getStats(char * cpgInputFile, char * jsonFile,char * methJsonFile, int isGzi
 		saveCounts(jsonFile);
 	}
 
-	/*4. METHYLATION JASON FILE VALUES */
+	/*4. METHYLATION JSON FILE VALUES */
 	if(jsonFile != NULL)
 	{
 		saveJsonMethylationCounts(methJsonFile);
+	}
+
+	/*5. INFORMATION READS OUTPUT JSON FILE*/
+	if(infoReadsJsonFile != NULL)
+	{
+		saveJsonInformationReads(infoReadsJsonFile);
 	}
 
 	return 1;
@@ -166,7 +173,7 @@ int main (int argc, char *argv[])
 	/*1. GET STATS*/
 	if(arguments.bedFile == NULL && arguments.cpgInputFile != NULL)
 	{
-		if (getStats(arguments.cpgInputFile,arguments.jsonFile,arguments.methJsonFile,arguments.isZipped) < 1)
+		if (getStats(arguments.cpgInputFile,arguments.jsonFile,arguments.methJsonFile,arguments.infoReadsJsonFile,arguments.isZipped) < 1)
 		{
 			return 1;
 		}
