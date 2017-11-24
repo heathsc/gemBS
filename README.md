@@ -1,5 +1,5 @@
 GEMBS
-=======
+=====
 
 GEMBS is a bioinformatic pipeline designed for hightroughput analysis of DNA methylation from whole genome bisulfites sequencing data (WGBS). It implements GEM3, a high performance read aligner and BScall, a variant caller specifically for bisulfite sequencing data.
 
@@ -48,7 +48,7 @@ Installation
 Check your installation
 -----------------------
 
-For checking your installation follow the commands found at [README_TEST.md] (/test/README_TEST.md).
+For checking your installation follow the commands found at [README_TEST.md](test/README_TEST.md).
 
 
 -------------
