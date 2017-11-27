@@ -5,11 +5,11 @@ On the present folder you can find a small test project in order to check your G
 
 The FASTQ files generated for the present test are build using Sherman[1] Bisulfite read generator. FASTQ sequences are based on the Yeast reference.
 
-Untar folder example.tar.gz, and repeat the set of commands performed and then compare the results. 
+Untar folder example.tar.gz, and repeat the set of commands run and then compare the results. 
 
-------------------
-Commands Performed
-------------------
+--------
+Commands
+--------
 
 1) Build Index for the reference
 
