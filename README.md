@@ -55,7 +55,7 @@ For checking your installation follow the commands found at [README_TEST.md](tes
 Documentation
 -------------
 
-Documentation can be found at [GEMBS](http://statgen.cnag.cat/gemBS/)
+Documentation can be found at [GEMBS](http://statgen.cnag.cat/GEMBS/)
 
 
 ----------
