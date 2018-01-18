@@ -55,7 +55,7 @@ class VariantStats(object):
         collection_values = []
         
         collection_values.append(["SNPs","%i"%(self.data["TotalSnps"]),"%i"%(self.data["q20Snps"]),"%.2f %%" %(self.getPercentage(self.data["TotalSnps"],self.data["q20Snps"]))])
-        collection_values.append(["InDels","%i"%(self.data["TotalInDels"]),"%i"%(self.data["q20InDels"]),"%.2f %%" %(self.getPercentage(self.data["TotalInDels"],self.data["q20InDels"]))])
+        #collection_values.append(["InDels","%i"%(self.data["TotalInDels"]),"%i"%(self.data["q20InDels"]),"%.2f %%" %(self.getPercentage(self.data["TotalInDels"],self.data["q20InDels"]))])
         collection_values.append(["Multiallelic","%i"%(self.data["TotalMultiallelic"]),"%i"%(self.data["q20Multiallelic"]),
                                   "%.2f %%" %(self.getPercentage(self.data["TotalMultiallelic"],self.data["q20Multiallelic"]))])
                                   

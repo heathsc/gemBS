@@ -61,6 +61,7 @@ Documentation can be found at [GEMBS](http://statgen.cnag.cat/GEMBS/)
 ----------
 Changelog:
 ----------
+    1.7 Removed Indels Field on Variants Report.
     1.7 Added Overlapping Bases at Mapping Report
     1.7 Modified Base Counts Overall, removed Base Counts general and Base Counts Overall
     1.7 New Dinucleotide CpGs Report
