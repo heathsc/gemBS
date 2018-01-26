@@ -292,6 +292,9 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
     #Paired End
     if paired:
         mapping.append("-p")
+
+    #Number of threads
+    mapping.extend(["-t",threads])
         
     #Mapping stats
     report_file = "%s/%s.json" % (outputDir,name)
@@ -299,13 +302,7 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
     
     #Read Groups
     readGroups = "@RG\\tID:%s\\tSM:%s\\tLB:%s\\tPU:%s\\tCN:CNAG\\tPL:Illumina" %(fliInfo.getFli(),fliInfo.sample_barcode,fliInfo.library,fliInfo.getFli())
-    mapping.extend(["-r",readGroups])
-    
-    #Min Reported Matches
-    #mapping.extend(["-m","1"])
-
-    #Max Reported Matches
-    #mapping.extend(["-M","4"])    
+    mapping.extend(["-r",readGroups])    
     
     #Bisulfite Conversion Values
     if under_conversion != "":
