@@ -61,6 +61,7 @@ Documentation can be found at [GEMBS](http://statgen.cnag.cat/GEMBS/)
 ----------
 Changelog:
 ----------
+    1.7 Fixed threads parameter to samtools merge
     1.7 Fixed threads parameter to gem-mapper
     1.7 Removed Indels Field on Variants Report.
     1.7 Added Overlapping Bases at Mapping Report

@@ -358,7 +358,7 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
     return os.path.abspath("%s" % nameOutput)
     
     
-def merging(inputs=None,threads=None,output_dir=None,tmpDir="/tmp/"):
+def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/"):
     """ Merge bam alignment files 
     
         inputs -- Dictionary of samples and bam list files inputs(Key=sample, Value = [bam1,...,bamN])
@@ -377,7 +377,7 @@ def merging(inputs=None,threads=None,output_dir=None,tmpDir="/tmp/"):
         bammerging = []       
        
         if len(listBams) > 1 :
-            bammerging.extend(["samtools","merge","-f",bam_filename])        
+            bammerging.extend(["samtools","merge","--threads",threads,"-f",bam_filename])        
         
             for bamFile in listBams:
                 bammerging.append(bamFile)
