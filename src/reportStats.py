@@ -559,8 +559,10 @@ class SampleStats(BsStats):
                 self.totalSampleOverlappedBases += listOverlappingBases[0]
                 self.totalSampleBases += listOverlappingBases[1]
 
-        self.averageSampleUniqueReads = float(self.totalSampleUniqueReads)/float(self.totalSampleReads) * 100  
-        self.averageSampleOverlappedBases = (float(self.totalSampleOverlappedBases)/float(self.totalSampleBases)) * 100
+        self.averageSampleUniqueReads = float(self.totalSampleUniqueReads)/float(self.totalSampleReads) * 100
+  
+        if self.is_paired:
+            self.averageSampleOverlappedBases = (float(self.totalSampleOverlappedBases)/float(self.totalSampleBases)) * 100
            
         #List of lanes
         self.list_lane_stats = list_lane_stats

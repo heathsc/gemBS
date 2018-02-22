@@ -60,6 +60,7 @@ Documentation can be found at [GEMBS](http://statgen.cnag.cat/GEMBS/)
 ----------
 Changelog:
 ----------
+    1.7 Fixed SE crash when estimating overlapped bases.
     1.7 Fixed Fasta Contigs names with spaces in gem-index (gem3)
         Modified gem3-mapper repository external module.
         New external module https://github.com/heathsc/gem3-mapper.git
