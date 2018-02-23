@@ -60,8 +60,9 @@ Documentation can be found at [GEMBS](http://statgen.cnag.cat/GEMBS/)
 ----------
 Changelog:
 ----------
+    1.7 Added non stranded read conversion parameter
     1.7 Fixed SE crash when estimating overlapped bases.
-    1.7 Fixed Fasta Contigs names with spaces in gem-index (gem3)
+    1.7 Fixed gem-index (gem3) to follow fastq and SAM specifications.
         Modified gem3-mapper repository external module.
         New external module https://github.com/heathsc/gem3-mapper.git
     1.7 Fixed threads parameter to samtools merge

@@ -183,6 +183,8 @@ class MappingCommnads(BasicPipeline):
         parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", default="/tmp/", help='Temporary folder to perform sorting operations. Default: %s' %self.tmp_dir)      
         parser.add_argument('-t', '--threads', dest="threads",default="1", help='Number of threads to perform sorting operations. Default: %s' %self.threads)
         parser.add_argument('-p', '--paired-end', dest="paired_end", action="store_true", default=None, help="Input data is Paired End")
+        parser.add_argument('-s', '--read-non-stranded', dest="read_non_stranded", action="store_true",default=False, 
+                            help='Automatically selects the proper C->T and G->A read conversions based on the level of Cs and Gs on the read.') 
         parser.add_argument('-n', '--underconversion-sequence', dest="underconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control unmethylated cytosines which fails to be\
                              deaminated and thus appears to be Methylated.', default=None, required=False)
         parser.add_argument('-v', '--overconversion-sequence', dest="overconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control methylated cytosines which are\
@@ -192,6 +194,10 @@ class MappingCommnads(BasicPipeline):
     def run(self,args):
         ## All Flowcell Lane Index        
         for k,v in FLIdata(args.json_file).sampleData.iteritems():
+            ##Non Stranded
+            non_stranded = ""
+            if args.read_non_stranded:
+                non_stranded += "-s"
             ## Conversion Parameters
             conversion_parameters = ""            
             if args.underconversion_sequence is not None:  
@@ -201,11 +207,11 @@ class MappingCommnads(BasicPipeline):
             
             
             if args.paired_end:
-                print "gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s -p %s"\
-                       %(args.index,k,args.json_file,args.input_dir,args.ouput_dir,args.tmp_dir,str(args.threads),conversion_parameters)
+                print "gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s -p %s %s"\
+                       %(args.index,k,args.json_file,args.input_dir,args.ouput_dir,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters)
             else:
-                print "gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s %s"\
-                      %(args.index,k,args.json_file,args.input_dir,args.ouput_dir,args.tmp_dir,str(args.threads),conversion_parameters)
+                print "gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s %s %s"\
+                      %(args.index,k,args.json_file,args.input_dir,args.ouput_dir,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters)
             
         
 class Mapping(BasicPipeline):
@@ -235,6 +241,8 @@ class Mapping(BasicPipeline):
         parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", default="/tmp/", help='Temporary folder to perform sorting operations. Default: %s' %self.tmp_dir)      
         parser.add_argument('-t', '--threads', dest="threads",default="1", help='Number of threads to perform sorting operations. Default %s' %self.threads)
         parser.add_argument('-p', '--paired-end', dest="paired_end", action="store_true", default=None, help="Input data is Paired End")
+        parser.add_argument('-s', '--read-non-stranded', dest="read_non_stranded", action="store_true",default=False, 
+                            help='Automatically selects the proper C->T and G->A read conversions based on the level of Cs and Gs on the read.')     
         parser.add_argument('-n', '--underconversion-sequence', dest="underconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control unmethylated cytosines which fails to be\
                              deaminated and thus appears to be Methylated.', default=None,required=False)
         parser.add_argument('-v', '--overconversion-sequence', dest="overconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control methylated cytosines which are\
@@ -252,6 +260,8 @@ class Mapping(BasicPipeline):
         self.output_dir = args.output_dir
         #Paired
         self.paired = args.paired_end
+        #Read Non Standard
+        self.read_non_stranded = args.read_non_stranded
         #TMP
         self.tmp_dir = args.tmp_dir 
         #Threads
@@ -334,6 +344,7 @@ class Mapping(BasicPipeline):
                     file_pe_one=self.input_pair_one,file_pe_two=self.input_pair_two,
                     file_interleaved = self.input_interleaved,
                     file_se = self.input_se,
+                    read_non_stranded = self.read_non_stranded,
                     file_bam = self.input_bam,
                     outputDir=self.output_dir,paired = self.paired,
                     tmpDir=self.tmp_dir,threads=self.threads,
@@ -353,11 +364,13 @@ class Mapping(BasicPipeline):
         printer("Name             : %s", self.name)
         printer("Index            : %s", self.index)
         printer("Paired           : %s", self.paired)
+        printer("Read non standard: %s", self.read_non_stranded)
         printer("Input Pair One   : %s", self.input_pair_one)
         printer("Input Pair Two   : %s", self.input_pair_two)
         printer("Input Interleaved: %s", self.input_interleaved)
         printer("Input Single End : %s", self.input_se)        
         printer("Input BAM        : %s", self.input_bam)
+        
         
         printer("")
         

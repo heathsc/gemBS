@@ -249,7 +249,8 @@ def index(input, output, threads=None):
 
 
 def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
-             file_interleaved=None,file_se=None,file_bam=None,outputDir=None,
+             file_interleaved=None,file_se=None,read_non_stranded=False,
+             file_bam=None,outputDir=None,
              paired=False,tmpDir="/tmp/",threads=1,under_conversion=None, over_conversion=None):
     """ Star the GEM Bisulfite mapping on the given input.
     
@@ -261,6 +262,7 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
         file_interleaved -- Paired end file interleaved
         file_se -- Single End fastq file
         file_bam -- BAM alignment file
+        read_non_stranded -- Read non stranded
         outputDir -- Directory to store the Bisulfite mapping results
         paired -- Paired End flag
         tmpDir -- Temporary directory to perform sorting operations
@@ -292,18 +294,22 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
     #Paired End
     if paired:
         mapping.append("-p")
-
+        
+    #Non Stranded
+    if read_non_stranded:
+        mapping.extend(["--bisulfite-read","non-stranded"])        
+  
     #Number of threads
     mapping.extend(["-t",threads])
-        
+
     #Mapping stats
     report_file = "%s/%s.json" % (outputDir,name)
     mapping.extend(["--report-file",report_file])
     
     #Read Groups
     readGroups = "@RG\\tID:%s\\tSM:%s\\tLB:%s\\tPU:%s\\tCN:CNAG\\tPL:Illumina" %(fliInfo.getFli(),fliInfo.sample_barcode,fliInfo.library,fliInfo.getFli())
-    mapping.extend(["-r",readGroups])    
-    
+    mapping.extend(["-r",readGroups])
+        
     #Bisulfite Conversion Values
     if under_conversion != "":
         mapping.extend(["--underconversion_sequence",under_conversion])
