@@ -12,8 +12,7 @@ from utils import Command, CommandException
 import src
 import report
 import sphinx
-import variantsReport
-import cpgReport
+import bsCallReports
 
 
 class Fli(object):
@@ -130,8 +129,7 @@ class PrepareConfiguration(Command):
                 raise CommandException("Sorry!! File %s not found!" %(args.lims_cnag_json))
         else:
             raise CommandException("No input file inserted!!")
-                
-     
+                    
      
 class Index(BasicPipeline):
     title = "Index genomes"
@@ -144,10 +142,18 @@ class Index(BasicPipeline):
         ## required parameters
         parser.add_argument('-i', '--input', dest="input", help='Path to a single fasta reference genome file.', required=True)
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads. By default GEM indexer will use the maximum available on the system.',default=None)
+        parser.add_argument('-d','--list-dbSNP-files',dest="list_db_snp_files",nargs="+",metavar="FILES",
+                            help="List of dbSNP files (can be compressed) to create an index to later use it at the bscall step. The bed files should have the name of the SNP in column 4.",default=[],required=False)
+        parser.add_argument('-x', '--dbsnp-index', dest="dbsnp_index", help='dbSNP output index file name.',default="",required=False)
 
     def run(self, args):
         self.input = args.input
         self.threads = args.threads
+        self.list_dbSNP_files = args.list_db_snp_files
+        self.dbsnp_index = args.dbsnp_index
+        if len(self.list_dbSNP_files)>0:     
+            if self.dbsnp_index == "":
+                raise CommandException("dbSNP Index file must be specified through --dbsnp-index parameter.")
         
         if not os.path.exists(self.input):
             raise CommandException("Input file not found : %s" % self.input)
@@ -165,7 +171,7 @@ class Index(BasicPipeline):
         
         self.log_parameter()
         logging.gemBS.gt("Creating index")
-        ret = src.index(self.input, self.output, threads=self.threads)
+        ret = src.index(self.input, self.output, threads=self.threads,list_dbSNP_files=self.list_dbSNP_files,dbsnp_index=self.dbsnp_index)
         if ret:
             logging.gemBS.gt("Index done: %s.gem" %(ret))
             
@@ -383,7 +389,7 @@ class MergingAll(BasicPipeline):
                      
     def register(self,parser):
         ## required parameters                     
-        parser.add_argument('-i', '--input-dir', dest="input_dir",metavar="PATH", help='Path were are located the BAM aligned files.', required=True)
+        parser.add_argument('-i', '--input-dir', dest="input_dir",metavar="PATH", help='Path where are located the BAM aligned files.', required=True)
         parser.add_argument('-j', '--json', dest="json_file", metavar="JSON_FILE", help='JSON file configuration.', required=True)
         parser.add_argument('-t', '--threads', dest="threads", metavar="THREADS", default="1", help='Number of threads, Default: %s' %self.threads)
         parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",help='Output directory to store merged results.',required=True)
@@ -518,8 +524,10 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('-p','--path-bam',dest="path_bam",metavar="PATH_BAM",help='Path where are stored sample BAM files.',default=None)
         parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',default=None)
         parser.add_argument('-d','--paired-end', dest="paired_end", action="store_true", default=False, help="Input data is Paired End")
+        parser.add_argument('-t','--threads', dest="threads", metavar="THREADS", default="1", help='Number of threads, Default: %s' %self.threads)
         parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", default=False, help="Do not discard reads that do not form proper pairs.")
-        parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", default=False, help="Do not merge duplicate reads.")      
+        parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", default=False, help="Do not merge duplicate reads.")    
+        parser.add_argument('-b','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.",required=False,default="")
         parser.add_argument('-l','--list-chroms',dest="list_chroms",nargs="+",metavar="CHROMS",help="""List of chromosomes to perform the methylation pipeline.
                                                                                                        Can be a file where every line is a chromosome contig. 
                                                                                                        By default human chromosomes: %s """ %self.chroms,
@@ -529,6 +537,7 @@ class MethylationCall(BasicPipeline):
                                      "chr20","chr21","chr22","chrX","chrY"])
        
     def run(self,args):
+        self.threads = args.threads
         self.fasta_reference = args.fasta_reference 
         self.species = args.species
         self.input_dir = args.path_bam
@@ -537,6 +546,7 @@ class MethylationCall(BasicPipeline):
         self.paired = args.paired_end
         self.keep_unmatched = args.keep_unmatched
         self.keep_duplicates = args.keep_duplicates
+        self.dbSNP_index_file = args.dbSNP_index_file
         
         self.list_chroms = []
     
@@ -570,8 +580,10 @@ class MethylationCall(BasicPipeline):
         self.log_parameter()
         logging.gemBS.gt("Methylation Calling...")
         if len(args.list_chroms) > 0:
-            ret = src.methylationCalling(reference=self.fasta_reference,species=self.species,sample_bam=self.sampleBam,
-                                         chrom_list=self.list_chroms,output_dir=self.output_dir,paired_end=self.paired,keep_unmatched=self.keep_unmatched,keep_duplicates=self.keep_duplicates)   
+            ret = src.methylationCalling(reference=self.fasta_reference,species=self.species,
+                                         sample_bam=self.sampleBam,chrom_list=self.list_chroms,
+                                         output_dir=self.output_dir,paired_end=self.paired,keep_unmatched=self.keep_unmatched,
+                                         keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads)   
                                    
             if ret:
                 logging.gemBS.gt("Methylation call done, samples performed: %s" %(ret))
@@ -587,39 +599,13 @@ class MethylationCall(BasicPipeline):
         printer("Species         : %s", self.species)
         printer("Chromosomes     : %s", self.list_chroms)
         printer("json File       : %s", self.json_file)
+        printer("Threads         : %s", self.threads)
+        if self.dbSNP_index_file != "":
+            printer("dbSNP File      : %s", self.dbSNP_index_file)
         for sample,input_bam in self.sampleBam.iteritems():
             printer("Sample: %s    Bam: %s" %(sample,input_bam))
         printer("")
                                   
-  
-class SnpStats(BasicPipeline):
-    title = "Perform Variant Calls Stats from a VCF file outputted by MethylationCall Step"
-    description = """ Parses a bcf file generated by bscall. Outputs a JSON file with a Collection
-                      of stats.
-                  """
-                  
-    def register(self,parser):
-        ## required parameters
-        parser.add_argument('-b','--bcf',dest='bcf_file',metavar="PATH",help="bcf Methylation call file", required=True)
-        parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',required=True,default=None)
-        
-    def run(self,args):
-        self.output_dir = args.output_dir
-        self.bcf_file = args.bcf_file
-        
-        #Check bcf file existance
-        if not os.path.isfile(args.bcf_file):
-            raise CommandException("Sorry path %s was not found!!" %(args.bcf_file))
-            
-        #Call SnpStats vcfMethStatsCollector
-        self.log_parameter()
-        logging.gemBS.gt("SNP Stats...")
-        ret = src.bsSnpStats(bcfFile=self.bcf_file,output_dir=self.output_dir)
-        if ret:
-            logging.gemBS.gt("SNP Stats already done, results located at: %s" %(ret))
-        
-        
-                                 
 class MethylationFiltering(BasicPipeline):
     title = "Filtering of the output generated by the Methylation Calling."
     description = """ Filters all sites called as homozygous CC or GG with a 
@@ -658,43 +644,6 @@ class MethylationFiltering(BasicPipeline):
         printer("bcfFile         : %s", self.bcf_file)       
         printer("")
         
-        
-class CpgStats(BasicPipeline):
-    title = "CpG Stats building."
-    description = """ From a Given CpG methylation File a complete set of 
-                      CG dinucleotides stats are calculated.
-                  """
-                  
-    def register(self,parser):
-        ## required parameters
-        parser.add_argument('-c','--cpg',dest='cpg_file',metavar="PATH",help="CpG gzipped file.", required=True)
-        parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',default=None)
-        
-    def run(self,args):
-        self.output_dir = args.output_dir
-        self.cpg_file  = args.cpg_file 
-        
-        #Check bcf file existance
-        if not os.path.isfile(args.cpg_file):
-            raise CommandException("Sorry path %s was not found!!" %(args.cpg_file))
-            
-        #Call CpG Stats Building
-        self.log_parameter()
-        logging.gemBS.gt("Cpg Stats building...")
-        ret = src.bsCpgStats(cpgFile=self.cpg_file,output_dir=self.output_dir)
-        if ret:
-            logging.gemBS.gt("CpG Stats done, results located at: %s" %(ret))
-            
-    def extra_log(self):
-        """Extra Parameters to be printed"""
-        #Virtual methos, to be define in child class
-        printer = logging.gemBS.gt
-        
-        printer("----------- CpG Stats Building ---------")
-        printer("CpGFile         : %s", self.cpg_file)       
-        printer("")
-            
-            
 class BsCall(BasicPipeline):
     title = "Bisulfite calling for sample and chromosome."
     description = """ Tool useful for a cluster application manager. Methylation
@@ -713,10 +662,13 @@ class BsCall(BasicPipeline):
         parser.add_argument('-i','--input-bam',dest="input_bam",metavar="INPUT_BAM",help='Input BAM aligned file.',default=None)
         parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',default=None)
         parser.add_argument('-p','--paired-end', dest="paired_end", action="store_true", default=False, help="Input data is Paired End") 
+        parser.add_argument('-t','--threads', dest="threads", metavar="THREADS", default="1", help='Number of threads, Default: %s' %self.threads)     
         parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", default=False, help="Do not discard reads that do not form proper pairs.")
-        parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", default=False, help="Do not merge duplicate reads.")          
-                                       
+        parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", default=False, help="Do not merge duplicate reads.")
+        parser.add_argument('-d','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.",required=False,default="")
+
     def run(self,args):
+        self.threads = args.threads
         self.reference = args.fasta_reference
         self.species = args.species
         self.input = args.input_bam 
@@ -726,6 +678,7 @@ class BsCall(BasicPipeline):
         self.paired = args.paired_end
         self.keep_unmatched = args.keep_unmatched
         self.keep_duplicates = args.keep_duplicates
+        self.dbSNP_index_file = args.dbSNP_index_file
         
         #Check fasta existance
         if not os.path.isfile(args.fasta_reference):
@@ -740,7 +693,9 @@ class BsCall(BasicPipeline):
         logging.gemBS.gt("BsCall per sample and chromosome...")
         
         ret = src.bsCalling (reference=self.reference,species=self.species,input_bam=self.input,chrom=self.chrom,
-                             sample_id=self.sample_id,output_dir=self.output_dir,paired_end=self.paired,keep_unmatched=self.keep_unmatched,keep_duplicates=self.keep_duplicates)
+                             sample_id=self.sample_id,output_dir=self.output_dir,
+                             paired_end=self.paired,keep_unmatched=self.keep_unmatched,
+                             keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads)
         if ret:
             logging.gemBS.gt("Bisulfite calling done: %s" %(ret)) 
        
@@ -754,6 +709,9 @@ class BsCall(BasicPipeline):
         printer("Species         : %s", self.species) 
         printer("Chromosomes     : %s", self.chrom)
         printer("Sample ID       : %s", self.sample_id)
+        printer("Threads         : %s", self.threads)
+        if self.dbSNP_index_file != "":
+            printer("dbSNP File      : %s", self.dbSNP_index_file)
         printer("")       
             
                   
@@ -861,7 +819,7 @@ class MappingReports(BasicPipeline):
         printer("")             
         
 class VariantsReports(BasicPipeline):
-    title = "Variants reports. Builds a HTML and SPHINX report per Sample."
+    title = "BS Calls reports. Builds a HTML and SPHINX report per Sample."
     description = """ From chromosome stats json files, builds a HTML and SPHINX report per Sample """
 
     def membersInitiation(self):
@@ -888,8 +846,7 @@ class VariantsReports(BasicPipeline):
         self.output_dir = args.output_dir
         self.json_file = args.json_file
         self.list_chroms = []
-    
-    
+       
         if len(args.list_chroms) > 1:
             self.list_chroms = args.list_chroms
         elif os.path.isfile(args.list_chroms[0]):
@@ -919,12 +876,9 @@ class VariantsReports(BasicPipeline):
             
                 
         self.log_parameter()
-        logging.gemBS.gt("Building variant reports html reports...")
-        variantsReport.buildVariantReport(inputs=self.sample_chr_files,output_dir=self.output_dir,name=self.name)
-        logging.gemBS.gt("Building variant reports sphinx reports...")
-        variantsReport.buildSphinxVariantReport(inputs=self.sample_chr_files,output_dir="%s/SPHINX/" %(self.output_dir),name=self.name)
-        logging.gemBS.gt("Report Done.")    
-                     
+        logging.gemBS.gt("Building Bs Calls html and sphinx reports...")
+        bsCallReports.buildBscallReports(inputs=self.sample_chr_files,output_dir=self.output_dir,name=self.name)        
+        logging.gemBS.gt("Report Done.")                         
 
     def extra_log(self):
         """Extra Parameters to be printed"""
@@ -936,55 +890,7 @@ class VariantsReports(BasicPipeline):
         printer("Json            : %s", self.json_file)
         printer("")   
         
-        
-class CpgReports(BasicPipeline):
-    title = "CpG report. Builds a HTML and SPHINX report."
-    description = """ From a json file, builds a HTML and SPHINX report per Sample. """
-    
-    def register(self,parser):
-        # CpG Reports parameter
-        parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.',required=True)
-        parser.add_argument('-i','--input-dir', dest="input_dir",metavar="PATH", help='Path were are located the JSON CpG stats files.', required=True)
-        parser.add_argument('-n','--name', dest="name", metavar="NAME", help='Output basic name',required=True)
-        parser.add_argument('-o','--output-dir', dest="output_dir", metavar="PATH",help='Output directory to store html and Sphinx CpG report.',required=True)
-             
-        
-    def run(self, args):
-        self.name = args.name
-        self.output_dir = args.output_dir
-        self.json_file = args.json_file
-        
-        #Recover json files from input-dir according to json file
-        self.sample_cpg_files = {} 
-        
-        for k,v in FLIdata(args.json_file).sampleData.iteritems():
-            fileJson = "%s/%s_cpg.json" %(args.input_dir,v.sample_barcode)
-            fileMethJson = "%s/%s_cpg_meth.json" %(args.input_dir,v.sample_barcode)
-            fileInfoReadsJson = "%s/%s_cpg_informative_reads.json" %(args.input_dir,v.sample_barcode)
-            if os.path.isfile(fileJson) and os.path.isfile(fileMethJson):
-                self.sample_cpg_files[v.sample_barcode] = [fileJson,fileMethJson,fileInfoReadsJson]
                 
-        #Check list of file
-        self.log_parameter()
-        logging.gemBS.gt("Building CpG html reports...")
-        cpgReport.buildCpgReport(inputs=self.sample_cpg_files,output_dir=self.output_dir,name=self.name,)
-        logging.gemBS.gt("Building CpG sphinx reports...")
-        cpgReport.buildSphinxCpgReport(inputs=self.sample_cpg_files,output_dir="%s/SPHINX/" %(self.output_dir),name=self.name)
-        logging.gemBS.gt("Report Done.")
-        
-
-    def extra_log(self):
-        """Extra Parameters to be printed"""
-        #Virtual methos, to be define in child class
-        printer = logging.gemBS.gt
-        
-        printer("------- CpG Reports ----------")
-        printer("Name            : %s", self.name)
-        printer("Json            : %s", self.json_file)
-        printer("")   
-
-
-        
 class CpgBigwig(BasicPipeline):
     title = "Build BigWig files."
     description = """ Creates BigWig files to show pipeline results in Genome Browsers.

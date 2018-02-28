@@ -357,7 +357,6 @@ class BasicHtml(RunBasicStats):
                                     <TH scope=\"col\"> Average Unique </TH>  \
                                     <TH scope=\"col\"> Under Conversion Rate </TH>  \
                                     <TH scope=\"col\"> Over Conversion Rate </TH>  \
-                                    <TH scope=\"col\"> Overlapping Bases </TH>  \
                                     <TH scope=\"col\"> Report </TH>  \
                                     </TR> \n")
 	
@@ -375,12 +374,10 @@ class BasicHtml(RunBasicStats):
                                     <TD> %.2f %% </TD>  \
                                     <TD> %s </TD>  \
                                     <TD> %s </TD>  \
-                                    <TD> %.2f %% </TD>  \
                                     <TD> <a class=%s href=\"%s\"> &#187 %s </TD>  \
                                     </TR> \n" %(sampleStats.name,sampleStats.sequenced_reads.total,sampleStats.totalSampleUniqueReads,
                                                  sampleStats.averageSampleUniqueReads,sampleStats.getUnderConversionRate(),
                                                  sampleStats.getOverConversionRate(),
-                                                 sampleStats.averageSampleOverlappedBases,
                                                  linksClass,sampleLink,sampleStats.name
                                                  ))
             
@@ -461,20 +458,42 @@ class BasicHtml(RunBasicStats):
         vector_css.append("   color: #039;\n")
         vector_css.append("   border-bottom: 2px solid #6678b1;\n")
         vector_css.append("   border-right: 1px solid #6678b1; \n")
-        vector_css.append("	border-left: 1px solid #6678b1;\n")
+        vector_css.append("	  border-left: 1px solid #6678b1;\n")
         vector_css.append(" }\n")
         vector_css.append(" #hor-zebra td\n")
         vector_css.append(" {\n")
         vector_css.append("   padding: 8px;\n")
         vector_css.append("   color: #669;\n")
         vector_css.append("   border-right: 1px solid #6678b1; \n")
-        vector_css.append("	border-left: 1px solid #6678b1;\n")
+        vector_css.append("	  border-left: 1px solid #6678b1;\n")
         vector_css.append(" }\n")
         vector_css.append(" #hor-zebra .odd\n")
         vector_css.append(" {\n")
         vector_css.append("   background: #e8edff;\n")
         vector_css.append("   border-right: 1px solid #6678b1; \n")
-        vector_css.append("	border-left: 1px solid #6678b1;\n")
+        vector_css.append("	  border-left: 1px solid #6678b1;\n")
+        vector_css.append(" }\n")
+        vector_css.append(" #hor-zebra .empty\n")
+        vector_css.append(" {\n")
+        vector_css.append("   border-bottom: 2px solid #6678b1;\n")
+        vector_css.append(" }\n") 
+        vector_css.append(" #hor-zebra .oddvalue\n")
+        vector_css.append(" {\n")
+        vector_css.append("   background: #f5f7ff;\n")
+        vector_css.append("   border-right: 1px solid #6678b1; \n")
+        vector_css.append("	  border-left: 1px solid #6678b1;\n")
+        vector_css.append(" }\n")
+        vector_css.append(" #hor-zebra .pairheader\n")
+        vector_css.append(" {\n")
+        vector_css.append("   background: #eeffe8;\n")
+        vector_css.append("   border-right: 1px solid #66b17b; \n")
+        vector_css.append("	  border-left: 1px solid #66b17b;\n")
+        vector_css.append(" }\n")
+        vector_css.append(" #hor-zebra .pairvalue\n")
+        vector_css.append(" {\n")
+        vector_css.append("   background: #f6fff4;\n")
+        vector_css.append("   border-right: 1px solid #66b17b; \n")
+        vector_css.append("	  border-left: 1px solid #66b17b;\n")
         vector_css.append(" }\n")
         #GREEN TABLE
         vector_css.append(" #green \n")
@@ -494,21 +513,25 @@ class BasicHtml(RunBasicStats):
         vector_css.append("   color: #2b9900;\n")
         vector_css.append("   border-bottom: 2px solid #66b16f;\n")
         vector_css.append("   border-right: 1px solid #66b16f; \n")
-        vector_css.append("	border-left: 1px solid #66b16f;\n")
+        vector_css.append("	  border-left: 1px solid #66b16f;\n")
         vector_css.append(" }\n")
         vector_css.append(" #green td\n")
         vector_css.append(" {\n")
         vector_css.append("   padding: 8px;\n")
         vector_css.append("   color: #578055;\n")
         vector_css.append("   border-right: 1px solid #66b16f; \n")
-        vector_css.append("	border-left: 1px solid #66b16f;\n")
+        vector_css.append("	  border-left: 1px solid #66b16f;\n")
         vector_css.append(" }\n")
         vector_css.append(" #green .odd\n")
         vector_css.append(" {\n")
         vector_css.append("   background: #eaffe8;\n")
         vector_css.append("   border-right: 1px solid #66b16f; \n")
-        vector_css.append("	border-left: 1px solid #66b16f;\n")
+        vector_css.append("	  border-left: 1px solid #66b16f;\n")
         vector_css.append(" }\n")
+        vector_css.append(" #green .empty\n")
+        vector_css.append(" {\n")
+        vector_css.append("   border-bottom: 2px solid #66b16f;\n")
+        vector_css.append(" }\n")          
         #LINKS
         vector_css.append("a.link:link {font-family: \"Sans-Serif\";font-size: 12px;color: #039;text-decoration:none;}")
         vector_css.append("a.link:visited {font-family: \"Sans-Serif\";font-size: 12px;color: #039;text-decoration:none;}")
@@ -608,16 +631,6 @@ class LaneHtml(BasicHtml):
         self.addSpaceSection(vectorHtml=vectorHtml)
         self.addSectionTitle(vectorHtml=vectorHtml,title="Mapping Stats (Bases)")
         vectorHtml.extend(self.createBasesStatsTable(color='blue'))
-        
-        if self.is_paired:        
-            self.addSpaceSection(vectorHtml=vectorHtml)     
-            self.addSectionTitle(vectorHtml=vectorHtml,title="Estimated Overlapped Bases") 
-            
-            overlapped_bases = self.mapping_stats.getOverlappingBases()[0]
-            total_bases = self.mapping_stats.getOverlappingBases()[1]
-            average_bases = (float(overlapped_bases)/float(total_bases))*100
-                  
-            vectorHtml.extend(self.createOverlappedBasesTable(color='green',bases_overlapped=overlapped_bases,total_bases=total_bases,average_overlapped_bases=average_bases))
         
         self.addSpaceSection(vectorHtml=vectorHtml)
         self.addSectionTitle(vectorHtml=vectorHtml,title="Bisulfite Conversion Rate")
@@ -758,13 +771,6 @@ class SampleHtml(BasicHtml):
         self.addSectionTitle(vectorHtml=vectorHtml,title="Mapping Stats (Bases)")
         vectorHtml.extend(self.createBasesStatsTable(color='blue'))
 
-        if self.is_paired:        
-            self.addSpaceSection(vectorHtml=vectorHtml)     
-            self.addSectionTitle(vectorHtml=vectorHtml,title="Estimated Overlapped Bases") 
-            vectorHtml.extend(self.createOverlappedBasesTable(color='green',bases_overlapped=self.mapping_stats.totalSampleOverlappedBases,
-                                                              total_bases=self.mapping_stats.totalSampleBases,average_overlapped_bases=self.mapping_stats.averageSampleOverlappedBases))
-                
-        
         self.addSpaceSection(vectorHtml=vectorHtml)
         self.addSectionTitle(vectorHtml=vectorHtml,title="Bisulfite Conversion Rate")
         vectorHtml.extend(self.createBisulfiteConversionRate(color='blue'))        

@@ -69,20 +69,10 @@ Commands
 10) Variants Report
 
 
-    gemBS snp-stats -b ./data/chr_snp_calls/test_chrIII.bcf -o ./data/chr_snp_calls/
-
-
     gemBS variants-report -l chrIII -j metadata.json -i ./data/chr_snp_calls/ -n TEST_GEMBS -o ./data/report/variants/
 
 
-11) CpGs Report
-
-
-    gemBS cpg-stats -c ./data/filtered_meth_calls/test_cpg.txt.gz -o ./data/filtered_meth_calls/
-    gemBS cpg-report -j metadata.json -i ./data/filtered_meth_calls/ -n TEST_GEMBS -o ./data/report/cpgs/
-
-
-12) Genome Browser Track
+11) Genome Browser Track
 
 
     gemBS cpg-bigwig -c ./data/filtered_meth_calls/test_cpg.txt.gz -l ./reference/chr.len -n TEST_GEMBS -o ./data/Tracks/

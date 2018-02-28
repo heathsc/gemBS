@@ -60,9 +60,21 @@ Documentation can be found at [GEMBS](http://statgen.cnag.cat/GEMBS/)
 ----------
 Changelog:
 ----------
+    2.0 Changed conversion formula.
+    2.0 Added parameter for dbSNP.
+    2.0 Added threads to bscall.
+    2.0 Removed CpGs reports. Already done from bscall report.
+    2.0 Fixed bs_call makefile for the gcc to be used.
+    2.0 New bscall version. Generates JSON report.
+    2.0 Removed gemBS options snp-stats,cpg-report,cpg-stats.
+    2.0 Added summary report from the bs_call json stats
+    2.0 New BSCall Report. From bscall son file generates three types of reports:
+        Mapping and Coverage Report
+        Bs-Genotypes Calls Report
+        Methylation Statistics report
     1.7 Added non stranded read conversion parameter
     1.7 Fixed SE crash when estimating overlapped bases.
-    1.7 Fixed gem-index (gem3) to follow fastq and SAM specifications.
+    1.7 Fixed gem-index (gem3) to follow fastq and SAM specifications. 
         Modified gem3-mapper repository external module.
         New external module https://github.com/heathsc/gem3-mapper.git
     1.7 Fixed threads parameter to samtools merge

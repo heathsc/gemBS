@@ -18,8 +18,6 @@ static:	setup
 	cd loki; ./configure;
 	$(MAKE) --directory=loki static
 	$(MAKE) --directory=filter_vcf static
-	$(MAKE) --directory=vcfMethStatsCollector static
-	$(MAKE) --directory=cpgStats static 
 	$(MAKE) --directory=bs_call static
 	cd gem3-mapper; ./configure;
 	$(MAKE) --directory=gem3-mapper static
@@ -29,8 +27,6 @@ release: setup
 	cd loki; ./configure;      
 	$(MAKE) --directory=loki
 	$(MAKE) --directory=filter_vcf
-	$(MAKE) --directory=vcfMethStatsCollector
-	$(MAKE) --directory=cpgStats
 	$(MAKE) --directory=bs_call
 	cd gem3-mapper; ./configure;
 	$(MAKE) --directory=gem3-mapper
@@ -40,8 +36,6 @@ debug: setup
 	cd loki; ./configure
 	$(MAKE) --directory=loki debug
 	$(MAKE) --directory=filter_vcf debug
-	$(MAKE) --directory=vcfMethStatsCollector debug
-	$(MAKE) --directory=cpgStats debug
 	$(MAKE) --directory=bs_call debug
 	cd gem3-mapper; ./configure;
 	$(MAKE) --directory=gem3-mapper debug

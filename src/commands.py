@@ -9,7 +9,7 @@ import signal
 
 import src
 
-__VERSION__ = "1.7"
+__VERSION__ = "2.0"
 
 def gemBS():
     try:
@@ -27,14 +27,11 @@ def gemBS():
             "merging-all" : production.MergingAll,
             "merging-sample" : production.MergingSample,
             "methylation-call" : production.MethylationCall,
-            "snp-stats": production.SnpStats,
             "methylation-filtering": production.MethylationFiltering,
-            "cpg-stats": production.CpgStats,            
             "bscall" : production.BsCall,
             "bscall-concatenate" : production.BsCallConcatenate,
             "bsMap-report" : production.MappingReports,
             "variants-report" : production.VariantsReports,
-            "cpg-report" : production.CpgReports,
             "cpg-bigwig" : production.CpgBigwig
         }
         instances = {}

@@ -280,41 +280,14 @@ class BsStats(object):
         
     def getConversionRate(self,a_bp_pair_one=0,a_bp_pair_two=0,c_bp_pair_one=0,c_bp_pair_two=0,g_bp_pair_one=0,g_bp_pair_two=0,t_bp_pair_one=0,t_bp_pair_two=0):
         """Get Over Conversion Rate"""
-        #A
-        a_bp = a_bp_pair_one + a_bp_pair_two
-        n = a_bp
-        #C
-        c_bp = c_bp_pair_one + c_bp_pair_two
-        n += c_bp
-        #G
-        g_bp = g_bp_pair_one + g_bp_pair_two
-        n += g_bp
-        #T
-        t_bp = t_bp_pair_one + t_bp_pair_two
-        n += t_bp
-        #If n is 0 nothing to DO        
-        if n == 0:
+        if float(a_bp_pair_one + g_bp_pair_one + c_bp_pair_two + t_bp_pair_two) == 0:
             return 0.0
             
-        #Z calculation
-        z = ( float(c_bp) + float(t_bp) ) / float(n)
-        #A calculation
-        a = float((1-z)*a_bp_pair_one) / float (a_bp_pair_one + g_bp_pair_one)
-        #C calculation
-        c = float(z*c_bp_pair_two) / float(c_bp_pair_two + t_bp_pair_two)
-        #G calculation
-        g = float((1-z)*g_bp_pair_one) / float(a_bp_pair_one + g_bp_pair_one)
-        #T calculation
-        t = float(z*t_bp_pair_two) / (c_bp_pair_two + t_bp_pair_two)
-        
-        #Equation parameters
-        za = c* g * (c_bp_pair_one + t_bp_pair_one + a_bp_pair_two + g_bp_pair_two)
-        zb = a*c*(c_bp_pair_one + t_bp_pair_one + g_bp_pair_two) - c*g*(t_bp_pair_one + a_bp_pair_two) + t*g*(c_bp_pair_one + a_bp_pair_two + g_bp_pair_two)
-        zc = a*t*(c_bp_pair_one + g_bp_pair_two) - a*c*t_bp_pair_one - t*g*a_bp_pair_two;  
-        
-        #Equation resolving
-        return float(-zb+ float(math.sqrt(zb*zb - 4*za*zc))) / float(2*za)
-        
+        z = float(a_bp_pair_one + t_bp_pair_two) / float(a_bp_pair_one + g_bp_pair_one + c_bp_pair_two + t_bp_pair_two)
+        a = (t_bp_pair_one + a_bp_pair_two) * float(1.0 - z) - (c_bp_pair_one + g_bp_pair_two) * z 
+        b = (t_bp_pair_one + a_bp_pair_two + c_bp_pair_one + g_bp_pair_two) * float(1.0 - z)
+
+        return float(a)/float(b)        
         
     def getUniqueMappedReads(self):
         """ Get total Uniquely mapped reads
@@ -351,62 +324,6 @@ class BsStats(object):
         for qual in range(0,highestQuality):
             totalMappedReads += self.mapping_quality_reads[qual]
         return totalMappedReads
-        
-    def getWeightedReadLength(self,dictLenReads={}):
-        """ From a set of read lengths and number of reads, gets a weighted read length 
-            
-            dictLenReads -- Dictionary of read lengths and total number of reads
-            return weigthed average read length
-        """        
-        #1. Read Length Estimation
-        total_reads = 0
-        read_distribution = []
-        for read_length,reads in dictLenReads.iteritems():
-            current_length = int(read_length)
-            total_reads += reads
-            read_distribution.append([current_length,reads])
-            
-        #1.1 Estimate Weighted average length Read 
-        weighted_read_len = 0
-        for len_reads in read_distribution:
-            weighted_read_len += len_reads[0]*(len_reads[1]/total_reads)
-            
-        return weighted_read_len        
-                
-    def getOverlappingBases(self):
-        """Gets How Many Bases are overlapped, overlapping pairs
-           
-           returns a vector of total overlapped bases and total_bases, empty otherwise
-        """
-        if self.is_paired:
-            if len(self.read_length_histogram) == 2:
-                #1. Read One Length Estimation
-                read_one_len = self.getWeightedReadLength(dictLenReads=self.read_length_histogram[0])                
-                #2. Read Two Length Estimation                
-                read_two_len = self.getWeightedReadLength(dictLenReads=self.read_length_histogram[1])
-                #3. Get Minimum Insert Size
-                lim_insert_size = read_one_len + read_two_len
-                #4.Quantify total number of overlapping bases
-                total_bases = 0
-                total_overlapped_bases = 0                
-                for insert_size,reads in self.read_insert_size_histogram.iteritems():
-                    current_isize = int(insert_size)
-                    if current_isize < lim_insert_size:
-                        overlapped_bases = int((lim_insert_size - current_isize)*reads) 
-                        total_overlapped_bases += overlapped_bases
-
-                    total_bases += lim_insert_size * reads
-
-                return [total_overlapped_bases,total_bases]
-        
-        return []
-                    
-                    
-                
-                    
-          
-
-            
         
 class LaneStats(BsStats):
     """Statistics per lane """
@@ -546,23 +463,13 @@ class SampleStats(BsStats):
         self.totalSampleUniqueReads = 0
         self.totalSampleReads = 0
         self.averageSampleUniqueReads = 0
-        self.totalSampleOverlappedBases = 0
-        self.totalSampleBases = 0
-        self.averageSampleOverlappedBases = 0
         
         for lane_stats in list_lane_stats:
             self.sum_values(lane_stats)
             self.totalSampleUniqueReads += lane_stats.getUniqueMappedReads()
             self.totalSampleReads += lane_stats.getTotalMappedReads()
-            listOverlappingBases = lane_stats.getOverlappingBases()
-            if (len(listOverlappingBases) == 2):
-                self.totalSampleOverlappedBases += listOverlappingBases[0]
-                self.totalSampleBases += listOverlappingBases[1]
-
+           
         self.averageSampleUniqueReads = float(self.totalSampleUniqueReads)/float(self.totalSampleReads) * 100
-  
-        if self.is_paired:
-            self.averageSampleOverlappedBases = (float(self.totalSampleOverlappedBases)/float(self.totalSampleBases)) * 100
            
         #List of lanes
         self.list_lane_stats = list_lane_stats

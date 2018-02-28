@@ -14,8 +14,8 @@ from distutils.command.clean import clean as _clean
 import subprocess
 import shutil
 
-__VERSION_MAJOR = "1"
-__VERSION_MINOR = "7"
+__VERSION_MAJOR = "2"
+__VERSION_MINOR = "0"
 __VERSION__ = "%s.%s" % (__VERSION_MAJOR, __VERSION_MINOR)
 
 def compile_gemBS_tools():
@@ -132,17 +132,15 @@ setup(cmdclass=_commands,
       author_email='marcos.fernandez@cnag.crg.eu',
       url='http://statgen.cnag.cat/gemBS/',
       packages=['src'],
-      package_data={"": ["%s/%s" % ("src/gemBSbinaries", x) for x in ["sambamba_v0.6.3",
-                                                                      "readNameClean",
+      package_data={"": ["%s/%s" % ("src/gemBSbinaries", x) for x in ["readNameClean",
                                                                       "filter_vcf",
-                                                                      "cpgStats",
-                                                                      "vcfMethStatsCollector"    
                                                                       "align_stats",
                                                                       "gem-constructor",
                                                                       "gem-indexer",
                                                                       "gem-mapper",
                                                                       "gem-retriever",
-                                                                      "bs_call"
+                                                                      "bs_call",
+                                                                      "dbSNP_idx"
                                                                      ]]},
       entry_points = {
         'console_scripts': ['gemBS=src.commands:gemBS'],
