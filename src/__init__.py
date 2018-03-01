@@ -418,23 +418,31 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/"):
         return_info[sample] = os.path.abspath("%s" % bam_filename)
         
         #Samtools index
-        indexing = ["samtools","index","%s"%(bam_filename)]        
-        processIndex = utils.run_tools([indexing],name="Indexing")
+        if len(listBams) > 1 :        
+            indexing = ["samtools","index","%s"%(bam_filename)]
+            processIndex = utils.run_tools([indexing],name="Indexing")
         
-        if processIndex.wait() != 0:
-            raise ValueError("Error while indexing.")
+            if processIndex.wait() != 0:
+                raise ValueError("Error while indexing.")
         
+            #Rename file
+            reName = ['mv',
+                      '%s.bai' %(bam_filename),                         
+                      index_filename
+                     ]        
         
-        #Rename file
-        reName = ['mv',
-                  '%s.bai' %(bam_filename),                         
-                  index_filename
-                 ]        
-        
-        processRename = utils.run_tools([reName],name="Rename Index")
+            processRename = utils.run_tools([reName],name="Rename Index")
                 
-        if processRename.wait() != 0:
-            raise ValueError("Rename Index.")
+            if processRename.wait() != 0:
+                raise ValueError("Rename Index.")
+        else:
+            #Copy Index file from single file
+            copySingleFile = ["cp","%s"%(listBams[0].replace("bam", "bai")),"%s"%(index_filename)]
+            
+            processCopySingleFile = utils.run_tools([copySingleFile],name="Copy Single Index File")
+                
+            if processCopySingleFile.wait() != 0:
+                raise ValueError("Copy Single Index Files")
     
     return return_info 
 

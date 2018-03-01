@@ -60,6 +60,9 @@ Documentation can be found at [GEMBS](http://statgen.cnag.cat/GEMBS/)
 ----------
 Changelog:
 ----------
+    2.0 Fixed error when reporting complete path to not found bam files.
+    2.0 Fixed iteration over sampleBams dictionary in MergeAll method.
+    2.0 Updated: Avoid redo indexing when merging just one file.
     2.0 Changed conversion formula.
     2.0 Added parameter for dbSNP.
     2.0 Added threads to bscall.

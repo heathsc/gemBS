@@ -417,7 +417,7 @@ class MergingAll(BasicPipeline):
                     
         #Check list of file
         self.totalFiles = 0
-        for sample,listBams in self.samplesBams:
+        for sample,listBams in self.samplesBams.iteritems():
             self.totalFiles += len(listBams)
               
         if self.totalFiles < 1:
@@ -571,7 +571,7 @@ class MethylationCall(BasicPipeline):
             fileBam = "%s/%s.bam" %(self.input_dir,v.sample_barcode)
 
             if not os.path.isfile(fileBam):
-                raise CommandException("Sorry path %s was not found!!" %(args.fileBam))
+                raise CommandException("Sorry path %s was not found!!" %(fileBam))
 
             if v.sample_barcode not in self.sampleBam:
                 self.sampleBam[v.sample_barcode] = fileBam
