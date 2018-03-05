@@ -13,6 +13,7 @@ import matplotlib.pylab as pylab
 
 import numpy as np
 import os
+import math
 
 
 class StatsMother(object):
@@ -999,6 +1000,9 @@ class GCcoverage(StatsMother,PlotMother):
         """ Initialize GCCoverage Values """
         PlotMother.__init__(self,pngFile=pngFile,concept="")
         self.coverage_gc_bases = {}
+        self.x_vector = []
+        self.y_vector = []
+        self.z_vector = []
         
     def add(self,values):
         """
@@ -1036,9 +1040,9 @@ class GCcoverage(StatsMother,PlotMother):
                         
         self.coverage_gc_bases = new_coverage_gc_bases
         
-    def plot(self):
+    def selectDataToPlot(self):
         """
-            GC/Coverage Heatmap plot
+            Selectd the data to be plotted
         """
         #0. Clean not significant tail of values
         self.cleanNotSignificantTail()
@@ -1057,19 +1061,62 @@ class GCcoverage(StatsMother,PlotMother):
                 z.append(self.coverage_gc_bases[coverage])
             else:
                 z.append([0 for x in range(101)])
-        #4. Create Plot
+                
+        self.x_vector = x_gc_percentage
+        self.y_vector = y_coverage
+        self.z_vector = z
+                
+    def plot(self):
+        """
+            GC/Coverage Heatmap plot
+        """
+        #1. Create Plot
         self.initSubplots(figure_size=(5.7,5),yText="Coverage",xText="GC%")        
         
         self.ax.set_title("GC/Coverage Heatmap")
         
-        im = self.ax.pcolormesh(x_gc_percentage, y_coverage, z)
+        im = self.ax.pcolormesh(self.x_vector,self.y_vector, self.z_vector)
         cbar = self.figure.colorbar(im)
         cbar.ax.set_ylabel("# Sites")
         
         #4.1 Axis Configuration        
         self.ax.axis('tight')
 
-        self.saveAndClose()             
+        self.saveAndClose()         
+         
+
+    def getCorrelationCoeficient(self):
+        """
+            Get Correlation Coeficient From Heatmap plotted values
+            
+            returns pearson correlation or -2 if it was not possible
+        """
+        #Estimate Sx, Sx2, Sy, Sy2,n
+        yLen = len(self.y_vector)
+        xLen = len(self.x_vector)
+        sx = 0
+        sx2 = 0
+        sy = 0
+        sy2 = 0
+        sxy = 0
+        n = 0
+        for y in range(0,yLen):
+            for x in range(0,xLen):
+                z = self.z_vector[y][x]               
+                sx += x*z
+                sx2 += (x*x)*z
+                sy += y*z
+                sy2 += (y*y)*z
+                sxy += z*x*y
+                n += z
+        #Estimate correlation
+        if n != 0:
+            numerator = float(sxy) - ((float(sx)*float(sy))/n)
+            denominator = (float(sx2) - ((float(sx)*float(sx))/n)) * (float(sy2) - ((float(sy)*float(sy))/n))
+            return float(numerator) / math.sqrt(denominator)
+        else:
+            return -2
+        
             
 class QCDistribution(DistributionPlot,StatsMother):
     """Class to plot QCDistributions
@@ -1374,6 +1421,9 @@ class SummarySample(StatsMother):
         #1.3 Bases Used for Calling
         passed = self.baseLevelStats.data["Passed"]
         aligmentAndCoverage.append("%s (%.2f %%)"%(self.fromBasesToEasyToRead(bases=passed),self.getPercentage(passed,totalBases)))
+        #1.4 Get Correlation coeficient for GC Coverage
+        correlation = self.gcCoverage.getCorrelationCoeficient()
+        aligmentAndCoverage.append("%.2f"%(correlation))
         #2. Variants
         variantsAndCoverage = []
         #2.1 Variants called

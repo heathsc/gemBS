@@ -210,7 +210,7 @@ class HtmlBsCallReport(object):
         else:
             link_class += '"link"'
         #3. Headers
-        header = ["Sample","Aligned","Uniquely Aligned","Used for Calling"]
+        header = ["Sample","Aligned","Uniquely Aligned","Used for Calling","GC Coverage Correlation"]
         header.extend(["Variants","Variants Passed","Mean Coverage Variants Passed","Ti/Tv Ratio"])
         header.extend(["Mean CpG Methylation","Mean CpG Coverage","Passed CpGs"])
         header.append("Reports")
@@ -646,7 +646,9 @@ def buildBscallReports(inputs=None,output_dir=None,name=None):
         summaryMethylation.setData(concept = "AllNonRefCpg",values=methylationNonRefCpG.methylation_cpgs)
         summaryMethylation.setData(concept = "PassedNonRefCpg",values=methylationPassNonRefCpG.methylation_cpgs)
         
-        #Sample Summary                                                
+        #Sample Summary 
+        #Prepare GC Values for plotting and getting GC Correlation
+        gcCoverage.selectDataToPlot()                                              
         samples_summary = SummarySample(sampleName=sample,readLevelStats=readLevelStats,baseLevelStats=baseLevelStats,gcCoverage=gcCoverage,totalStats=totalStats,variantCoverage=variantCoverage,
                                        mutationStats=mutationsStats,methylationPassRefCpg=methylationPassRefCpG,refCpgCoverage=refCpGcoverage)  
                                        
