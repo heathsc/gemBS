@@ -60,6 +60,7 @@ Documentation can be found at [GEMBS](http://statgen.cnag.cat/GEMBS/)
 ----------
 Changelog:
 ----------
+    2.0 Added GC Coverage correlation value to BS Call Stats Summary.
     2.0 Fixed error when reporting complete path to not found bam files.
     2.0 Fixed iteration over sampleBams dictionary in MergeAll method.
     2.0 Updated: Avoid redo indexing when merging just one file.
