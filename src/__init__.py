@@ -447,12 +447,15 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/"):
     return return_info 
 
 
-def methylationCalling(reference=None,species=None,sample_bam=None,chrom_list=None,output_dir=None,paired_end=True,keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1"):
+def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,left_trim=5,chrom_list=None,output_dir=None,paired_end=True,keep_unmatched=False,
+                       keep_duplicates=False,dbSNP_index_file="",threads="1"):
     """ Performs the process to make methylation calls.
     
         reference -- fasta reference file
         species -- species name
         sample_bam -- sample dictionary where key is sample and value its bam aligned file 
+        right_trim --  Bases to trim from right of read pair 
+        left_trim -- Bases to trim from left of read pair
         chrom_list -- Chromosome list to perform the methylation analysis
         output_dir -- Directory output to store the call results
         paired_end -- Is paired end data
@@ -475,8 +478,11 @@ def methylationCalling(reference=None,species=None,sample_bam=None,chrom_list=No
             list_bcf_files.append(bcf_file)
             bsCall = [['samtools','view','-h',input_bam,chrom]]
 
-            parameters_bscall = ['%s' %(executables["bs_call"]),'-r',reference,'-L5','-n',sample,'--report-file',report_file]
+            parameters_bscall = ['%s' %(executables["bs_call"]),'-r',reference,'-n',sample,'--report-file',report_file]
     
+            parameters_bscall.extend(['--right-trim','%i'%(right_trim)])
+            parameters_bscall.extend(['--left-trim','%i'%(left_trim)])
+            
             if paired_end:
                 parameters_bscall.append('-p')
             if keep_unmatched:
@@ -542,13 +548,15 @@ def methylationFiltering(bcfFile=None,output_dir=None):
     
     return os.path.abspath("%s" % output_dir)
             
-def bsCalling (reference=None,species=None,input_bam=None,chrom=None,sample_id=None,output_dir=None,
+def bsCalling (reference=None,species=None,input_bam=None,right_trim=0,left_trim=5,chrom=None,sample_id=None,output_dir=None,
                paired_end=True,keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1"):
     """ Performs the process to make bisulfite calls per sample and chromosome.
     
         reference -- fasta reference file
         species -- species name
         input_bam -- Path to input alignment bam file
+        right_trim --  Bases to trim from right of read pair 
+        left_trim -- Bases to trim from left of read pair
         chrom -- chromosome name to perform the bisulfite calling
         sample_id -- sample unique identification name
         output_dir -- Directory output to store the call results
@@ -570,8 +578,11 @@ def bsCalling (reference=None,species=None,input_bam=None,chrom=None,sample_id=N
     #Command bisulphite calling
     bsCall = [['samtools','view','-h',input_bam,chrom]]
     
-    parameters_bscall = ['%s' %(executables["bs_call"]),'-r',reference,'-L5','-n',sample_id,'--report-file',report_file]
-            
+    parameters_bscall = ['%s' %(executables["bs_call"]),'-r',reference,'-n',sample_id,'--report-file',report_file]
+           
+    parameters_bscall.extend(['--right-trim','%i'%(right_trim)])
+    parameters_bscall.extend(['--left-trim','%i'%(left_trim)])
+    
     if paired_end:
         parameters_bscall.append('-p')                
     if keep_unmatched:

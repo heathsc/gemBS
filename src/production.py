@@ -522,6 +522,8 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('-e','--species',dest="species",metavar="SPECIES",default="HomoSapiens",help="Sample species name. Default: %s" %self.species)
         parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.')
         parser.add_argument('-p','--path-bam',dest="path_bam",metavar="PATH_BAM",help='Path where are stored sample BAM files.',default=None)
+        parser.add_argument('-g','--right-trim', dest="right_trim", metavar="BASES",type=int, default=0, help='Bases to trim from right of read pair, Default: 0')
+        parser.add_argument('-f','--left-trim', dest="left_trim", metavar="BASES",type=int, default=5, help='Bases to trim from left of read pair, Default: 5')        
         parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',default=None)
         parser.add_argument('-d','--paired-end', dest="paired_end", action="store_true", default=False, help="Input data is Paired End")
         parser.add_argument('-t','--threads', dest="threads", metavar="THREADS", default="1", help='Number of threads, Default: %s' %self.threads)
@@ -541,6 +543,8 @@ class MethylationCall(BasicPipeline):
         self.fasta_reference = args.fasta_reference 
         self.species = args.species
         self.input_dir = args.path_bam
+        self.right_trim = args.right_trim
+        self.left_trim = args.left_trim
         self.json_file = args.json_file
         self.output_dir = args.output_dir  
         self.paired = args.paired_end
@@ -581,6 +585,7 @@ class MethylationCall(BasicPipeline):
         logging.gemBS.gt("Methylation Calling...")
         if len(args.list_chroms) > 0:
             ret = src.methylationCalling(reference=self.fasta_reference,species=self.species,
+                                         right_trim=self.right_trim, left_trim=self.left_trim,
                                          sample_bam=self.sampleBam,chrom_list=self.list_chroms,
                                          output_dir=self.output_dir,paired_end=self.paired,keep_unmatched=self.keep_unmatched,
                                          keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads)   
@@ -597,6 +602,8 @@ class MethylationCall(BasicPipeline):
         printer("----------- Methylation Calling --------")
         printer("Reference       : %s", self.fasta_reference)
         printer("Species         : %s", self.species)
+        printer("Right Trim      : %i", self.right_trim)
+        printer("Left Trim       : %i", self.left_trim)
         printer("Chromosomes     : %s", self.list_chroms)
         printer("json File       : %s", self.json_file)
         printer("Threads         : %s", self.threads)
@@ -660,6 +667,8 @@ class BsCall(BasicPipeline):
         parser.add_argument('-s','--sample-id',dest="sample_id",metavar="SAMPLE",help="Sample unique identificator")  
         parser.add_argument('-c','--chrom',dest="chrom",metavar="CHROMOSOME",help="Chromosome name where is going to perform the methylation call")  
         parser.add_argument('-i','--input-bam',dest="input_bam",metavar="INPUT_BAM",help='Input BAM aligned file.',default=None)
+        parser.add_argument('-g','--right-trim', dest="right_trim", metavar="BASES",type=int, default=0, help='Bases to trim from right of read pair, Default: 0')
+        parser.add_argument('-f','--left-trim', dest="left_trim", metavar="BASES", type=int, default=5, help='Bases to trim from left of read pair, Default: 5')
         parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',default=None)
         parser.add_argument('-p','--paired-end', dest="paired_end", action="store_true", default=False, help="Input data is Paired End") 
         parser.add_argument('-t','--threads', dest="threads", metavar="THREADS", default="1", help='Number of threads, Default: %s' %self.threads)     
@@ -672,6 +681,8 @@ class BsCall(BasicPipeline):
         self.reference = args.fasta_reference
         self.species = args.species
         self.input = args.input_bam 
+        self.right_trim = args.right_trim
+        self.left_trim = args.left_trim        
         self.chrom = args.chrom
         self.sample_id = args.sample_id
         self.output_dir = args.output_dir
@@ -693,6 +704,7 @@ class BsCall(BasicPipeline):
         logging.gemBS.gt("BsCall per sample and chromosome...")
         
         ret = src.bsCalling (reference=self.reference,species=self.species,input_bam=self.input,chrom=self.chrom,
+                             right_trim=self.right_trim, left_trim=self.left_trim,
                              sample_id=self.sample_id,output_dir=self.output_dir,
                              paired_end=self.paired,keep_unmatched=self.keep_unmatched,
                              keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads)
@@ -710,6 +722,9 @@ class BsCall(BasicPipeline):
         printer("Chromosomes     : %s", self.chrom)
         printer("Sample ID       : %s", self.sample_id)
         printer("Threads         : %s", self.threads)
+        printer("Right Trim      : %i", self.right_trim)
+        printer("Left Trim       : %i", self.left_trim)
+                
         if self.dbSNP_index_file != "":
             printer("dbSNP File      : %s", self.dbSNP_index_file)
         printer("")       
