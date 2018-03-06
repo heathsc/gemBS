@@ -342,8 +342,11 @@ class Mapping(BasicPipeline):
         self.overconversion_sequence = ""
         if args.overconversion_sequence is not None: 
             self.overconversion_sequence = args.overconversion_sequence
+            
+        #Check Temp Directory
+        if not os.path.isdir(self.tmp_dir):
+            raise CommandException("Temporary directory %s does not exists or is not a directory." %(self.tmp_dir))
 
-             
         self.log_parameter()
         logging.gemBS.gt("Bisulfite Mapping...")
         ret = src.mapping(name=self.name,index=self.index,fliInfo=self.fliInfo,
