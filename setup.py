@@ -16,7 +16,8 @@ import shutil
 
 __VERSION_MAJOR = "2"
 __VERSION_MINOR = "0"
-__VERSION__ = "%s.%s" % (__VERSION_MAJOR, __VERSION_MINOR)
+__VERSION_SUBMINOR = "2"
+__VERSION__ = "%s.%s.%s" % (__VERSION_MAJOR, __VERSION_MINOR,__VERSION_SUBMINOR)
 
 def compile_gemBS_tools():
     process = subprocess.Popen(['make'], shell=True, cwd='tools')

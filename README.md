@@ -60,6 +60,10 @@ Documentation can be found at [GEMBS](http://statgen.cnag.cat/GEMBS/)
 ----------
 Changelog:
 ----------
+    2.0.2 Check temporary directory existence.
+    2.0.2 Fixed QualityNonRefCpg sample name in png image.
+    2.0.2 Fixed mapper issues related with aligning performace.
+    2.0.2 Fixed arguments for Under/Over Conversion sequence name in gem3-mapper
     2.0.1 On bscall repository, fixed argument -k about discarded reads that do not form proper pairs.
     2.0 Check tmp folder before starting mapping process.
     2.0 Added Left and Right Trimming optional arguments to gemBS bscall.

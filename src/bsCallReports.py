@@ -561,7 +561,7 @@ def buildBscallReports(inputs=None,output_dir=None,name=None):
         qualityAll = Quality(concept="All",yLabel="#Sites",pngFile="%s/IMG/%s_quality_all.png" %(output_dir,sample))
         qualityVariant = Quality(concept="Variants",yLabel="#SNPs",pngFile="%s/IMG/%s_quality_variant.png" %(output_dir,sample))
         qualityRefCpG = Quality(concept="RefCpG",yLabel="#CpGs",pngFile="%s/IMG/%s_quality_refcpg.png" %(output_dir,sample))
-        qualityNonRefCpG = Quality(concept="NonRefCpG",yLabel="#CpGs",pngFile="%s/IMG/%s_quality_nonRefCpg.png" %(output_dir,name))
+        qualityNonRefCpG = Quality(concept="NonRefCpG",yLabel="#CpGs",pngFile="%s/IMG/%s_quality_nonRefCpg.png" %(output_dir,sample))
         #QC Distributions
         fsVariant = QCDistribution(concept="FisherStrandVariant",typeDistribution="FisherStrand",typeBaseLocation="",pngFile="%s/IMG/%s_fs_variant.png" %(output_dir,sample))
         fsVariant.setAxisXLabel(newLabel="Fisher Strand Phred scale probability")
