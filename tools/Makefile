@@ -46,7 +46,6 @@ setup:
 clean:
 	@rm -f $(FOLDER_BIN)/*
 	$(MAKE) --directory=gem3-mapper clean
-	$(MAKE) --directory=cpgStats clean
 	$(MAKE) --directory=vcfMethStatsCollector clean
 	$(MAKE) --directory=bs_call clean
 
