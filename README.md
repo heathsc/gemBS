@@ -60,6 +60,7 @@ Documentation can be found at [GEMBS](http://statgen.cnag.cat/GEMBS/)
 ----------
 Changelog:
 ----------
+    2.0.2 Fixed bug related with the percentage of High Quality Variant in Variants summary report.
     2.0.2 Check temporary directory existence.
     2.0.2 Fixed QualityNonRefCpg sample name in png image.
     2.0.2 Fixed mapper issues related with aligning performace.

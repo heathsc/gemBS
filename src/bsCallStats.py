@@ -1431,7 +1431,7 @@ class SummarySample(StatsMother):
         variantsAndCoverage.append("%s"%(self.fromGenomeEventsToEasyToRead(events=allSnps)))
         #2.2 Variants High Quality
         snps_passed = self.totalStats.snps.data["Passed"]
-        variantsAndCoverage.append("%s (%.2f %%)"%(self.fromGenomeEventsToEasyToRead(events=snps_passed),self.getPercentage(passed,allSnps)))
+        variantsAndCoverage.append("%s (%.2f %%)"%(self.fromGenomeEventsToEasyToRead(events=snps_passed),self.getPercentage(snps_passed,allSnps)))
         #2.3 Mean Coverage Variants High Quality
         variantsAndCoverage.append("%.2f X" %(self.variantCoverage.getMean()))
         #2.4 Ti/Tv Ration Passed
