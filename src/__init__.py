@@ -288,7 +288,6 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
         
     ## prepare inputs
     index = _prepare_index_parameter(index)
-    
     ## prepare the input
     bamToFastq = []  
     mapping = [executables['gem-mapper'], '-I', index]
@@ -305,26 +304,20 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
     #Check output directory
     if not os.path.exists(outputDir):
         os.makedirs(outputDir)
-
     #Paired End
     if paired:
-        mapping.append("-p")
-        
+        mapping.append("-p")    
     #Non Stranded
     if read_non_stranded:
         mapping.extend(["--bisulfite-read","non-stranded"])        
-  
     #Number of threads
     mapping.extend(["-t",threads])
-
     #Mapping stats
     report_file = "%s/%s.json" % (outputDir,name)
     mapping.extend(["--report-file",report_file])
-    
     #Read Groups
     readGroups = "@RG\\tID:%s\\tSM:%s\\tLB:%s\\tPU:%s\\tCN:CNAG\\tPL:Illumina" %(fliInfo.getFli(),fliInfo.sample_barcode,fliInfo.library,fliInfo.getFli())
-    mapping.extend(["-r",readGroups])
-        
+    mapping.extend(["-r",readGroups])    
     #Bisulfite Conversion Values
     if under_conversion != "":
         mapping.extend(["--underconversion_sequence",under_conversion])
@@ -336,29 +329,20 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
     readNameClean = [executables['readNameClean']]
          
     #BAM SORT
-    
-    #SAMBAMBA VIEW
     bamView = ["samtools","view","-h","-"]    
-    
-    #SAMBAMBA SORT
     nameOutput="%s/%s.bam" %(outputDir,name)
     bamSort = ["samtools","sort","-T","%s/%s"%(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
     
-    tools = [mapping]
-    tools.append(readNameClean)
-    tools.append(bamView)
-    tools.append(bamSort)
+    tools = [mapping,readNameClean,bamView,bamSort]
     
     if file_bam is not None:
         tools.insert(0, bamToFastq)
     
-    process = utils.run_tools(tools, name="bisulphite-mapping")
+    process = utils.run_tools(tools, name="bisulfite-mapping")
     if process.wait() != 0:
-        raise ValueError("Error while executing the Bisulphite bisulphite-mapping")
+        raise ValueError("Error while executing the Bisulfite bisulphite-mapping")
     
     #BAM INDEXING    
-    tools = []
-    
     bamIndex = ["samtools","index","%s"%(nameOutput)]
     tools = [bamIndex]
     
@@ -367,11 +351,93 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
         raise ValueError("Error while executing the indexing of the Bisulphite mapped file.")
         
     #Rename Index file
-    tools = []
     nameIndex="%s/%s.bai" %(outputDir,name)
     renameFile = ["mv","%s.bai"%(nameOutput),"%s"%(nameIndex)]
     tools = [renameFile]
     
+    processRename = utils.run_tools(tools, name="Rename Index File")
+    if processRename.wait() != 0:
+        raise ValueError("Error while executing Renaming the index file.")
+        
+    return os.path.abspath("%s" % nameOutput)
+    
+    
+def direct_mapping(name=None,index=None,fliInfo=None,paired=None,threads=None,
+                   file_pe_one=None,file_pe_two=None,file_input=None,is_bam=False,
+                   read_non_stranded=None,
+                   outputDir=None,tmpDir=None,
+                   under_conversion=None,over_conversion=None):
+    """ Trigger the GEM 3 Bisulfite mapping on a given input or from STDIN 
+
+        name --  Name basic (FLI) for the input and output fastq files
+        index -- Path to the Bisulfite Index reference to map to
+        fliInfo -- FLI object with metadata information (useful for read groups)
+        paired -- Paired End flag
+        threads -- Number of threads
+        is_bam -- True if the input file is BAM or SAM
+        file_pe_one -- First pair fastq file (Paired End)
+        file_pe_two -- Second pair fastq file (Paired End)
+        file_input -- Interleaved file or single end file
+        read_non_stranded -- Reads from non stranded protocol
+        outputDir -- Directory to store the Bisulfite mapping results
+        tmpDir -- Temporary directory to store the Bisulfite mapping results
+        under_conversion -- Under Conversion sequence
+        over_conversion -- Over conversion sequence
+    """
+    #Check index
+    index = _prepare_index_parameter(index)
+    #Prepare Mapping Command
+    bamToFastq = []
+    mapping = [executables['gem-mapper'],'-I',index]
+    if paired:
+        mapping.append("-p")
+    if threads:
+        mapping.extend(["-t",threads])
+    #Treat BAM/FASTQ input
+    if is_bam:
+        if file_input:
+            bamToFastq.extend(["samtools","bam2fq",file_input])
+        else:
+            bamToFastq.extend(["samtools","bam2fq","-"])
+    else:
+        if file_pe_one and file_pe_two:
+            mapping.extend(["--i1",file_pe_one,"--i2",file_pe_two])
+        elif file_input: 
+            mapping.extend(["--input",file_input])
+    #Non Stranded protocol
+    if read_non_stranded:
+        mapping.extend(["--bisulfite-read","non-stranded"])
+    #Mapping stats
+    report_file = "%s/%s.json" % (outputDir,name)
+    mapping.extend(["--report-file",report_file])
+    #Read Groups
+    readGroups = "@RG\\tID:%s\\tSM:%s\\tLB:%s\\tPU:%s\\tCN:CNAG\\tPL:Illumina" %(fliInfo.getFli(),fliInfo.sample_barcode,fliInfo.library,fliInfo.getFli())
+    mapping.extend(["-r",readGroups])
+    #READ FILTERING
+    readNameClean = [executables['readNameClean']]
+    #BAM SORT
+    bamView = ["samtools","view","-h","-"]    
+    nameOutput="%s/%s.bam" %(outputDir,name)
+    bamSort = ["samtools","sort","-T","%s/%s"%(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
+    #Mount pipe command
+    tools = [mapping,readNameClean,bamView,bamSort]
+    if is_bam:
+        tools.insert(0, bamToFastq)    
+    process = utils.run_tools(tools, name="bisulfite-direct-mapping")
+    if process.wait() != 0:
+        raise ValueError("Error while executing the Bisulphite bisulfite-direct-mapping")
+        
+    #BAM INDEXING    
+    bamIndex = ["samtools","index","%s"%(nameOutput)]
+    tools = [bamIndex]
+    processIndex = utils.run_tools(tools, name="Index mapped file")
+    if processIndex.wait() != 0:
+        raise ValueError("Error while executing the indexing of the Bisulfite mapped file.")
+        
+    #Rename Index file
+    nameIndex="%s/%s.bai" %(outputDir,name)
+    renameFile = ["mv","%s.bai"%(nameOutput),"%s"%(nameIndex)]
+    tools = [renameFile]
     processRename = utils.run_tools(tools, name="Rename Index File")
     if processRename.wait() != 0:
         raise ValueError("Error while executing Renaming the index file.")

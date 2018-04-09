@@ -373,7 +373,7 @@ class Mapping(BasicPipeline):
         printer("Name             : %s", self.name)
         printer("Index            : %s", self.index)
         printer("Paired           : %s", self.paired)
-        printer("Read non standard: %s", self.read_non_stranded)
+        printer("Read non stranded: %s", self.read_non_stranded)
         printer("Input Pair One   : %s", self.input_pair_one)
         printer("Input Pair Two   : %s", self.input_pair_two)
         printer("Input Interleaved: %s", self.input_interleaved)

@@ -60,6 +60,8 @@ Documentation can be found at [GEMBS](http://statgen.cnag.cat/GEMBS/)
 ----------
 Changelog:
 ----------
+    2.1.0 Add new command gemBS direct-mapping
+    2.1.0 Fixed Makefile clean in tools
     2.0.2 Fixed bug related with the percentage of High Quality Variant in Variants summary report.
     2.0.2 Check temporary directory existence.
     2.0.2 Fixed QualityNonRefCpg sample name in png image.

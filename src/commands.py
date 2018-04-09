@@ -3,18 +3,18 @@
 import argparse
 import utils
 import production
+import productionAdvanced
 import sys
 from sys import exit
-import signal
 
 import src
 
-__VERSION__ = "2.0.2"
+__VERSION__ = "2.1.0"
 
 def gemBS():
     try:
         parser = argparse.ArgumentParser(prog="gemBS",
-                description="gemBS is a wrapper to perform the different steps involved in the Bisulfite pipeline."
+                description="gemBS is a bioinformatic pipeline to perform the different steps involved in the Bisulfite Sequencing Analysis."
                 )
         parser.add_argument('--loglevel', dest="loglevel", default=None, help="Log level (error, warn, info, debug)")
         parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __VERSION__)
@@ -24,6 +24,7 @@ def gemBS():
             "index" : production.Index,
             "mapping-commands" : production.MappingCommnads,
             "mapping" : production.Mapping,
+            "direct-mapping" : productionAdvanced.DirectMapping,
             "merging-all" : production.MergingAll,
             "merging-sample" : production.MergingSample,
             "methylation-call" : production.MethylationCall,
