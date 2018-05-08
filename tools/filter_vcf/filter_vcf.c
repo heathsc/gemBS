@@ -135,7 +135,7 @@ static void output_cpg(FILE *fp, const char *ctg, const uint64_t x,
                        const uint64_t *counts, const uint64_t *counts1,
                        const double under_conv, const double over_conv,
                        const int bq_thresh) {
-  fprintf(fp, "%s\t%llu\t%.2s\t%.2s\t%d", ctg, x, ctxt + 2, call_ctxt + 2,
+  fprintf(fp, "%s\t%" PRIu64 "\t%.2s\t%.2s\t%d", ctg, x, ctxt + 2, call_ctxt + 2,
           phred);
   uint64_t ct[4];
   if (counts1) {
@@ -163,14 +163,14 @@ static void output_cpg(FILE *fp, const char *ctg, const uint64_t x,
     fprintf(fp, "\t%.3f\t%.3f", m, sd);
   } else
     fputs("\t-\t-", fp);
-  fprintf(fp, "\t%llu\t%llu\t%llu\t%llu", ct[0], ct[1], ct[2], ct[3]);
-  fprintf(fp, "\t%llu", counts[0]);
+  fprintf(fp, "\t%" PRIu64 "\t%" PRIu64 "\t%" PRIu64 "\t%" PRIu64, ct[0], ct[1], ct[2], ct[3]);
+  fprintf(fp, "\t%" PRIu64, counts[0]);
   for (int i = 1; i < 8; i++)
-    fprintf(fp, ",%llu", counts[i]);
+    fprintf(fp, ",%" PRIu64, counts[i]);
   if (counts1) {
-    fprintf(fp, "\t%llu", counts1[0]);
+    fprintf(fp, "\t%" PRIu64, counts1[0]);
     for (int i = 1; i < 8; i++)
-      fprintf(fp, ",%llu", counts1[i]);
+      fprintf(fp, ",%" PRIu64, counts1[i]);
   } else {
   	fputs("\t-,-,-,-,-,-,-,-",fp);
   }
@@ -214,23 +214,23 @@ static void process_file(FILE *fp, filter_params *params) {
         }
         if (filter) {
           char *outfile = 0;
-          asprintf(&outfile, "%s/%s_cpg.txt.%s",params->out_prefix,sample, suffix);
+          (void)asprintf(&outfile, "%s/%s_cpg.txt.%s",params->out_prefix,sample, suffix);
           int i = child_open(WRITE, outfile, filter);
           fp_cpg = fdopen(i, "w");
           free(outfile);
           if (params->all_flag) {
-            asprintf(&outfile, "%s/%s_all.txt.%s",params->out_prefix, sample, suffix);
+            (void)asprintf(&outfile, "%s/%s_all.txt.%s",params->out_prefix, sample, suffix);
             i = child_open(WRITE, outfile, filter);
             fp_all = fdopen(i, "w");
             free(outfile);
           }
         } else {
           char *outfile = 0;
-          asprintf(&outfile, "%s/%s_cpg.txt",params->out_prefix,sample);
+          (void)asprintf(&outfile, "%s/%s_cpg.txt",params->out_prefix,sample);
           fp_cpg = fopen(outfile, "w");
           free(outfile);
           if (params->all_flag) {
-            asprintf(&outfile, "%s/%s_all.txt",params->out_prefix,sample);
+            (void)asprintf(&outfile, "%s/%s_all.txt",params->out_prefix,sample);
             fp_all = fopen(outfile, "w");
             free(outfile);
           }

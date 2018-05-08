@@ -38,4 +38,4 @@ debug: TOOLS_FLAGS=-O0 $(GENERAL_FLAGS) $(ARCH_FLAGS) $(DEBUG_FLAGS)
 debug: $(TOOLS_BIN)
 
 $(TOOLS_BIN): $(TOOLS_SRC)
-	$(CC) --std=c99  $(TOOLS_FLAGS) -o $@ $(notdir $@).c $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LOKI_LIBS) $(LIBS) $(EXTRA_LIBS)
+	$(CC) --std=gnu11  $(TOOLS_FLAGS) -o $@ $(notdir $@).c $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LOKI_LIBS) $(LIBS) $(EXTRA_LIBS)
