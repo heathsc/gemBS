@@ -1,6 +1,3 @@
 [submodule "tools/gem3-mapper"]
 	path = tools/gem3-mapper
 	url = https://github.com/heathsc/gem3-mapper.git
-[submodule "bs_call"]
-	path = bs_call
-	url = https://github.com/heathsc/bs_call.git
