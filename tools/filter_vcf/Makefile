@@ -17,7 +17,7 @@ TOOLS=filter_vcf
 FOLDER_BIN=../bin/
 TOOLS_SRC=$(addsuffix .c, $(TOOLS))
 TOOLS_BIN=$(addprefix $(FOLDER_BIN)/, $(TOOLS))
-LOKI_LIBS:=-I../loki/include -L../loki/libsrc
+GEN_LIBS:=-I../gen/include -L../gen/libsrc
 LIBS:=-lgen -lm
 
 
@@ -38,4 +38,4 @@ debug: TOOLS_FLAGS=-O0 $(GENERAL_FLAGS) $(ARCH_FLAGS) $(DEBUG_FLAGS)
 debug: $(TOOLS_BIN)
 
 $(TOOLS_BIN): $(TOOLS_SRC)
-	$(CC) --std=gnu11  $(TOOLS_FLAGS) -o $@ $(notdir $@).c $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LOKI_LIBS) $(LIBS) $(EXTRA_LIBS)
+	$(CC) --std=gnu11  $(TOOLS_FLAGS) -o $@ $(notdir $@).c $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(GEN_LIBS) $(LIBS) $(EXTRA_LIBS)

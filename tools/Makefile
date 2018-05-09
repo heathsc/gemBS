@@ -15,8 +15,8 @@ all: release
 
 static:	setup
 	$(MAKE) --directory=src static
-	cd loki; ./configure;
-	$(MAKE) --directory=loki static
+	cd gen; ./configure;
+	$(MAKE) --directory=gen static
 	$(MAKE) --directory=filter_vcf static
 	$(MAKE) --directory=bs_call static
 	cd gem3-mapper; ./configure;
@@ -24,8 +24,8 @@ static:	setup
 
 release: setup	
 	$(MAKE) --directory=src	
-	cd loki; ./configure;      
-	$(MAKE) --directory=loki
+	cd gen; ./configure;      
+	$(MAKE) --directory=gen
 	$(MAKE) --directory=filter_vcf
 	$(MAKE) --directory=bs_call
 	cd gem3-mapper; ./configure;
@@ -33,8 +33,8 @@ release: setup
 
 debug: setup
 	$(MAKE) --directory=src debug
-	cd loki; ./configure
-	$(MAKE) --directory=loki debug
+	cd gen; ./configure
+	$(MAKE) --directory=gen debug
 	$(MAKE) --directory=filter_vcf debug
 	$(MAKE) --directory=bs_call debug
 	cd gem3-mapper; ./configure;
