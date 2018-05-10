@@ -142,6 +142,7 @@ executables = execs_dict({
     "bs_call":"bs_call",
     "dbSNP_idx":"dbSNP_idx",
     "filter_vcf": "filter_vcf",
+    "sln": "sln",
     })
 
 
@@ -469,7 +470,7 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/"):
             for bamFile in listBams:
                 bammerging.append(bamFile)
         else:
-            bammerging.extend(["cp",listBams[0],bam_filename])
+            bammerging.extend([executables['sln'],listBams[0],bam_filename])
 
         #Check output directory
         if not os.path.exists(output_dir):
@@ -503,7 +504,7 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/"):
                 raise ValueError("Rename Index.")
         else:
             #Copy Index file from single file
-            copySingleFile = ["cp","%s"%(listBams[0].replace("bam", "bai")),"%s"%(index_filename)]
+            copySingleFile = [executables['sln'],"%s"%(listBams[0].replace("bam", "bai")),"%s"%(index_filename)]
             
             processCopySingleFile = utils.run_tools([copySingleFile],name="Copy Single Index File")
                 
