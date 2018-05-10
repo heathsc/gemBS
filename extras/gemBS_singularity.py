@@ -7,7 +7,6 @@ import sys
 # Clean sys.path
 p=[]
 for x in sys.path[:]:
-	print(x)
 	if x[:4] == '/usr':
 		p.append(x)
 sys.path = p
