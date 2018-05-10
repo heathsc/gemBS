@@ -478,7 +478,11 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/"):
         
         logging.debug("Merging sample: %s" % sample)
         
-        process = utils.run_tools([bammerging], name="bisulphite-merging",output=bam_filename)
+        if len(listBams) > 1 :
+            process = utils.run_tools([bammerging], name="bisulphite-merging",output=bam_filename)
+        else:
+            process = utils.run_tools([bammerging], name="bisulphite-merging",output=None)
+        
         if process.wait() != 0:
             raise ValueError("Error while executing the Bisulphite merging")
         
