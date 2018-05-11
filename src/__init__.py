@@ -330,11 +330,10 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
     readNameClean = [executables['readNameClean']]
          
     #BAM SORT
-    bamView = ["samtools","view","-h","-"]    
     nameOutput="%s/%s.bam" %(outputDir,name)
     bamSort = ["samtools","sort","-T","%s/%s"%(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
     
-    tools = [mapping,readNameClean,bamView,bamSort]
+    tools = [mapping,readNameClean,bamSort]
     
     if file_bam is not None:
         tools.insert(0, bamToFastq)
@@ -343,23 +342,6 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
     if process.wait() != 0:
         raise ValueError("Error while executing the Bisulfite bisulphite-mapping")
     
-    #BAM INDEXING    
-    bamIndex = ["samtools","index","%s"%(nameOutput)]
-    tools = [bamIndex]
-    
-    processIndex = utils.run_tools(tools, name="index mapped file")
-    if processIndex.wait() != 0:
-        raise ValueError("Error while executing the indexing of the Bisulphite mapped file.")
-        
-    #Rename Index file
-    nameIndex="%s/%s.bai" %(outputDir,name)
-    renameFile = ["mv","%s.bai"%(nameOutput),"%s"%(nameIndex)]
-    tools = [renameFile]
-    
-    processRename = utils.run_tools(tools, name="Rename Index File")
-    if processRename.wait() != 0:
-        raise ValueError("Error while executing Renaming the index file.")
-        
     return os.path.abspath("%s" % nameOutput)
     
     
@@ -417,31 +399,16 @@ def direct_mapping(name=None,index=None,fliInfo=None,paired=None,threads=None,
     #READ FILTERING
     readNameClean = [executables['readNameClean']]
     #BAM SORT
-    bamView = ["samtools","view","-h","-"]    
+    #bamView = ["samtools","view","-h","-"]    
     nameOutput="%s/%s.bam" %(outputDir,name)
     bamSort = ["samtools","sort","-T","%s/%s"%(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
     #Mount pipe command
-    tools = [mapping,readNameClean,bamView,bamSort]
+    tools = [mapping,readNameClean,bamSort]
     if is_bam:
         tools.insert(0, bamToFastq)    
     process = utils.run_tools(tools, name="bisulfite-direct-mapping")
     if process.wait() != 0:
         raise ValueError("Error while executing the Bisulphite bisulfite-direct-mapping")
-        
-    #BAM INDEXING    
-    bamIndex = ["samtools","index","%s"%(nameOutput)]
-    tools = [bamIndex]
-    processIndex = utils.run_tools(tools, name="Index mapped file")
-    if processIndex.wait() != 0:
-        raise ValueError("Error while executing the indexing of the Bisulfite mapped file.")
-        
-    #Rename Index file
-    nameIndex="%s/%s.bai" %(outputDir,name)
-    renameFile = ["mv","%s.bai"%(nameOutput),"%s"%(nameIndex)]
-    tools = [renameFile]
-    processRename = utils.run_tools(tools, name="Rename Index File")
-    if processRename.wait() != 0:
-        raise ValueError("Error while executing Renaming the index file.")
         
     return os.path.abspath("%s" % nameOutput)
     
@@ -489,31 +456,22 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/"):
         return_info[sample] = os.path.abspath("%s" % bam_filename)
         
         #Samtools index
-        if len(listBams) > 1 :        
-            indexing = ["samtools","index","%s"%(bam_filename)]
-            processIndex = utils.run_tools([indexing],name="Indexing")
+        indexing = ["samtools","index","%s"%(bam_filename)]
+        processIndex = utils.run_tools([indexing],name="Indexing")
         
-            if processIndex.wait() != 0:
-                raise ValueError("Error while indexing.")
+        if processIndex.wait() != 0:
+            raise ValueError("Error while indexing.")
         
-            #Rename file
-            reName = ['mv',
-                      '%s.bai' %(bam_filename),                         
-                      index_filename
-                     ]        
+        #Rename file
+        reName = ['mv',
+        '%s.bai' %(bam_filename),                         
+        index_filename
+        ]        
         
-            processRename = utils.run_tools([reName],name="Rename Index")
+        processRename = utils.run_tools([reName],name="Rename Index")
                 
-            if processRename.wait() != 0:
-                raise ValueError("Rename Index.")
-        else:
-            #Copy Index file from single file
-            copySingleFile = [executables['sln'],"%s"%(listBams[0].replace("bam", "bai")),"%s"%(index_filename)]
-            
-            processCopySingleFile = utils.run_tools([copySingleFile],name="Copy Single Index File")
-                
-            if processCopySingleFile.wait() != 0:
-                raise ValueError("Copy Single Index Files")
+        if processRename.wait() != 0:
+            raise ValueError("Rename Index.")
     
     return return_info 
 
