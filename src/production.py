@@ -19,15 +19,14 @@ class Fli(object):
     
     def __init__(self):
         #fli Members
+        self.fli = None
         self.sample_barcode = None
         self.library = None
-        self.flowcell = None
-        self.lane = None
-        self.index = None
-        
+        self.type = None
+        self.file = None
     def getFli(self):
         #Get FLI (flowcell lane index)
-        return "%s_%s_%s" %(self.flowcell,self.lane,self.index)
+        return self.fli
 
 
 class FLIdata(object):
@@ -42,19 +41,18 @@ class FLIdata(object):
             for fli in data:
                 fliCommands = Fli()            
                 
+                fliCommands.fli = fli
                 for key, value in data[fli].iteritems():
                     if key == "sample_barcode":
                         fliCommands.sample_barcode = value    
                     elif key == "library_barcode":
                         fliCommands.library = value    
-                    elif key == "flowcell_name":
-                        fliCommands.flowcell = value
-                    elif key == "lane_number":
-                        fliCommands.lane = value
-                    elif key == "index_name":
-                        fliCommands.index = value
-                
-                self.sampleData[fliCommands.getFli()] = fliCommands
+                    elif key == "type":
+                        fliCommands.type = value
+                    elif key == "file":
+                        fliCommands.file = value
+
+                    self.sampleData[fli] = fliCommands
 
 class BasicPipeline(Command):
     """General mapping pipeline class."""
@@ -198,6 +196,8 @@ class MappingCommnads(BasicPipeline):
         
         
     def run(self,args):
+        from sets import Set
+        paired_types = Set(['PAIRED', 'INTERLEAVED', 'PAIRED_STREAM'])
         ## All Flowcell Lane Index        
         for k,v in FLIdata(args.json_file).sampleData.iteritems():
             ##Non Stranded
@@ -211,8 +211,11 @@ class MappingCommnads(BasicPipeline):
             if args.overconversion_sequence is not None:  
                 conversion_parameters += " -v %s" %(args.overconversion_sequence)
             
-            
-            if args.paired_end:
+            paired = args.paired_end
+            if paired == None:
+                if v.type in paired_types:
+                    paired = True
+            if paired:
                 print "gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s -p %s %s"\
                        %(args.index,k,args.json_file,args.input_dir,args.ouput_dir,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters)
             else:
@@ -256,6 +259,8 @@ class Mapping(BasicPipeline):
          
            
     def run(self, args):     
+        from sets import Set
+        paired_types = Set(['PAIRED', 'INTERLEAVED', 'PAIRED_STREAM'])
         #Flowcell Lane Index
         self.name = args.fli
         #Flowcell Lane Index Info
@@ -266,6 +271,9 @@ class Mapping(BasicPipeline):
         self.output_dir = args.output_dir
         #Paired
         self.paired = args.paired_end
+        if self.paired == None:
+            if self.fliInfo.type in paired_types:
+                self.paired = True
         #Read Non Standard
         self.read_non_stranded = args.read_non_stranded
         #TMP
@@ -278,44 +286,70 @@ class Mapping(BasicPipeline):
         self.input_pair_two = None
         self.input_interleaved = None        
         self.input_se = None
-        self.input_bam = None        
+        self.input_bam = None 
+        self.input_stream = None
         
-        self.inputPath = args.input_dir + "/" + self.fliInfo.getFli()
-        
-        #Check for input data
-        if args.paired_end:
-            #Pair One
-            if os.path.isfile(self.inputPath + "_1.fastq"):
-                self.input_pair_one = self.inputPath + "_1.fastq"
-            elif os.path.isfile(self.inputPath + "_1.fastq.gz"):
-                self.input_pair_one = self.inputPath + "_1.fastq.gz"
-            elif os.path.isfile(self.inputPath + "_1.fq"):
-                self.input_pair_one = self.inputPath + "_1.fq"
-            elif os.path.isfile(self.inputPath + "_1.fq.gz"):
-                self.input_pair_one = self.inputPath + "_1.fq.gz"
-            
-            #Pair Two
-            if os.path.isfile(self.inputPath + "_2.fastq"):
-                self.input_pair_two = self.inputPath + "_2.fastq"
-            elif os.path.isfile(self.inputPath + "_2.fastq.gz"):
-                self.input_pair_two = self.inputPath + "_2.fastq.gz"
-            elif os.path.isfile(self.inputPath + "_2.fq"):
-                self.input_pair_two = self.inputPath + "_2.fq"
-            elif os.path.isfile(self.inputPath + "_2.fq.gz"):
-                self.input_pair_two = self.inputPath + "_2.fq.gz"
-                
-            #Interleaved
-            if self.input_pair_one is None and self.input_pair_two is None:
-                if os.path.isfile(self.inputPath + ".fastq"):
-                    self.input_interleaved = self.inputPath + ".fastq"
-                elif os.path.isfile(self.inputPath + ".fastq.gz"):
-                    self.input_interleaved = self.inputPath + ".fastq.gz"
-                elif os.path.isfile(self.inputPath + ".fq"):
-                    self.input_interleaved = self.inputPath + ".fq"
-                elif os.path.isfile(self.inputPath + ".fq.gz"):
-                    self.input_interleaved = self.inputPath + ".fq.gz"
+        if self.fliInfo.file:
+            self.inputPath = args.input_dir + "/"
+            files = self.fliInfo.file
+            ftype = self.fliInfo.type
+            if files:
+                if ftype == 'PAIRED':
+                    self.input_pair_one = self.inputPath + files['1']
+                    self.input_pair_two = self.inputPath +  files['2']
+                elif ftype == 'SINGLE':
+                    for k,v in iteritems(files):
+                        self.input_pair_se = self.inputPath + v
+                        break
+                elif ftype == 'INTERLEAVED':
+                    for k,v in iteritems(files):
+                        self.input_interleaved = self.inputPath + v
+                        break
+                elif ftype == 'SAM' or ftype == 'BAM':
+                    for k,v in iteritems(files):
+                        self.input_interleaved = self.inputPath + v
+                        break
+                elif ftype == 'STREAM' or ftype == 'PAIRED_STREAM' or ftype == 'SINGLE_STREAM':
+                    for k,v in iteritems(files):
+                        self.input_stream = self.inputPath + v
+                        break
         else:
+            self.inputPath = args.input_dir + "/" + self.fliInfo.getFli()
+        
+            #Check for input data
+            if args.paired_end:
+                #Pair One
+                if os.path.isfile(self.inputPath + "_1.fastq"):
+                    self.input_pair_one = self.inputPath + "_1.fastq"
+                elif os.path.isfile(self.inputPath + "_1.fastq.gz"):
+                    self.input_pair_one = self.inputPath + "_1.fastq.gz"
+                elif os.path.isfile(self.inputPath + "_1.fq"):
+                    self.input_pair_one = self.inputPath + "_1.fq"
+                elif os.path.isfile(self.inputPath + "_1.fq.gz"):
+                    self.input_pair_one = self.inputPath + "_1.fq.gz"
+                    
+                #Pair Two
+                if os.path.isfile(self.inputPath + "_2.fastq"):
+                    self.input_pair_two = self.inputPath + "_2.fastq"
+                elif os.path.isfile(self.inputPath + "_2.fastq.gz"):
+                    self.input_pair_two = self.inputPath + "_2.fastq.gz"
+                elif os.path.isfile(self.inputPath + "_2.fq"):
+                    self.input_pair_two = self.inputPath + "_2.fq"
+                elif os.path.isfile(self.inputPath + "_2.fq.gz"):
+                    self.input_pair_two = self.inputPath + "_2.fq.gz"
+                
+                #Interleaved
+                if self.input_pair_one is None and self.input_pair_two is None:
+                    if os.path.isfile(self.inputPath + ".fastq"):
+                        self.input_interleaved = self.inputPath + ".fastq"
+                    elif os.path.isfile(self.inputPath + ".fastq.gz"):
+                        self.input_interleaved = self.inputPath + ".fastq.gz"
+                    elif os.path.isfile(self.inputPath + ".fq"):
+                        self.input_interleaved = self.inputPath + ".fq"
+                    elif os.path.isfile(self.inputPath + ".fq.gz"):
+                        self.input_interleaved = self.inputPath + ".fq.gz"
             #Single End
+            else:
                 if os.path.isfile(self.inputPath + ".fastq"):
                     self.input_se = self.inputPath + ".fastq"
                 elif os.path.isfile(self.inputPath + ".fastq.gz"):
@@ -323,12 +357,12 @@ class Mapping(BasicPipeline):
                 elif os.path.isfile(self.inputPath + ".fq"):
                     self.input_se = self.inputPath + ".fq"
                 elif os.path.isfile(self.inputPath + ".fq.gz"):
-                    self.input_se =self.inputPath + ".fq.gz"  
+                        self.input_se =self.inputPath + ".fq.gz"  
                     
-        #Check for BAM input data
-        if self.input_pair_one is None and self.input_pair_two is None and self.input_interleaved is None and self.input_se is None:
-            if os.path.isfile(self.inputPath + ".bam"):
-                self.input_bam = self.inputPath + ".bam"
+        		#Check for BAM input data
+            if self.input_pair_one is None and self.input_pair_two is None and self.input_interleaved is None and self.input_se is None:
+                if os.path.isfile(self.inputPath + ".bam"):
+                    self.input_bam = self.inputPath + ".bam"
                 
         #Check for input existance
         if self.input_pair_one is None and self.input_pair_two is None and self.input_interleaved is None and self.input_se is None and self.input_bam is None: 
@@ -481,7 +515,7 @@ class MergingSample(BasicPipeline):
             self.totalFiles += len(listBams)
               
         if self.totalFiles < 1:
-            raise CommandException("Sorry not bam files were found!!")
+            raise CommandException("Sorry no bam files were found!!")
         elif self.totalFiles != self.records:
             raise CommandException("Sorry not all bam files were created!!")
             
@@ -818,7 +852,7 @@ class MappingReports(BasicPipeline):
                
         #Check list of file
         if len(self.sample_lane_files) < 1:
-            raise CommandException("Sorry not json files were found!!")
+            raise CommandException("Sorry no json files were found!!")
 
         self.log_parameter()
         logging.gemBS.gt("Building html reports...")

@@ -47,7 +47,8 @@ def gemBS():
         args = parser.parse_args()
         if args.loglevel is not None:
             src.loglevel(args.loglevel)
-           
+        else:
+        		sys.tracebacklimit = 0
         try:
             instances[args.command].run(args)
         except utils.CommandException, e:

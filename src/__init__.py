@@ -183,32 +183,132 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None)
     """
     if text_metadata is not None:
         #Parses Metadata coming from text file
+        headers = { 
+        		'sample': 'sample_barcode', 'sampleid': 'sample_barcode', 'barcode': 'sample_barcode', 'samplebarcode': 'sample_barcode',
+        		'library': 'library_barcode', 'lib': 'library_barcode', 'libbarcode': 'library_barcode', 'librarybarcode': 'library_barcode',
+            'fileid': 'fli', 'fli': 'fli', 'dataset': 'fli', 
+            'type': 'type', 'filetype': 'type', 
+            'readend': 'end', 'end': 'end',
+            'file': 'file', 'location': 'file', 'command': 'file',
+            'readend1': 'file1', 'end1': 'file1', 'file1': 'file1', 'location1': 'file1', 'command1': 'file1',
+            'readend2': 'file2', 'end2': 'file2', 'file2': 'file2', 'location2': 'file2', 'command2': 'file2'
+            }
+        from sets import Set
+        data_types = Set(['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM'])
         generalDictionary = {}
         with open(text_metadata, 'r') as f:
             reader = csv.reader(f)
-            for row in reader:
-                sampleDirectory = {}
-                sampleDirectory["sample_barcode"] = row[0].replace(" ", "")
-                sampleDirectory["library_barcode"] = row[1].replace(" ", "")
-                sampleDirectory["flowcell_name"] = row[2].replace(" ", "")
-                sampleDirectory["lane_number"] = row[3].replace(" ", "")
-                sampleDirectory["index_name"] = row[4].replace(" ", "")
-                fli = "%s_%s_%s" %(sampleDirectory["flowcell_name"],sampleDirectory["lane_number"],sampleDirectory["index_name"])
-                generalDictionary[fli] = sampleDirectory
-                        
+            try:
+                line = reader.next()
+            except StopIteration:
+                raise ValueError('Empty configuration file');
+            header_found = {}
+            col_desc = []
+            for i, entry in enumerate(line):
+                entry = entry.strip().replace("_", "")
+                head = headers.get(entry.lower())
+                if head != None:
+                    if header_found.has_key(head):
+                        raise ValueError('Header line contains {} and {}'.format(header_found.get(head), entry))
+                    header_found[head] = entry
+                col_desc.append(head)
+            if header_found.has_key('sample_barcode') and header_found.has_key('fli'):
+                for line in reader:
+                    sampleDirectory = {}
+                    fli = None
+                    end = None
+                    filename = None
+                    file1 = None
+                    file2 = None
+                    for i, head in enumerate(col_desc):
+                        if i == len(line):
+                            break
+                        field = line[i].strip()
+                        if field != "":
+                            if head == "fli":
+                                fli = field
+                            elif head == "end":
+                                end = field
+                            elif head == "file":
+                                filename = field
+                            elif head == "file1":
+                                file1 = field
+                            elif head == "file2":
+                                file2 = field    
+                            elif head == "type":
+                                field = field.upper()
+                                if field in data_types:
+                                    sampleDirectory[head] = field
+                                else:
+                                    raise ValueError('Data type {} not recognized'.format(line[i].strip()))
+                            elif head != None:
+                                sampleDirectory[head] = field
+                    if end == None:
+                        end = "NA"
+                    if file1 != None or file2 != None:
+                        filename = None
+                    if generalDictionary.has_key(fli):
+                        prev = generalDictionary[fli]
+                        for key, val in sampleDirectory.iteritems():
+                            if prev.has_key(key):
+                                if(prev[key] != val):
+                                    raise ValueError('Inconsistent values for FileID {}'.format(fli))
+                            else:
+                                prev[key] = val
+                        if filename != None:
+                            prev['file'].update({end: filename});
+                        else:
+                            if file1 != None:
+                                prev['file'].update({'1': file1});
+                            if file2 != None:
+                                prev['file'].update({'2': file2});
+                    else:
+                        if filename != None:
+                            sampleDirectory['file'] = {end: filename};
+                        else :
+                            file_dict = {}
+                            if file1 != None:
+                                file_dict.update({'1': file1});
+                            if file2 != None:
+                                file_dict.update({'2': file2});
+                            if len(file_dict) > 0:
+                                sampleDirectory['file'] = file_dict
+                                if len(file_dict) == 2 and not sampleDirectory.has_key('type'):
+                                    sampleDirectory['type'] = "PAIRED"
+                        generalDictionary[fli] = sampleDirectory
+            elif len(line) == 5:
+                # Parse as simple 5 field csv file (no header)
+                while True:
+                    sampleDirectory = {}
+                    sampleDirectory["sample_barcode"] = line[0].strip()
+                    sampleDirectory["library_barcode"] = line[1].strip()
+                    flowcell = line[2].strip()
+                    lane = line[3].strip()
+                    index = line[4].strip()
+                    fli = "{}_{}_{}".format(flowcell, lane, index)
+                    generalDictionary[fli] = sampleDirectory
+                    try:
+                        line = reader.next()
+                    except StopIteration:
+                        break
+            else:
+                raise ValueError('Could not parse config file')
         with open(jsonOutput, 'w') as of:
             json.dump(generalDictionary, of, indent=2)
             
     elif lims_cnag_json is not None:
-        #Parses json got from cnag lims
+        # Parses json from cnag lims
         generalDictionary = {}
         with open(lims_cnag_json) as jsonFile:
             sampleDirectory = json.load(jsonFile)
             vectorElements = sampleDirectory["objects"]
             for element in vectorElements:
-                fli = "%s_%s_%s" %(element["flowcell_name"],element["lane_number"],element["index_name"])
-                if element["passfail"] == "pass":                
-                    generalDictionary[fli] = element
+                fli = "{}_{}_{}".format(element["flowcell_name"],element["lane_number"],element["index_name"])
+                if element["passfail"] == "pass":
+                    sample = {}
+                    sample["sample_barcode"] = element["sample_barcode"]
+                    sample["library_barcode"] = element["library_barcode"]
+                    generalDictionary[fli] = sample
                 
         with open(jsonOutput, 'w') as of:
             json.dump(generalDictionary, of, indent=2)
