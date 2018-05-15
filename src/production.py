@@ -8,6 +8,7 @@ from sys import exit
 import subprocess
 
 from utils import Command, CommandException
+from reportStats import LaneStats,SampleStats
 
 import src
 import report
@@ -579,6 +580,7 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", default=False, help="Do not discard reads that do not form proper pairs.")
         parser.add_argument('-1','--haploid', dest="haploid", action="store", default=False, help="Force genotype calls to be homozygous")
         parser.add_argument('-C','--conversion', dest="conversion", default=None, help="Set under and over conversion rates (under,over)")
+        parser.add_argument('-J','--mapping-json',dest="mapping_json",help='Input mapping statistics JSON files',default=None)
         parser.add_argument('-B','--reference_bias', dest="ref_bias", default=None, help="Set bias to reference homozygote")
         parser.add_argument('-b','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.",required=False,default="")
         parser.add_argument('-l','--list-chroms',dest="list_chroms",nargs="+",metavar="CHROMS",help="""List of chromosomes to perform the methylation pipeline.
@@ -608,7 +610,49 @@ class MethylationCall(BasicPipeline):
         self.conversion = args.conversion
         self.ref_bias = args.ref_bias
         self.list_chroms = []
-    
+        self.sample_conversion = {}
+
+        if self.conversion != None and self.conversion.lower() == "auto":
+            if args.mapping_json == None or args.json_file == None:
+                self.conversion = None
+            else:
+                sample_lane_files = {}
+                for k,v in FLIdata(args.json_file).sampleData.iteritems():
+                    fileJson = "%s/%s.json" %(args.mapping_json,v.getFli())
+                    if os.path.isfile(fileJson):
+                        if v.sample_barcode not in sample_lane_files: 
+                            newFli = {}
+                            newFli[v.getFli()] = [fileJson]
+                            sample_lane_files[v.sample_barcode] = newFli
+                        elif v.getFli() not in sample_lane_files[v.sample_barcode]:
+                            newFli = {}
+                            newFli[v.getFli()] = [fileJson]
+                            sample_lane_files[v.sample_barcode].update(newFli)
+                        elif v.getFli() in sample_lane_files[v.sample_barcode]:
+                            sample_lane_files[v.sample_barcode][v.getFli()].append(fileJson)
+                
+                if len(sample_lane_files) < 1:
+                    self.conversion = None
+                else:
+                    for sample,fli_json in sample_lane_files.iteritems():
+                        list_stats_lanes = []
+                        for fli,json_files in fli_json.iteritems():  
+                            for json_file in json_files:
+                                lane = LaneStats(name=fli,json_file=json_file)
+                                list_stats_lanes.append(lane)
+                    stats = SampleStats(name=sample,list_lane_stats=list_stats_lanes)
+                    uc = stats.getUnderConversionRate()
+                    oc = stats.getOverConversionRate()
+                    if uc == "NA":
+                        uc = 0.99
+                    elif uc < 0.8:
+                        uc = 0.8
+                    if oc == "NA":
+                        oc = 0.05
+                    elif oc > 0.2:
+                        oc = 0.2
+                    self.sample_conversion[sample] = "{:.4f},{:.4f}".format(1-uc,oc)
+
         if len(args.list_chroms) > 1:
             self.list_chroms = args.list_chroms
         elif os.path.isfile(args.list_chroms[0]):
@@ -645,8 +689,8 @@ class MethylationCall(BasicPipeline):
                                          output_dir=self.output_dir,paired_end=self.paired,keep_unmatched=self.keep_unmatched,
                                          keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads,
                                          mapq_threshold=self.mapq_threshold,bq_threshold=self.bq_threshold,
-                                         haploid=self.haploid,conversion=self.conversion,ref_bias=self.ref_bias)
-                                   
+                                         haploid=self.haploid,conversion=self.conversion,ref_bias=self.ref_bias,sample_conversion=self.sample_conversion)
+
             if ret:
                 logging.gemBS.gt("Methylation call done, samples performed: %s" %(ret))
                 
@@ -722,7 +766,7 @@ class BsCall(BasicPipeline):
         parser.add_argument('-r','--fasta-reference',dest="fasta_reference",metavar="PATH",help="Path to the fasta reference file.",required=True)
         parser.add_argument('-e','--species',dest="species",metavar="SPECIES",default="HomoSapiens",help="Sample species name. Default: %s" %self.species)
         parser.add_argument('-s','--sample-id',dest="sample_id",metavar="SAMPLE",help="Sample unique identificator")  
-        parser.add_argument('-c','--chrom',dest="chrom",metavar="CHROMOSOME",help="Chromosome name where is going to perform the methylation call")  
+        parser.add_argument('-c','--chrom',dest="chrom",metavar="CHROMOSOME",default=None,help="Chromosome name where is going to perform the methylation call")  
         parser.add_argument('-i','--input-bam',dest="input_bam",metavar="INPUT_BAM",help='Input BAM aligned file.',default=None)
         parser.add_argument('-g','--right-trim', dest="right_trim", metavar="BASES",type=int, default=0, help='Bases to trim from right of read pair, Default: 0')
         parser.add_argument('-f','--left-trim', dest="left_trim", metavar="BASES", type=int, default=5, help='Bases to trim from left of read pair, Default: 5')
@@ -734,6 +778,8 @@ class BsCall(BasicPipeline):
         parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", default=False, help="Do not discard reads that do not form proper pairs.")
         parser.add_argument('-1','--haploid', dest="haploid", action="store", default=False, help="Force genotype calls to be homozygous")
         parser.add_argument('-C','--conversion', dest="conversion", default=None, help="Set under and over conversion rates (under,over)")
+        parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.')
+        parser.add_argument('-J','--mapping-json',dest="mapping_json",help='Input mapping statistics JSON files',default=None)
         parser.add_argument('-B','--reference_bias', dest="ref_bias", default=None, help="Set bias to reference homozygote")
         parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", default=False, help="Do not merge duplicate reads.")
         parser.add_argument('-d','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.",required=False,default="")
@@ -758,6 +804,29 @@ class BsCall(BasicPipeline):
         self.conversion = args.conversion
         self.ref_bias = args.ref_bias
         
+        if self.conversion != None and self.conversion.lower() == "auto":
+            if args.mapping_json == None or args.json_file == None:
+                self.conversion = None
+            else:
+                lane_stats_list = []
+                for k,v in FLIdata(args.json_file).sampleData.iteritems():
+                    if v.sample_barcode == self.sample_id:
+                        fileJson = "%s/%s.json" %(args.mapping_json,v.getFli())
+                        if os.path.isfile(fileJson):
+                            lane_stats_list.append(LaneStats(name=v.getFli(),json_file=fileJson))
+                stats = SampleStats(name=self.sample_id,list_lane_stats=lane_stats_list)
+                uc = stats.getUnderConversionRate()
+                oc = stats.getOverConversionRate()
+                if uc == "NA":
+                    uc = 0.99
+                elif uc < 0.8:
+                    uc = 0.8
+                if oc == "NA":
+                    oc = 0.05
+                elif oc > 0.2:
+                    oc = 0.2
+                self.conversion = "{:.4f},{:.4f}".format(1-uc,oc)
+
         #Check fasta existance
         if not os.path.isfile(args.fasta_reference):
             raise CommandException("Sorry path %s was not found!!" %(args.fasta_reference))
@@ -853,8 +922,8 @@ class MappingReports(BasicPipeline):
     
     def register(self,parser):
         ## Mapping report stats parameters
-        parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.',required=True)
-        parser.add_argument('-i', '--input-dir', dest="input_dir",metavar="PATH", help='Path were are located the JSON stat files.', required=True)
+        parser.add_argument('-j', '--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.',required=True)
+        parser.add_argument('-i', '--input-dir', dest="input_dir",metavar="PATH", help='Path where to the JSON stat files.', required=True)
         parser.add_argument('-n', '--name', dest="name", metavar="NAME", help='Output basic name',required=True)
         parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",help='Output directory to store html report.',required=True)
          
@@ -882,7 +951,7 @@ class MappingReports(BasicPipeline):
                 elif v.getFli() in self.sample_lane_files[v.sample_barcode]:
                     self.sample_lane_files[v.sample_barcode][v.getFli()].append(fileJson)     
                
-        #Check list of file
+        #Check list of files
         if len(self.sample_lane_files) < 1:
             raise CommandException("Sorry no json files were found!!")
 

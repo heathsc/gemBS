@@ -580,7 +580,7 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/"):
 
 def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,left_trim=5,chrom_list=None,output_dir=None,paired_end=True,keep_unmatched=False,
                        keep_duplicates=False,dbSNP_index_file="",threads="1",mapq_threshold=None,bq_threshold=None,
-                       haploid=False,conversion=None,ref_bias=None):
+                       haploid=False,conversion=None,ref_bias=None,sample_conversion=None):
     """ Performs the process to make methylation calls.
     
         reference -- fasta reference file
@@ -600,6 +600,7 @@ def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,
         haploid -- force genotypes to be homozygous
         conversion -- conversion rates 'under,over'
         ref_bias -- bias to reference homozygote
+        sample_conversion - per sample conversion rates (calculated if conversion == 'auto')
     """
     #Check output directory
     if not os.path.exists(output_dir):
@@ -629,15 +630,23 @@ def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,
             if haploid:
                 parameters_bscall.append('-1')
             if conversion != None:
-                mapping.extend(["--conversion",conversion])
+                if conversion.lower() == "auto":
+                    if sample_conversion.has_key(sample):
+                        parameters_bscall.append("--conversion")
+                        parameters_bscall.append('%s'%(sample_conversion[sample]))
+                else:
+                    parameters_bscall.append("--conversion")
+                    parameters_bscall.append('%s'%(conversion))
             if ref_bias != None:
-                mapping.extend(["--reference_bias",ref_bias])
+                parameters_bscall.append("--reference_bias")
+                parameters_bscall.append('%s'%(ref_bias))
             #Thresholds
             if mapq_threshold != None:
-                mapping.extend(["--mapq-threshold",mapq_threshold])                    
+                parameters_bscall.append("--mapq-threshold")
+                parameters_bscall.append('%s'%(mapq_threshold))
             if bq_threshold != None:
-                mapping.extend(["--bq-threshold",bq_threshold])
-
+                parameters_bscall.append("--bq-threshold")
+                parameters_bscall.append('%s'%(bq_threshold))
             if dbSNP_index_file != "":
                 parameters_bscall.append('-D')
                 parameters_bscall.append('%s'%(dbSNP_index_file))
@@ -727,11 +736,16 @@ def bsCalling (reference=None,species=None,input_bam=None,right_trim=0,left_trim
         os.makedirs(output_dir)
         
     #Definition bcf and report file
-    bcf_file = "%s/%s_%s.bcf" %(output_dir,sample_id,chrom)   
-    report_file = "%s/%s_%s.json" %(output_dir,sample_id,chrom)    
-    
-    #Command bisulphite calling
-    bsCall = [['samtools','view','-h',input_bam,chrom]]
+    if chrom != None:
+        bcf_file = "%s/%s_%s.bcf" %(output_dir,sample_id,chrom)   
+        report_file = "%s/%s_%s.json" %(output_dir,sample_id,chrom)
+        #Command bisulphite calling
+        bsCall = [['samtools','view','-h',input_bam,chrom]]
+    else:
+        bcf_file = "%s/%s.bcf" %(output_dir,sample_id)   
+        report_file = "%s/%s.json" %(output_dir,sample_id)
+        #Command bisulphite calling
+        bsCall = [['samtools','view','-h',input_bam]]
     
     parameters_bscall = ['%s' %(executables["bs_call"]),'-r',reference,'-n',sample_id,'--report-file',report_file]
            
@@ -747,14 +761,18 @@ def bsCalling (reference=None,species=None,input_bam=None,right_trim=0,left_trim
     if haploid:
         parameters_bscall.append('-1')
     if conversion != None:
-        mapping.extend(["--conversion",conversion])
+        parameters_bscall.append("--conversion")
+        parameters_bscall.append('%s'%(conversion))
     if ref_bias != None:
-        mapping.extend(["--reference_bias",ref_bias])
+        parameters_bscall.append("--reference_bias")
+        parameters_bscall.append('%s'%(ref_bias))
     #Thresholds
     if mapq_threshold != None:
-        mapping.extend(["--mapq-threshold",mapq_threshold])                    
+        parameters_bscall.append("--mapq-threshold")
+        parameters_bscall.append('%s'%(mapq_threshold))
     if bq_threshold != None:
-        mapping.extend(["--bq-threshold",bq_threshold])
+        parameters_bscall.append("--bq-threshold")
+        parameters_bscall.append('%s'%(bq_threshold))
     if dbSNP_index_file != "":
         parameters_bscall.append('-D')
         parameters_bscall.append('%s'%(dbSNP_index_file))
@@ -762,7 +780,7 @@ def bsCalling (reference=None,species=None,input_bam=None,right_trim=0,left_trim
     bsCall.append(parameters_bscall) 
 
     bsCall.append(['bcftools','convert','-o',bcf_file,'-O','b','--threads',threads])
-    
+    print(bsCall)
     process = utils.run_tools(bsCall, name="bsCalling")
     if process.wait() != 0:
         raise ValueError("Error while executing the bscall process.")

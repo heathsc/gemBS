@@ -281,7 +281,7 @@ class BasicHtml(RunBasicStats):
         #3.Stats table
         #Read Values  
         vTableHtml.append('  <TR>')
-        vTableHtml.append("   <TD> %s </TD> <TD> %s </TD> \n" %("Under Conversion Rate",self.mapping_stats.getUnderConversionRate()))
+        vTableHtml.append("   <TD> %s </TD> <TD> %s </TD> \n" %("Conversion Rate",self.mapping_stats.getUnderConversionRate()))
         vTableHtml.append('  </TR>')
         vTableHtml.append('  <TR class="odd">')
         vTableHtml.append("   <TD> %s </TD> <TD> %s </TD> \n" %("Over Conversion Rate",self.mapping_stats.getOverConversionRate()))
@@ -355,7 +355,7 @@ class BasicHtml(RunBasicStats):
                                     <TH scope=\"col\"> Yield Reads </TH>  \
                                     <TH scope=\"col\"> Uniquely Mapped Fragments </TH>  \
                                     <TH scope=\"col\"> Average Unique </TH>  \
-                                    <TH scope=\"col\"> Under Conversion Rate </TH>  \
+                                    <TH scope=\"col\"> Conversion Rate </TH>  \
                                     <TH scope=\"col\"> Over Conversion Rate </TH>  \
                                     <TH scope=\"col\"> Report </TH>  \
                                     </TR> \n")
@@ -927,9 +927,9 @@ def buildReport(inputs=None,output_dir=None,name=None):
             for json_file in json_files:
                 lane = LaneStats(name=fli,json_file=json_file)
                 list_stats_lanes.append(lane)
-            
-        vector_samples.append(SampleStats(name=sample,list_lane_stats=list_stats_lanes))    
 
+        vector_samples.append(SampleStats(name=sample,list_lane_stats=list_stats_lanes))    
+                
     #IndexHtml object
     vector_index_html = []
     indexHtml = IndexHtml(output_dir=output_dir,name_project=name,vector_samples=vector_samples)
@@ -941,10 +941,3 @@ def buildReport(inputs=None,output_dir=None,name=None):
     vector_css = []
     cssBuilder.buildStyleSheet(vector_css)
     RunBasicStats.saveDocument(file_name="%s/style.css" %(output_dir),vectorContent=vector_css)
-    
-    
-    
-
-            
-    
-    

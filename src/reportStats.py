@@ -280,7 +280,11 @@ class BsStats(object):
         
     def getConversionRate(self,a_bp_pair_one=0,a_bp_pair_two=0,c_bp_pair_one=0,c_bp_pair_two=0,g_bp_pair_one=0,g_bp_pair_two=0,t_bp_pair_one=0,t_bp_pair_two=0):
         """Get Over Conversion Rate"""
-        if float(a_bp_pair_one + g_bp_pair_one + c_bp_pair_two + t_bp_pair_two) == 0:
+        n1 = float(a_bp_pair_one + g_bp_pair_one + c_bp_pair_two + t_bp_pair_two)
+        n2 = float(c_bp_pair_one + t_bp_pair_one + a_bp_pair_two + g_bp_pair_two)
+        if (n1 + n2) < 5000:
+            return "NA"
+        if n1 == 0:
             return 0.0
             
         z = float(a_bp_pair_one + t_bp_pair_two) / float(a_bp_pair_one + g_bp_pair_one + c_bp_pair_two + t_bp_pair_two)
