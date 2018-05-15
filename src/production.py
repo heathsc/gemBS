@@ -245,7 +245,7 @@ class Mapping(BasicPipeline):
         parser.add_argument('-I', '--index', dest="index", metavar="index_file.BS.gem", help='Path to the Bisulfite Index Reference file.', required=True)
         parser.add_argument('-f', '--fli', dest="fli", metavar="FLOWCELL_LANE_INDEX", help='Lane to be mapped, format must be FLOWCELL_LANE_INDEX.', required=True)
         parser.add_argument('-j', '--json', dest="json_file", metavar="JSON_FILE", help='JSON file configuration.', required=True)
-        parser.add_argument('-i', '--input-dir', dest="input_dir", metavar="PATH", help='Directory where is located input data. FASTQ or BAM format.', required=True)
+        parser.add_argument('-i', '--input-dir', dest="input_dir", metavar="PATH", help='Directory where is located input data. FASTQ or BAM format.', required=False)
         parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",default=".", help='Directory to store Bisulfite mapping results. Default: %s' %self.output_dir)
         parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", default="/tmp/", help='Temporary folder to perform sorting operations. Default: %s' %self.tmp_dir)      
         parser.add_argument('-t', '--threads', dest="threads",default="1", help='Number of threads to perform sorting operations. Default %s' %self.threads)
@@ -261,6 +261,7 @@ class Mapping(BasicPipeline):
     def run(self, args):     
         from sets import Set
         paired_types = Set(['PAIRED', 'INTERLEAVED', 'PAIRED_STREAM'])
+        stream_types = Set(['STREAM', 'SINGLE_STREAM', 'PAIRED_STREAM'])
         #Flowcell Lane Index
         self.name = args.fli
         #Flowcell Lane Index Info
@@ -287,31 +288,30 @@ class Mapping(BasicPipeline):
         self.input_interleaved = None        
         self.input_se = None
         self.input_bam = None 
-        self.input_stream = None
-        
-        if self.fliInfo.file:
+        if args.input_dir == None:
+            args.input_dir = "."
+        self.stream = False
+        ftype = self.fliInfo.type
+        if ftype in stream_types:
+            self.stream = True
+        elif self.fliInfo.file:
             self.inputPath = args.input_dir + "/"
             files = self.fliInfo.file
-            ftype = self.fliInfo.type
             if files:
                 if ftype == 'PAIRED':
                     self.input_pair_one = self.inputPath + files['1']
                     self.input_pair_two = self.inputPath +  files['2']
                 elif ftype == 'SINGLE':
-                    for k,v in iteritems(files):
+                    for k,v in files.iteritems():
                         self.input_pair_se = self.inputPath + v
                         break
                 elif ftype == 'INTERLEAVED':
-                    for k,v in iteritems(files):
+                    for k,v in files.iteritems():
                         self.input_interleaved = self.inputPath + v
                         break
                 elif ftype == 'SAM' or ftype == 'BAM':
-                    for k,v in iteritems(files):
-                        self.input_interleaved = self.inputPath + v
-                        break
-                elif ftype == 'STREAM' or ftype == 'PAIRED_STREAM' or ftype == 'SINGLE_STREAM':
-                    for k,v in iteritems(files):
-                        self.input_stream = self.inputPath + v
+                    for k,v in files.iteritems():
+                        self.input_bam = self.inputPath + v
                         break
         else:
             self.inputPath = args.input_dir + "/" + self.fliInfo.getFli()
@@ -365,7 +365,7 @@ class Mapping(BasicPipeline):
                     self.input_bam = self.inputPath + ".bam"
                 
         #Check for input existance
-        if self.input_pair_one is None and self.input_pair_two is None and self.input_interleaved is None and self.input_se is None and self.input_bam is None: 
+        if self.input_pair_one is None and self.input_pair_two is None and self.input_interleaved is None and self.input_se is None and self.input_bam is None and self.stream is False:
             raise CommandException("No input files where found in %s directory." %(args.input_dir))
             
         #Check Bisulfite Conversion
@@ -383,17 +383,26 @@ class Mapping(BasicPipeline):
 
         self.log_parameter()
         logging.gemBS.gt("Bisulfite Mapping...")
-        ret = src.mapping(name=self.name,index=self.index,fliInfo=self.fliInfo,
-                    file_pe_one=self.input_pair_one,file_pe_two=self.input_pair_two,
-                    file_interleaved = self.input_interleaved,
-                    file_se = self.input_se,
-                    read_non_stranded = self.read_non_stranded,
-                    file_bam = self.input_bam,
-                    outputDir=self.output_dir,paired = self.paired,
-                    tmpDir=self.tmp_dir,threads=self.threads,
-                    under_conversion=self.underconversion_sequence,
-                    over_conversion=self.overconversion_sequence)
-                    
+        if self.stream:
+            ret = src.direct_mapping(name=self.name,index=self.index,fliInfo=self.fliInfo,
+            paired = self.paired,threads=self.threads,
+            file_pe_one=None,file_pe_two=None,file_input=None,is_bam=False,
+            read_non_stranded = self.read_non_stranded,
+            outputDir=self.output_dir,tmpDir=self.tmp_dir,
+            under_conversion=self.underconversion_sequence,
+            over_conversion=self.overconversion_sequence)
+        else:
+            ret = src.mapping(name=self.name,index=self.index,fliInfo=self.fliInfo,
+            file_pe_one=self.input_pair_one,file_pe_two=self.input_pair_two,
+            file_interleaved = self.input_interleaved,
+            file_se = self.input_se,
+            read_non_stranded = self.read_non_stranded,
+            file_bam = self.input_bam,
+            outputDir=self.output_dir,paired = self.paired,
+            tmpDir=self.tmp_dir,threads=self.threads,
+            under_conversion=self.underconversion_sequence,
+            over_conversion=self.overconversion_sequence)
+            
         if ret:
             logging.gemBS.gt("Bisulfite Mapping done!! Output File: %s" %(ret))
             

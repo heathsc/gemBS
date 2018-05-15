@@ -499,7 +499,6 @@ def direct_mapping(name=None,index=None,fliInfo=None,paired=None,threads=None,
     #READ FILTERING
     readNameClean = [executables['readNameClean']]
     #BAM SORT
-    #bamView = ["samtools","view","-h","-"]    
     nameOutput="%s/%s.bam" %(outputDir,name)
     bamSort = ["samtools","sort","-T","%s/%s"%(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
     #Mount pipe command
