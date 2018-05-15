@@ -196,6 +196,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None)
         from sets import Set
         data_types = Set(['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM'])
         generalDictionary = {}
+        generalDictionary['FLIdata'] = {}
         with open(text_metadata, 'r') as f:
             reader = csv.reader(f)
             try:
@@ -275,7 +276,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None)
                                 sampleDirectory['file'] = file_dict
                                 if len(file_dict) == 2 and not sampleDirectory.has_key('type'):
                                     sampleDirectory['type'] = "PAIRED"
-                        generalDictionary[fli] = sampleDirectory
+                        generalDictionary['FLIdata'][fli] = sampleDirectory
             elif len(line) == 5:
                 # Parse as simple 5 field csv file (no header)
                 while True:
@@ -286,7 +287,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None)
                     lane = line[3].strip()
                     index = line[4].strip()
                     fli = "{}_{}_{}".format(flowcell, lane, index)
-                    generalDictionary[fli] = sampleDirectory
+                    generalDictionary['FLIdata'][fli] = sampleDirectory
                     try:
                         line = reader.next()
                     except StopIteration:
@@ -308,7 +309,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None)
                     sample = {}
                     sample["sample_barcode"] = element["sample_barcode"]
                     sample["library_barcode"] = element["library_barcode"]
-                    generalDictionary[fli] = sample
+                    generalDictionary['FLIdata'][fli] = sample
                 
         with open(jsonOutput, 'w') as of:
             json.dump(generalDictionary, of, indent=2)
@@ -385,8 +386,7 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
         threads -- Number of threads
         under_conversion -- Under conversion sequence
         over_conversion -- Over conversion sequence
-    """
-        
+    """        
     ## prepare inputs
     index = _prepare_index_parameter(index)
     ## prepare the input
@@ -422,10 +422,8 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
     #Bisulfite Conversion Values
     if under_conversion != "":
         mapping.extend(["--underconversion_sequence",under_conversion])
-        
     if over_conversion != "":
-        mapping.extend(["--overconversion_sequence",over_conversion])                    
-    
+        mapping.extend(["--overconversion_sequence",over_conversion])
     #READ FILTERING
     readNameClean = [executables['readNameClean']]
          
@@ -496,6 +494,11 @@ def direct_mapping(name=None,index=None,fliInfo=None,paired=None,threads=None,
     #Read Groups
     readGroups = "@RG\\tID:%s\\tSM:%s\\tLB:%s\\tPU:%s\\tCN:CNAG\\tPL:Illumina" %(fliInfo.getFli(),fliInfo.sample_barcode,fliInfo.library,fliInfo.getFli())
     mapping.extend(["-r",readGroups])
+    #Bisulfite Conversion Values
+    if under_conversion != "":
+        mapping.extend(["--underconversion_sequence",under_conversion])
+    if over_conversion != "":
+        mapping.extend(["--overconversion_sequence",over_conversion])
     #READ FILTERING
     readNameClean = [executables['readNameClean']]
     #BAM SORT
@@ -576,7 +579,8 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/"):
 
 
 def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,left_trim=5,chrom_list=None,output_dir=None,paired_end=True,keep_unmatched=False,
-                       keep_duplicates=False,dbSNP_index_file="",threads="1"):
+                       keep_duplicates=False,dbSNP_index_file="",threads="1",mapq_threshold=None,bq_threshold=None,
+                       haploid=False,conversion=None,ref_bias=None):
     """ Performs the process to make methylation calls.
     
         reference -- fasta reference file
@@ -591,6 +595,11 @@ def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,
         keep_duplicates -- Do not merge duplicate reads  
         dbSNP_index_file -- dbSNP Index File            
         threads -- Number of threads
+        mapq_threshold -- threshold for MAPQ scores
+        bq_threshold -- threshold for base quality scores
+        haploid -- force genotypes to be homozygous
+        conversion -- conversion rates 'under,over'
+        ref_bias -- bias to reference homozygote
     """
     #Check output directory
     if not os.path.exists(output_dir):
@@ -617,6 +626,18 @@ def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,
                 parameters_bscall.append('-k')
             if keep_duplicates:
                 parameters_bscall.append('-d')
+            if haploid:
+                parameters_bscall.append('-1')
+            if conversion != None:
+                mapping.extend(["--conversion",conversion])
+            if ref_bias != None:
+                mapping.extend(["--reference_bias",ref_bias])
+            #Thresholds
+            if mapq_threshold != None:
+                mapping.extend(["--mapq-threshold",mapq_threshold])                    
+            if bq_threshold != None:
+                mapping.extend(["--bq-threshold",bq_threshold])
+
             if dbSNP_index_file != "":
                 parameters_bscall.append('-D')
                 parameters_bscall.append('%s'%(dbSNP_index_file))
@@ -677,7 +698,8 @@ def methylationFiltering(bcfFile=None,output_dir=None):
     return os.path.abspath("%s" % output_dir)
             
 def bsCalling (reference=None,species=None,input_bam=None,right_trim=0,left_trim=5,chrom=None,sample_id=None,output_dir=None,
-               paired_end=True,keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1"):
+               paired_end=True,keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1",mapq_threshold=None,bq_threshold=None,
+               haploid=False,conversion=None,ref_bias=None):
     """ Performs the process to make bisulfite calls per sample and chromosome.
     
         reference -- fasta reference file
@@ -693,6 +715,11 @@ def bsCalling (reference=None,species=None,input_bam=None,right_trim=0,left_trim
         keep_duplicates -- Do not merge duplicate reads 
         dbSNP_index_file -- dbSNP Index File
         threads -- Number of threads
+        mapq_threshold -- threshold for MAPQ scores
+        bq_threshold -- threshold for base quality scores
+        haploid -- force genotypes to be homozygous
+        conversion -- conversion rates 'under,over'
+        ref_bias -- bias to reference homozygote
     """
     
     #Check output directory
@@ -717,6 +744,17 @@ def bsCalling (reference=None,species=None,input_bam=None,right_trim=0,left_trim
         parameters_bscall.append('-k')                
     if keep_duplicates:
         parameters_bscall.append('-d')
+    if haploid:
+        parameters_bscall.append('-1')
+    if conversion != None:
+        mapping.extend(["--conversion",conversion])
+    if ref_bias != None:
+        mapping.extend(["--reference_bias",ref_bias])
+    #Thresholds
+    if mapq_threshold != None:
+        mapping.extend(["--mapq-threshold",mapq_threshold])                    
+    if bq_threshold != None:
+        mapping.extend(["--bq-threshold",bq_threshold])
     if dbSNP_index_file != "":
         parameters_bscall.append('-D')
         parameters_bscall.append('%s'%(dbSNP_index_file))

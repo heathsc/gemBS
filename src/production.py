@@ -36,8 +36,8 @@ class FLIdata(object):
         self.sampleData = {}
    
         with open(self.json_file, 'r') as fileJson:
-            data = json.load(fileJson)      
-        
+            config = json.load(fileJson)      
+            data=config['FLIdata']
             for fli in data:
                 fliCommands = Fli()            
                 
@@ -219,7 +219,7 @@ class MappingCommnads(BasicPipeline):
                 print "gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s -p %s %s"\
                        %(args.index,k,args.json_file,args.input_dir,args.ouput_dir,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters)
             else:
-                print "gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s %s %s"\
+                print "gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s -p %s %s"\
                       %(args.index,k,args.json_file,args.input_dir,args.ouput_dir,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters)
             
         
@@ -401,7 +401,7 @@ class Mapping(BasicPipeline):
             outputDir=self.output_dir,paired = self.paired,
             tmpDir=self.tmp_dir,threads=self.threads,
             under_conversion=self.underconversion_sequence,
-            over_conversion=self.overconversion_sequence)
+            over_conversion=self.overconversion_sequence) 
             
         if ret:
             logging.gemBS.gt("Bisulfite Mapping done!! Output File: %s" %(ret))
@@ -559,7 +559,7 @@ class MethylationCall(BasicPipeline):
                   """
     def membersInitiation(self):
         self.species = "HomoSapiens"
-        self.chroms = "chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22 chrX chrY"
+        self.chroms = "chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22 chrX chrY chrM"
 
                                    
     def register(self, parser):
@@ -568,13 +568,18 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('-e','--species',dest="species",metavar="SPECIES",default="HomoSapiens",help="Sample species name. Default: %s" %self.species)
         parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.')
         parser.add_argument('-p','--path-bam',dest="path_bam",metavar="PATH_BAM",help='Path where are stored sample BAM files.',default=None)
+        parser.add_argument('-q','--mapq-threshold', dest="mapq_threshold", type=int, default=None, help="Threshold for MAPQ scores")
+        parser.add_argument('-Q','--bq-threshold', dest="bq_threshold", type=int, default=None, help="Threshold for base quality scores")
         parser.add_argument('-g','--right-trim', dest="right_trim", metavar="BASES",type=int, default=0, help='Bases to trim from right of read pair, Default: 0')
         parser.add_argument('-f','--left-trim', dest="left_trim", metavar="BASES",type=int, default=5, help='Bases to trim from left of read pair, Default: 5')        
         parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',default=None)
         parser.add_argument('-d','--paired-end', dest="paired_end", action="store_true", default=False, help="Input data is Paired End")
         parser.add_argument('-t','--threads', dest="threads", metavar="THREADS", default="1", help='Number of threads, Default: %s' %self.threads)
-        parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", default=False, help="Do not discard reads that do not form proper pairs.")
         parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", default=False, help="Do not merge duplicate reads.")    
+        parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", default=False, help="Do not discard reads that do not form proper pairs.")
+        parser.add_argument('-1','--haploid', dest="haploid", action="store", default=False, help="Force genotype calls to be homozygous")
+        parser.add_argument('-C','--conversion', dest="conversion", default=None, help="Set under and over conversion rates (under,over)")
+        parser.add_argument('-B','--reference_bias', dest="ref_bias", default=None, help="Set bias to reference homozygote")
         parser.add_argument('-b','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.",required=False,default="")
         parser.add_argument('-l','--list-chroms',dest="list_chroms",nargs="+",metavar="CHROMS",help="""List of chromosomes to perform the methylation pipeline.
                                                                                                        Can be a file where every line is a chromosome contig. 
@@ -582,7 +587,7 @@ class MethylationCall(BasicPipeline):
                             default=["chr1","chr2","chr3","chr4","chr5","chr6","chr7",
                                      "chr8","chr9","chr10","chr11","chr12","chr13",
                                      "chr14","chr15","chr16","chr17","chr18","chr19",
-                                     "chr20","chr21","chr22","chrX","chrY"])
+                                     "chr20","chr21","chr22","chrX","chrY","chrM"])
        
     def run(self,args):
         self.threads = args.threads
@@ -597,7 +602,11 @@ class MethylationCall(BasicPipeline):
         self.keep_unmatched = args.keep_unmatched
         self.keep_duplicates = args.keep_duplicates
         self.dbSNP_index_file = args.dbSNP_index_file
-        
+        self.mapq_threshold = args.mapq_threshold
+        self.bq_threshold = args.mapq_threshold
+        self.haploid = args.haploid
+        self.conversion = args.conversion
+        self.ref_bias = args.ref_bias
         self.list_chroms = []
     
         if len(args.list_chroms) > 1:
@@ -634,7 +643,9 @@ class MethylationCall(BasicPipeline):
                                          right_trim=self.right_trim, left_trim=self.left_trim,
                                          sample_bam=self.sampleBam,chrom_list=self.list_chroms,
                                          output_dir=self.output_dir,paired_end=self.paired,keep_unmatched=self.keep_unmatched,
-                                         keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads)   
+                                         keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads,
+                                         mapq_threshold=self.mapq_threshold,bq_threshold=self.bq_threshold,
+                                         haploid=self.haploid,conversion=self.conversion,ref_bias=self.ref_bias)
                                    
             if ret:
                 logging.gemBS.gt("Methylation call done, samples performed: %s" %(ret))
@@ -717,8 +728,13 @@ class BsCall(BasicPipeline):
         parser.add_argument('-f','--left-trim', dest="left_trim", metavar="BASES", type=int, default=5, help='Bases to trim from left of read pair, Default: 5')
         parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',default=None)
         parser.add_argument('-p','--paired-end', dest="paired_end", action="store_true", default=False, help="Input data is Paired End") 
+        parser.add_argument('-q','--mapq-threshold', dest="mapq_threshold", type=int, default=None, help="Threshold for MAPQ scores")
+        parser.add_argument('-Q','--bq-threshold', dest="bq_threshold", type=int, default=None, help="Threshold for base quality scores")
         parser.add_argument('-t','--threads', dest="threads", metavar="THREADS", default="1", help='Number of threads, Default: %s' %self.threads)     
         parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", default=False, help="Do not discard reads that do not form proper pairs.")
+        parser.add_argument('-1','--haploid', dest="haploid", action="store", default=False, help="Force genotype calls to be homozygous")
+        parser.add_argument('-C','--conversion', dest="conversion", default=None, help="Set under and over conversion rates (under,over)")
+        parser.add_argument('-B','--reference_bias', dest="ref_bias", default=None, help="Set bias to reference homozygote")
         parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", default=False, help="Do not merge duplicate reads.")
         parser.add_argument('-d','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.",required=False,default="")
 
@@ -736,6 +752,11 @@ class BsCall(BasicPipeline):
         self.keep_unmatched = args.keep_unmatched
         self.keep_duplicates = args.keep_duplicates
         self.dbSNP_index_file = args.dbSNP_index_file
+        self.mapq_threshold = args.mapq_threshold
+        self.bq_threshold = args.mapq_threshold
+        self.haploid = args.haploid
+        self.conversion = args.conversion
+        self.ref_bias = args.ref_bias
         
         #Check fasta existance
         if not os.path.isfile(args.fasta_reference):
@@ -753,7 +774,9 @@ class BsCall(BasicPipeline):
                              right_trim=self.right_trim, left_trim=self.left_trim,
                              sample_id=self.sample_id,output_dir=self.output_dir,
                              paired_end=self.paired,keep_unmatched=self.keep_unmatched,
-                             keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads)
+                             keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads,
+                             mapq_threshold=self.mapq_threshold,bq_threshold=self.bq_threshold,
+                             haploid=self.haploid,conversion=self.conversion,ref_bias=self.ref_bias)
         if ret:
             logging.gemBS.gt("Bisulfite calling done: %s" %(ret)) 
        
