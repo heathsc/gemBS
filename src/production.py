@@ -975,9 +975,6 @@ class VariantsReports(BasicPipeline):
     title = "BS Calls reports. Builds a HTML and SPHINX report per Sample."
     description = """ From chromosome stats json files, builds a HTML and SPHINX report per Sample """
 
-    def membersInitiation(self):
-        self.chroms = "chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22 chrX chrY"
-
     def register(self,parser):
         ## variants reports stats parameters
         parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.',required=True)
@@ -985,33 +982,17 @@ class VariantsReports(BasicPipeline):
         parser.add_argument('-n', '--name', dest="name", metavar="NAME", help='Output basic name',required=True)
         parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",help='Output directory to store html and Sphinx Variants report.',required=True)
         
-        parser.add_argument('-l','--list-chroms',dest="list_chroms",nargs="+",metavar="CHROMS",help="""List of chromosomes to perform the methylation pipeline.
-                                                                                                       Can be a file where every line is a chromosome contig. 
-                                                                                                       By default human chromosomes: %s """ %self.chroms,
-                            default=["chr1","chr2","chr3","chr4","chr5","chr6","chr7",
-                                     "chr8","chr9","chr10","chr11","chr12","chr13",
-                                     "chr14","chr15","chr16","chr17","chr18","chr19",
-                                     "chr20","chr21","chr22","chrX","chrY"])
-                                     
-
     def run(self, args):
         self.name = args.name
         self.output_dir = args.output_dir
         self.json_file = args.json_file
-        self.list_chroms = []
-       
-        if len(args.list_chroms) > 1:
-            self.list_chroms = args.list_chroms
-        elif os.path.isfile(args.list_chroms[0]):
-            #Check if List_chroms is a file or just a list of chromosomes
-            #Parse file to extract chromosme list 
-            with open(args.list_chroms[0] , 'r') as chromFile:
-                for line in chromFile:
-                    self.list_chroms.append(line.rstrip())
-        else:
-            self.list_chroms = args.list_chroms            
        
         #Recover json files from input-dir according to json file
+        self.json_files = []
+        for file in os.listdir(args.input_dir):
+            if file.endswith(".json"):
+                self.json_files.append(file)
+            
         self.sample_chr_files = {}
         self.sample_list = {}
         
@@ -1019,13 +1000,11 @@ class VariantsReports(BasicPipeline):
             self.sample_list[v.sample_barcode] = 0
 
         for sample,num in self.sample_list.iteritems():
-            for chrom in self.list_chroms:
-                fileJson = "%s/%s_%s.json" %(args.input_dir,sample,chrom)
-                if os.path.isfile(fileJson):
-                    if sample not in self.sample_chr_files:
-                        self.sample_chr_files[sample] = [fileJson]
-                    else:
-                        self.sample_chr_files[sample].append(fileJson)
+            for fileJson in self.json_files:
+                if fileJson.startswith(sample):
+                    print (sample, fileJson)
+                        self.sample_chr_files[sample] = []
+                    self.sample_chr_files[sample].append(args.input_dir + '/' + fileJson)
             
                 
         self.log_parameter()

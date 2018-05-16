@@ -610,74 +610,76 @@ def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,
     for sample,input_bam in sample_bam.iteritems():    
         list_bcf_files = []
         #for each chromosome
-        for chrom in chrom_list:
-            bcf_file = "%s/%s_%s.bcf" %(output_dir,sample,chrom)
-            report_file = "%s/%s_%s.json" %(output_dir,sample,chrom)
-            list_bcf_files.append(bcf_file)
-            bsCall = [['samtools','view','-h',input_bam,chrom]]
+#        for chrom in chrom_list:
+            
+        if len(chrom_list) == 1:
+            bcf_file = "%s/%s_%s.bcf" %(output_dir,sample,chrom_list[0])
+            report_file = "%s/%s_%s.json" %(output_dir,sample,chrom_list[0])
+        else:
+            bcf_file = "%s/%s.raw.bcf" %(output_dir,sample)
+            report_file = "%s/%s.json" %(output_dir,sample)
 
-            parameters_bscall = ['%s' %(executables["bs_call"]),'-r',reference,'-n',sample,'--report-file',report_file]
+        samtools = ['samtools','view','-h',input_bam]
+        for chrom in chrom_list:
+            samtools.append(chrom)
+        
+#            list_bcf_files.append(bcf_file)
+
+        bsCall = [samtools]
+
+        parameters_bscall = ['%s' %(executables["bs_call"]),'-r',reference,'-n',sample,'--report-file',report_file]
     
-            parameters_bscall.extend(['--right-trim','%i'%(right_trim)])
-            parameters_bscall.extend(['--left-trim','%i'%(left_trim)])
+        parameters_bscall.extend(['--right-trim','%i'%(right_trim)])
+        parameters_bscall.extend(['--left-trim','%i'%(left_trim)])
             
-            if paired_end:
-                parameters_bscall.append('-p')
-            if keep_unmatched:
-                parameters_bscall.append('-k')
-            if keep_duplicates:
-                parameters_bscall.append('-d')
-            if haploid:
-                parameters_bscall.append('-1')
-            if conversion != None:
-                if conversion.lower() == "auto":
-                    if sample_conversion.has_key(sample):
-                        parameters_bscall.append("--conversion")
-                        parameters_bscall.append('%s'%(sample_conversion[sample]))
-                else:
+        if paired_end:
+            parameters_bscall.append('-p')
+        if keep_unmatched:
+            parameters_bscall.append('-k')
+        if keep_duplicates:
+            parameters_bscall.append('-d')
+        if haploid:
+            parameters_bscall.append('-1')
+        if conversion != None:
+            if conversion.lower() == "auto":
+                if sample_conversion.has_key(sample):
                     parameters_bscall.append("--conversion")
-                    parameters_bscall.append('%s'%(conversion))
-            if ref_bias != None:
-                parameters_bscall.append("--reference_bias")
-                parameters_bscall.append('%s'%(ref_bias))
-            #Thresholds
-            if mapq_threshold != None:
-                parameters_bscall.append("--mapq-threshold")
-                parameters_bscall.append('%s'%(mapq_threshold))
-            if bq_threshold != None:
-                parameters_bscall.append("--bq-threshold")
-                parameters_bscall.append('%s'%(bq_threshold))
-            if dbSNP_index_file != "":
-                parameters_bscall.append('-D')
-                parameters_bscall.append('%s'%(dbSNP_index_file))
+                    parameters_bscall.append('%s'%(sample_conversion[sample]))
+            else:
+                parameters_bscall.append("--conversion")
+                parameters_bscall.append('%s'%(conversion))
+        if ref_bias != None:
+            parameters_bscall.append("--reference_bias")
+            parameters_bscall.append('%s'%(ref_bias))
+        #Thresholds
+        if mapq_threshold != None:
+            parameters_bscall.append("--mapq-threshold")
+            parameters_bscall.append('%s'%(mapq_threshold))
+        if bq_threshold != None:
+            parameters_bscall.append("--bq-threshold")
+            parameters_bscall.append('%s'%(bq_threshold))
+        if dbSNP_index_file != "":
+            parameters_bscall.append('-D')
+            parameters_bscall.append('%s'%(dbSNP_index_file))
     
-            bsCall.append(parameters_bscall)             
+        bsCall.append(parameters_bscall)             
                 
-            bsCall.append(['bcftools','convert','-o',bcf_file,'-O','b','--threads',threads])
-            process = utils.run_tools(bsCall, name="bisulphite-merging")
-            if process.wait() != 0:
-                raise ValueError("Error while executing the bscall process.")
-            
-        #Concatenation
-        bcfSample = "%s/%s.raw.bcf" %(output_dir,sample)
-        bcfSampleMd5 = "%s/%s.raw.bcf.md5" %(output_dir,sample)
-        
-        concat = ['bcftools','concat','-O','b','-o',bcfSample]
-        concat.extend(list_bcf_files)        
-        
-        process = utils.run_tools([concat],name="Concatenation Calls")
+        bsCall.append(['bcftools','convert','-o',bcf_file,'-O','b','--threads',threads])
+        process = utils.run_tools(bsCall, name="bsCalling")
         if process.wait() != 0:
-            raise ValueError("Error while concatenating bcf calls.")
+            raise ValueError("Error while executing the bscall process.")
+            
         #Indexing
-        indexing = ['bcftools','index',bcfSample]
-        #md5sum
-        md5sum = ['md5sum',bcfSample]
-        
+        indexing = ['bcftools','index',bcf_file]
         processIndex = utils.run_tools([indexing],name="Index BCF")
     
         if processIndex.wait() != 0:
             raise ValueError("Error while Indexing BCF file.")
-        
+
+        #md5sum
+        bcfSampleMd5 = "%s.md5" %(bcf_file)
+        md5sum = ['md5sum',bcf_file]
+                
         processMD5 = utils.run_tools([md5sum],name="Index MD5",output=bcfSampleMd5)
                 
         if processMD5.wait() != 0:
