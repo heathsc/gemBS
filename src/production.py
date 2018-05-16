@@ -6,6 +6,7 @@ import json
 import sys
 from sys import exit
 import subprocess
+import multiprocess as mp
 
 from utils import Command, CommandException
 from reportStats import LaneStats,SampleStats
@@ -981,6 +982,7 @@ class VariantsReports(BasicPipeline):
         parser.add_argument('-i', '--input-dir', dest="input_dir",metavar="PATH", help='Path were are located the JSON variants stats files.', required=True)
         parser.add_argument('-n', '--name', dest="name", metavar="NAME", help='Output basic name',required=True)
         parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",help='Output directory to store html and Sphinx Variants report.',required=True)
+        parser.add_argument('-t', '--threads', dest="threads", type=int, default=1,help='Number of jobs to run in parallel.',required=False)
         
     def run(self, args):
         self.name = args.name
@@ -1002,14 +1004,13 @@ class VariantsReports(BasicPipeline):
         for sample,num in self.sample_list.iteritems():
             for fileJson in self.json_files:
                 if fileJson.startswith(sample):
-                    print (sample, fileJson)
-                        self.sample_chr_files[sample] = []
+                    self.sample_chr_files[sample] = []
                     self.sample_chr_files[sample].append(args.input_dir + '/' + fileJson)
             
                 
         self.log_parameter()
         logging.gemBS.gt("Building Bs Calls html and sphinx reports...")
-        bsCallReports.buildBscallReports(inputs=self.sample_chr_files,output_dir=self.output_dir,name=self.name)        
+        bsCallReports.buildBscallReports(inputs=self.sample_chr_files,output_dir=self.output_dir,name=self.name,threads=args.threads)
         logging.gemBS.gt("Report Done.")                         
 
     def extra_log(self):
