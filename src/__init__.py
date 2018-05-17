@@ -7,7 +7,7 @@ import sys
 import logging
 import subprocess
 import pkg_resources
-
+import threading as th
 import tempfile
 import csv
 from . import utils
@@ -577,217 +577,304 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/"):
     
     return return_info 
 
-
-def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,left_trim=5,chrom_list=None,output_dir=None,paired_end=True,keep_unmatched=False,
+class BsCaller:
+     def __init__(self,reference,species,right_trim=0,left_trim=5,output_dir=None,paired_end=True,keep_unmatched=False,
                        keep_duplicates=False,dbSNP_index_file="",threads="1",mapq_threshold=None,bq_threshold=None,
                        haploid=False,conversion=None,ref_bias=None,sample_conversion=None):
-    """ Performs the process to make methylation calls.
+          self.reference = reference
+          self.species = species
+          self.right_trim = right_trim
+          self.left_trim = left_trim
+          self.output_dir = output_dir
+          self.paired_end = paired_end
+          self.keep_unmatched = keep_unmatched
+          self.keep_duplicates = keep_duplicates
+          self.dbSNP_index_file = dbSNP_index_file
+          self.threads = threads
+          self.mapq_threshold = mapq_threshold
+          self.bq_threshold = bq_threshold
+          self.haploid = haploid
+          self.conversion = conversion
+          self.ref_bias = ref_bias
+          self.sample_conversion = sample_conversion
+
+     def prepare(self, sample, input_bam, chrom_list, output_bcf, report_file):
+          samtools = ['samtools','view','-h',input_bam]
+          for chrom in chrom_list:
+               samtools.append(chrom)
+          bsCall = [samtools]
+
+          parameters_bscall = ['%s' %(executables["bs_call"]),'-r',self.reference,'-n',sample,'--report-file',report_file]
     
-        reference -- fasta reference file
-        species -- species name
-        sample_bam -- sample dictionary where key is sample and value its bam aligned file 
-        right_trim --  Bases to trim from right of read pair 
-        left_trim -- Bases to trim from left of read pair
-        chrom_list -- Chromosome list to perform the methylation analysis
-        output_dir -- Directory output to store the call results
-        paired_end -- Is paired end data
-        keep_unmatched -- Do not discard reads that do not form proper pairs
-        keep_duplicates -- Do not merge duplicate reads  
-        dbSNP_index_file -- dbSNP Index File            
-        threads -- Number of threads
-        mapq_threshold -- threshold for MAPQ scores
-        bq_threshold -- threshold for base quality scores
-        haploid -- force genotypes to be homozygous
-        conversion -- conversion rates 'under,over'
-        ref_bias -- bias to reference homozygote
-        sample_conversion - per sample conversion rates (calculated if conversion == 'auto')
-    """
-    #Check output directory
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-        
-    #for each sample 
-    for sample,input_bam in sample_bam.iteritems():    
-        list_bcf_files = []
-        #for each chromosome
-#        for chrom in chrom_list:
+          parameters_bscall.extend(['--right-trim','%i'%(self.right_trim)])
+          parameters_bscall.extend(['--left-trim','%i'%(self.left_trim)])
             
-        if len(chrom_list) == 1:
-            bcf_file = "%s/%s_%s.bcf" %(output_dir,sample,chrom_list[0])
-            report_file = "%s/%s_%s.json" %(output_dir,sample,chrom_list[0])
-        else:
-            bcf_file = "%s/%s.raw.bcf" %(output_dir,sample)
-            report_file = "%s/%s.json" %(output_dir,sample)
-
-        samtools = ['samtools','view','-h',input_bam]
-        for chrom in chrom_list:
-            samtools.append(chrom)
-        
-#            list_bcf_files.append(bcf_file)
-
-        bsCall = [samtools]
-
-        parameters_bscall = ['%s' %(executables["bs_call"]),'-r',reference,'-n',sample,'--report-file',report_file]
-    
-        parameters_bscall.extend(['--right-trim','%i'%(right_trim)])
-        parameters_bscall.extend(['--left-trim','%i'%(left_trim)])
-            
-        if paired_end:
-            parameters_bscall.append('-p')
-        if keep_unmatched:
-            parameters_bscall.append('-k')
-        if keep_duplicates:
-            parameters_bscall.append('-d')
-        if haploid:
-            parameters_bscall.append('-1')
-        if conversion != None:
-            if conversion.lower() == "auto":
-                if sample_conversion.has_key(sample):
+          if self.paired_end:
+               parameters_bscall.append('-p')
+          if self.keep_unmatched:
+               parameters_bscall.append('-k')
+          if self.keep_duplicates:
+               parameters_bscall.append('-d')
+          if self.haploid:
+               parameters_bscall.append('-1')
+          if self.conversion != None:
+               if self.conversion.lower() == "auto":
+                    if self.sample_conversion.has_key(sample):
+                         parameters_bscall.append("--conversion")
+                         parameters_bscall.append('%s'%(self.sample_conversion[sample]))
+               else:
                     parameters_bscall.append("--conversion")
-                    parameters_bscall.append('%s'%(sample_conversion[sample]))
-            else:
-                parameters_bscall.append("--conversion")
-                parameters_bscall.append('%s'%(conversion))
-        if ref_bias != None:
-            parameters_bscall.append("--reference_bias")
-            parameters_bscall.append('%s'%(ref_bias))
-        #Thresholds
-        if mapq_threshold != None:
-            parameters_bscall.append("--mapq-threshold")
-            parameters_bscall.append('%s'%(mapq_threshold))
-        if bq_threshold != None:
-            parameters_bscall.append("--bq-threshold")
-            parameters_bscall.append('%s'%(bq_threshold))
-        if dbSNP_index_file != "":
-            parameters_bscall.append('-D')
-            parameters_bscall.append('%s'%(dbSNP_index_file))
+                    parameters_bscall.append('%s'%(self.conversion))
+          if self.ref_bias != None:
+               parameters_bscall.append("--reference_bias")
+               parameters_bscall.append('%s'%(self.ref_bias))
+          #Thresholds
+          if self.mapq_threshold != None:
+               parameters_bscall.append("--mapq-threshold")
+               parameters_bscall.append('%s'%(self.mapq_threshold))
+          if self.bq_threshold != None:
+               parameters_bscall.append("--bq-threshold")
+               parameters_bscall.append('%s'%(self.bq_threshold))
+          if self.dbSNP_index_file != "":
+               parameters_bscall.append('-D')
+               parameters_bscall.append('%s'%(self.dbSNP_index_file))
     
-        bsCall.append(parameters_bscall)             
+          bsCall.append(parameters_bscall)             
                 
-        bsCall.append(['bcftools','convert','-o',bcf_file,'-O','b','--threads',threads])
-        process = utils.run_tools(bsCall, name="bsCalling")
-        if process.wait() != 0:
-            raise ValueError("Error while executing the bscall process.")
-            
-        #Indexing
-        indexing = ['bcftools','index',bcf_file]
-        processIndex = utils.run_tools([indexing],name="Index BCF")
-    
-        if processIndex.wait() != 0:
-            raise ValueError("Error while Indexing BCF file.")
+          bsCall.append(['bcftools','convert','-o',output_bcf,'-O','b','--threads',self.threads])
+          return bsCall
 
-        #md5sum
-        bcfSampleMd5 = "%s.md5" %(bcf_file)
-        md5sum = ['md5sum',bcf_file]
-                
-        processMD5 = utils.run_tools([md5sum],name="Index MD5",output=bcfSampleMd5)
-                
-        if processMD5.wait() != 0:
-            raise ValueError("Error while calculating its md5sum when performing bsConcat.")
-            
-    return " ".join(sample_bam.keys())
+class MethylationCallIter:
+     def __init__(self, sample_bam, chrom_list):
+          self.sample_bam = sample_bam
+          self.chrom_list = chrom_list
+          self.sample_ix = 0
+          self.chrom_ix = 0
+          self.activeSampleJobs = {}
+          self.completedSampleJobs = {}
+          for sample in sample_bam:
+               self.activeSampleJobs[sample] = []
+               self.completedSampleJobs[sample] = []
+
+     def __iter__(self):
+          return  self
+
+     def next(self):
+          sample_list = self.sample_bam.keys()
+          if self.sample_ix >= len(sample_list):
+               s = self.check()
+               if s != None:
+                    cl = self.completedSampleJobs[s]
+                    self.completedSampleJobs[s] = []
+                    return (s, None, cl)
+               raise StopIteration
+          else :
+               sample = sample_list[self.sample_ix]
+               s = self.check(sample)
+               if s != None:
+                    cl = self.completedSampleJobs[s]
+                    self.completedSampleJobs[s] = []
+                    return (s, None, cl)
+               bam = self.sample_bam[sample]
+               chrom = None
+               if self.chrom_list:
+                    chrom = self.chrom_list[self.chrom_ix]
+                    ret = (sample, bam, chrom)
+                    self.chrom_ix += 1
+                    if self.chrom_ix >= len(self.chrom_list):
+                         self.sample_ix += 1
+                         self.chrom_ix = 0
+               else:
+                    ret = (sample, bam, None)
+                    self.sample_ix += 1
+               self.activeSampleJobs[sample].append(chrom)
+          return ret
+
+     def check(self, sample = None):
+          for s in self.completedSampleJobs:
+               if s != sample and self.completedSampleJobs[s]:
+                    if not self.activeSampleJobs[s]:
+                         return s
+          return None
+                         
+     def finished(self, sample, chrom):
+          active = self.activeSampleJobs[sample]
+          try:
+               x = active.index(chrom)
+               del active[x]
+          except:
+               pass
+          self.completedSampleJobs[sample].append(chrom)
+          
+class MethylationCallThread(th.Thread):
+     def __init__(self, threadID, methIter, bsCall, lock, output_dir):
+          th.Thread.__init__(self)
+          self.threadID = threadID
+          self.methIter = methIter
+          self.bsCall = bsCall
+          self.lock = lock
+          self.output_dir = output_dir
+
+     def run(self):
+          while True:
+               self.lock.acquire()
+               try:
+                    (sample, input_bam, chrom) = self.methIter.next()
+                    self.lock.release()
+               except StopIteration:
+                    self.lock.release()
+                    break
+               if input_bam != None:
+                    bcf_file = "%s/%s_%s.bcf" %(self.output_dir,sample,chrom)
+                    report_file = "%s/%s_%s.json" %(self.output_dir,sample,chrom)
+                    bsCallCommand = self.bsCall.prepare(sample, input_bam, [chrom], bcf_file, report_file)
+                    process = utils.run_tools(bsCallCommand, name="bscall")
+                    if process.wait() != 0:
+                         raise ValueError("Error while executing the bscall process.")
+                    self.lock.acquire()
+                    self.methIter.finished(sample, chrom)
+                    self.lock.release()
+               else:
+                    list_bcf = []
+                    for c in chrom:
+                         list_bcf.append("%s/%s_%s.bcf" %(self.output_dir,sample,c))
+                    bsConcat(list_bcf, sample, self.output_dir)
+               
+def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,left_trim=5,chrom_list=None,output_dir=None,paired_end=True,keep_unmatched=False,
+                       keep_duplicates=False,dbSNP_index_file="",threads="1",jobs=1,mapq_threshold=None,bq_threshold=None,
+                       haploid=False,conversion=None,ref_bias=None,sample_conversion=None):
+     """ Performs the process to make methylation calls.
+    
+     reference -- fasta reference file
+     species -- species name
+     sample_bam -- sample dictionary where key is sample and value its bam aligned file 
+     right_trim --  Bases to trim from right of read pair 
+     left_trim -- Bases to trim from left of read pair
+     chrom_list -- Chromosome list to perform the methylation analysis
+     output_dir -- Directory output to store the call results
+     paired_end -- Is paired end data
+     keep_unmatched -- Do not discard reads that do not form proper pairs
+     keep_duplicates -- Do not merge duplicate reads  
+     dbSNP_index_file -- dbSNP Index File            
+     threads -- Number of threads
+     mapq_threshold -- threshold for MAPQ scores
+     bq_threshold -- threshold for base quality scores
+     haploid -- force genotypes to be homozygous
+     conversion -- conversion rates 'under,over'
+     ref_bias -- bias to reference homozygote
+     sample_conversion - per sample conversion rates (calculated if conversion == 'auto')
+     """
+     #Check output directory
+     if not os.path.exists(output_dir):
+          os.makedirs(output_dir)
+        
+     bsCall = BsCaller(reference=reference,species=species,right_trim=right_trim,left_trim=left_trim,output_dir=output_dir,
+                       paired_end=paired_end,keep_unmatched=keep_unmatched,keep_duplicates=keep_duplicates,
+                       dbSNP_index_file=dbSNP_index_file,threads=threads,mapq_threshold=mapq_threshold,bq_threshold=bq_threshold,
+                       haploid=haploid,conversion=conversion,ref_bias=ref_bias,sample_conversion=sample_conversion)
+
+     methIter = MethylationCallIter(sample_bam, chrom_list)
+     lock = th.Lock()
+     if jobs > 1:
+         thread_list = []
+         for ix in range(jobs):
+             thread = MethylationCallThread(ix, methIter, bsCall, lock, output_dir)
+             thread.start()
+             thread_list.append(thread)
+         for thread in thread_list:
+             thread.join()
+     else:
+          #for each sample, chromosome combination
+          for sample,input_bam,chrom in methIter:
+               if input_bam != None:
+                    bcf_file = "%s/%s_%s.bcf" %(output_dir,sample,chrom)
+                    report_file = "%s/%s_%s.json" %(output_dir,sample,chrom)
+                    
+                    bsCallCommand = bsCall.prepare(sample, input_bam, [chrom], bcf_file, report_file)
+                    process = utils.run_tools(bsCallCommand, name="bscall")
+                    if process.wait() != 0:
+                         raise ValueError("Error while executing the bscall process.")
+                    methIter.finished(sample, chrom)
+               else:
+                    list_bcf = []
+                    for c in chrom:
+                         list_bcf.append("%s/%s_%s.bcf" %(output_dir,sample,c))
+                    bsConcat(list_bcf, sample, output_dir)
+                    
+     return " ".join(sample_bam.keys())
+
             
 def methylationFiltering(bcfFile=None,output_dir=None):
-    """ Filters bcf methylation calls file 
-    
-       bcfFile -- bcfFile methylation calling file  
-       output_dir -- Output directory
-    """
-    
-    #Check output directory
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+     """ Filters bcf methylation calls file 
+
+     bcfFile -- bcfFile methylation calling file  
+     output_dir -- Output directory
+     """
         
-    tools = []
-    tools.append(['bcftools','view',bcfFile])
-    tools.append(['%s' %(executables["filter_vcf"]),'-o',output_dir])
+     #Check output directory
+     if not os.path.exists(output_dir):
+          os.makedirs(output_dir)
+        
+     tools = []
+     tools.append(['bcftools','view',bcfFile])
+     tools.append(['%s' %(executables["filter_vcf"]),'-o',output_dir])
      
-    process = utils.run_tools(tools,name="Methylation Calls Filtering")
-    if process.wait() != 0:
-            raise ValueError("Error while filtering bcf methylation calls.")
+     process = utils.run_tools(tools,name="Methylation Calls Filtering")
+     if process.wait() != 0:
+          raise ValueError("Error while filtering bcf methylation calls.")
     
-    return os.path.abspath("%s" % output_dir)
-            
+     return os.path.abspath("%s" % output_dir)
+
 def bsCalling (reference=None,species=None,input_bam=None,right_trim=0,left_trim=5,chrom=None,sample_id=None,output_dir=None,
                paired_end=True,keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1",mapq_threshold=None,bq_threshold=None,
                haploid=False,conversion=None,ref_bias=None):
-    """ Performs the process to make bisulfite calls per sample and chromosome.
+     """ Performs the process to make bisulfite calls per sample and chromosome.
     
-        reference -- fasta reference file
-        species -- species name
-        input_bam -- Path to input alignment bam file
-        right_trim --  Bases to trim from right of read pair 
-        left_trim -- Bases to trim from left of read pair
-        chrom -- chromosome name to perform the bisulfite calling
-        sample_id -- sample unique identification name
-        output_dir -- Directory output to store the call results
-        paired_end -- Is data paired end
-        keep_unmatched -- Do not discard reads that do not form proper pairs
-        keep_duplicates -- Do not merge duplicate reads 
-        dbSNP_index_file -- dbSNP Index File
-        threads -- Number of threads
-        mapq_threshold -- threshold for MAPQ scores
-        bq_threshold -- threshold for base quality scores
-        haploid -- force genotypes to be homozygous
-        conversion -- conversion rates 'under,over'
-        ref_bias -- bias to reference homozygote
-    """
+     reference -- fasta reference file
+     species -- species name
+     input_bam -- Path to input alignment bam file
+     right_trim --  Bases to trim from right of read pair 
+     left_trim -- Bases to trim from left of read pair
+     chrom -- chromosome name to perform the bisulfite calling
+     sample_id -- sample unique identification name
+     output_dir -- Directory output to store the call results
+     paired_end -- Is data paired end
+     keep_unmatched -- Do not discard reads that do not form proper pairs
+     keep_duplicates -- Do not merge duplicate reads 
+     dbSNP_index_file -- dbSNP Index File
+     threads -- Number of threads
+     mapq_threshold -- threshold for MAPQ scores
+     bq_threshold -- threshold for base quality scores
+     haploid -- force genotypes to be homozygous
+     conversion -- conversion rates 'under,over'
+     ref_bias -- bias to reference homozygote
+     """
     
-    #Check output directory
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+     #Check output directory
+     if not os.path.exists(output_dir):
+          os.makedirs(output_dir)
         
-    #Definition bcf and report file
-    if chrom != None:
-        bcf_file = "%s/%s_%s.bcf" %(output_dir,sample_id,chrom)   
-        report_file = "%s/%s_%s.json" %(output_dir,sample_id,chrom)
-        #Command bisulphite calling
-        bsCall = [['samtools','view','-h',input_bam,chrom]]
-    else:
-        bcf_file = "%s/%s.bcf" %(output_dir,sample_id)   
-        report_file = "%s/%s.json" %(output_dir,sample_id)
-        #Command bisulphite calling
-        bsCall = [['samtools','view','-h',input_bam]]
+     bsCall = BsCaller(reference=reference,species=species,right_trim=right_trim,left_trim=left_trim,output_dir=output_dir,
+                    paired_end=paired_end,keep_unmatched=keep_unmatched,keep_duplicates=keep_duplicates,
+                    dbSNP_index_file=dbSNP_index_file,threads=threads,mapq_threshold=mapq_threshold,bq_threshold=bq_threshold,
+                    haploid=haploid,conversion=conversion,ref_bias=ref_bias,sample_conversion=sample_conversion)
+     #Definition bcf and report file
+     if chrom != None:
+          bcf_file = "%s/%s_%s.bcf" %(output_dir,sample_id,chrom)   
+          report_file = "%s/%s_%s.json" %(output_dir,sample_id,chrom)
+          #Command bisulphite calling
+     else:
+          bcf_file = "%s/%s.bcf" %(output_dir,sample_id)   
+          report_file = "%s/%s.json" %(output_dir,sample_id)
+          #Command bisulphite calling
     
-    parameters_bscall = ['%s' %(executables["bs_call"]),'-r',reference,'-n',sample_id,'--report-file',report_file]
-           
-    parameters_bscall.extend(['--right-trim','%i'%(right_trim)])
-    parameters_bscall.extend(['--left-trim','%i'%(left_trim)])
-    
-    if paired_end:
-        parameters_bscall.append('-p')                
-    if keep_unmatched:
-        parameters_bscall.append('-k')                
-    if keep_duplicates:
-        parameters_bscall.append('-d')
-    if haploid:
-        parameters_bscall.append('-1')
-    if conversion != None:
-        parameters_bscall.append("--conversion")
-        parameters_bscall.append('%s'%(conversion))
-    if ref_bias != None:
-        parameters_bscall.append("--reference_bias")
-        parameters_bscall.append('%s'%(ref_bias))
-    #Thresholds
-    if mapq_threshold != None:
-        parameters_bscall.append("--mapq-threshold")
-        parameters_bscall.append('%s'%(mapq_threshold))
-    if bq_threshold != None:
-        parameters_bscall.append("--bq-threshold")
-        parameters_bscall.append('%s'%(bq_threshold))
-    if dbSNP_index_file != "":
-        parameters_bscall.append('-D')
-        parameters_bscall.append('%s'%(dbSNP_index_file))
-    
-    bsCall.append(parameters_bscall) 
+     bsCallCommand = bsCall.prepare(sample_id, input_bam, [chrom], bcf_file, report_file)
 
-    bsCall.append(['bcftools','convert','-o',bcf_file,'-O','b','--threads',threads])
-    print(bsCall)
-    process = utils.run_tools(bsCall, name="bsCalling")
-    if process.wait() != 0:
-        raise ValueError("Error while executing the bscall process.")
+     process = utils.run_tools(bsCallCommand, name="bscall")
+     if process.wait() != 0:
+          raise ValueError("Error while executing the bscall process.")
     
-    return os.path.abspath("%s" % bcf_file)
+     return os.path.abspath("%s" % bcf_file)
 
 
 def bsConcat(list_bcfs=None,sample=None,output_dir=None):

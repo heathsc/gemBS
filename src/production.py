@@ -6,7 +6,6 @@ import json
 import sys
 from sys import exit
 import subprocess
-import multiprocess as mp
 
 from utils import Command, CommandException
 from reportStats import LaneStats,SampleStats
@@ -577,6 +576,7 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',default=None)
         parser.add_argument('-d','--paired-end', dest="paired_end", action="store_true", default=False, help="Input data is Paired End")
         parser.add_argument('-t','--threads', dest="threads", metavar="THREADS", default="1", help='Number of threads, Default: %s' %self.threads)
+        parser.add_argument('-P','--jobs', dest="jobs", default=1, type=int, help='Number of parallel jobs')
         parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", default=False, help="Do not merge duplicate reads.")    
         parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", default=False, help="Do not discard reads that do not form proper pairs.")
         parser.add_argument('-1','--haploid', dest="haploid", action="store", default=False, help="Force genotype calls to be homozygous")
@@ -610,6 +610,7 @@ class MethylationCall(BasicPipeline):
         self.haploid = args.haploid
         self.conversion = args.conversion
         self.ref_bias = args.ref_bias
+        self.jobs = args.jobs
         self.list_chroms = []
         self.sample_conversion = {}
 
@@ -688,7 +689,7 @@ class MethylationCall(BasicPipeline):
                                          right_trim=self.right_trim, left_trim=self.left_trim,
                                          sample_bam=self.sampleBam,chrom_list=self.list_chroms,
                                          output_dir=self.output_dir,paired_end=self.paired,keep_unmatched=self.keep_unmatched,
-                                         keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads,
+                                         keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads,jobs=self.jobs,
                                          mapq_threshold=self.mapq_threshold,bq_threshold=self.bq_threshold,
                                          haploid=self.haploid,conversion=self.conversion,ref_bias=self.ref_bias,sample_conversion=self.sample_conversion)
 
