@@ -189,7 +189,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None)
             'fileid': 'fli', 'fli': 'fli', 'dataset': 'fli', 
             'type': 'type', 'filetype': 'type', 
             'readend': 'end', 'end': 'end',
-            'file': 'file', 'location': 'file', 'command': 'file',
+            'file': 'file', 'location' : 'file',
             'readend1': 'file1', 'end1': 'file1', 'file1': 'file1', 'location1': 'file1', 'command1': 'file1',
             'readend2': 'file2', 'end2': 'file2', 'file2': 'file2', 'location2': 'file2', 'command2': 'file2'
             }

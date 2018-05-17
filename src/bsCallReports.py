@@ -689,8 +689,8 @@ class BuildBsCallReportThread(th.Thread):
         while self.sample_list:
             self.sample_lock.acquire()
             if self.sample_list:
-                self.sample_lock.release()
                 sample = self.sample_list.pop(0)
+                self.sample_lock.release()
                 ret = self.html.buildSampleBscallReport(sample, lock = self.store_lock)
                 self.store_lock.acquire()
                 self.sample_link_list.append(ret)
