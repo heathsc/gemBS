@@ -15,9 +15,7 @@ From: ubuntu:bionic   # This is a comment
     (cd /usr/local/bin; \
     wget http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/wigToBigWig \
     && chmod 755 wigToBigWig)
-    pip install numpy
-    pip install matplotlib
-	 pip install configparser
+    pip install numpy matplotlib configparser multiprocess
     mkdir /usr/local/build; cd /usr/local/build
     wget https://github.com/samtools/samtools/releases/download/1.8/samtools-1.8.tar.bz2
     tar -jxf samtools-1.8.tar.bz2 && rm samtools-1.8.tar.bz2
