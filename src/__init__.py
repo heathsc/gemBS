@@ -938,7 +938,7 @@ def cpgBigWigConversion(name=None,output_dir=None,cpg_file=None,chr_len=None,qua
     wigCallFile = "%s/%s.bs_call.wig" %(output_dir,name)
     wigCovFile = "%s/%s.bs_cov.wig" %(output_dir,name)
     
-    #Parsing CpG Files to create big wig
+    #Parsing CpG Files to create BigWig
     lastChromosome = [""];
     with open(wigCallFile , 'w') as callFile:
         with open(wigCovFile , 'w') as covFile:

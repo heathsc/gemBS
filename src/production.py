@@ -746,7 +746,7 @@ class MethylationFiltering(BasicPipeline):
     def register(self,parser):
         ## required parameters
         parser.add_argument('-b','--bcf',dest="bcf_file",metavar="PATH",help="BCF Methylation call file", default=None)
-        parser.add_argument('-p','--path-bcf',dest="path_bcf",metavar="PATH_BAM",help='Path to sample BCF files.',default=None)
+        parser.add_argument('-p','--path-bcf',dest="path_bcf",metavar="PATH_BCF",help='Path to sample BCF files.',default=None)
         parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.', default=None)
         parser.add_argument('-P','--jobs', dest="jobs", default=1, type=int, help='Number of parallel jobs')
         parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',required=True)
@@ -1068,6 +1068,23 @@ class VariantsReports(BasicPipeline):
         printer("Json            : %s", self.json_file)
         printer("")   
         
+class CpgBigWigConversionThread(th.Thread):
+    def __init__(self, threadID, cpgConv, lock):
+        th.Thread.__init__(self)
+        self.threadID = threadID
+        self.cpgConv = cpgConv
+        self.cpg_list = cpgConv.cpg_list
+        self.lock = lock
+
+    def run(self):
+        while self.cpg_list:
+            self.lock.acquire()
+            if self.cpg_list:
+                tup = self.cpg_list.pop(0)
+                self.lock.release()
+                self.cpgConv.do_conversion(tup)
+            else:
+                self.lock.release()
                 
 class CpgBigwig(BasicPipeline):
     title = "Build BigWig files."
@@ -1082,15 +1099,17 @@ class CpgBigwig(BasicPipeline):
                 
     def register(self, parser):
         ## required parameters
-        parser.add_argument('-c','--cpg-file', dest="cpg_file", help="""CpG gzipped Compressed File.""",required=True,default=None)
+        parser.add_argument('-c','--cpg-file', dest="cpg_file", help="""CpG gzipped Compressed File.""",default=None)
         parser.add_argument('-l','--chrom-length', dest="chrom_length", help="""Chromosome Length Text File.
                                                                                  Format: Two Columns: <chromosome name> <size in bases>""",required=True,default=None)
-        parser.add_argument('-n','--name', dest="name", metavar="NAME", help='Output basic name',required=True)
+        parser.add_argument('-p','--path-cpg',dest="path_cpg",metavar="PATH_CPG",help='Path to sample CPG files.',default=None)
+        parser.add_argument('-P','--jobs', dest="jobs", default=1, type=int, help='Number of parallel jobs')
+        parser.add_argument('-n','--name', dest="name", metavar="NAME", help='Output basic name',default=None)
+        parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.', default=None)
         parser.add_argument('-q', '--quality', dest="quality", metavar="QUAL", help='Quality filtering criteria for the CpGs. By default 20.',required=False,default="20")
         parser.add_argument('-i', '--informative-reads', dest="informative_reads", metavar="READS", help='Total number of informative reads to filter CpGs.By default 5.',required=False,default="5")   
         parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',required=True,default=None)
                                                                                  
-
     def run(self,args):        
         self.name = args.name
         self.output_dir = args.output_dir
@@ -1098,22 +1117,56 @@ class CpgBigwig(BasicPipeline):
         self.chrom_length = args.chrom_length
         self.quality = args.quality
         self.informative_reads = args.informative_reads
-                
-        #Check CpG gzipped compressed file
-        if not os.path.isfile(args.cpg_file):
-            raise CommandException("Sorry path %s was not found!!" %(args.cpg_file))    
-            
-        #Check chromosome length file exitance
+        self.threads = args.jobs
+        self.cpg_list = []
+
+        #Check chromosome length file existance
         if not os.path.isfile(args.chrom_length):
             raise CommandException("Sorry path %s was not found!!" %(args.chrom_length)) 
         
-      
-                
-        #Bs Calling Concatenate
+        if args.cpg_file == None:
+            if args.path_cpg != None and args.json_file != None:
+                for k,v in FLIdata(args.json_file).sampleData.iteritems():
+                    cpg = "{}/{}_cpg.txt.gz".format(args.path_cpg,v.sample_barcode)
+                    tup = (v.sample_barcode, cpg)
+                    if tup not in self.cpg_list:
+                        if os.path.isfile(cpg):
+                            self.cpg_list.append(tup)
+            if not self.cpg_list:
+                raise ValueError("No CPG files found to filter.")
+        else:
+            #Check CpG gzipped compressed file
+            if not os.path.isfile(args.cpg_file):
+                raise CommandException("Sorry path %s was not found!!" %(args.cpg_file))
+            else:
+                if args.name == None:
+                    if args.cpg_file.endswith('_cpg.txt.gz'):
+                        base = os.path.basename(args.cpg_file)
+                        l = len(base) - 11
+                        args.name = base[:l]
+                self.cpg_list.append((args.name,args.cpg_file))
+
         self.log_parameter()
         logging.gemBS.gt("CpG BigWig Conversion...")
-                
-        ret = src.cpgBigWigConversion(name=self.name,output_dir=self.output_dir,cpg_file=self.cpg_file,
+
+        if args.jobs > 1:
+            threads = []
+            lock = th.Lock()
+            for ix in range(args.jobs):
+                thread = CpgBigWigConversionThread(ix, self, lock)
+                thread.start()
+                threads.append(thread)
+            for thread in threads:
+                thread.join()
+        else:
+            for tup in self.cpg_list:
+                self.do_conversion(tup)
+        
+    def do_conversion(self, tup):
+        
+        #Cpg BigWig Conversion
+        (name, cpg_file) = tup
+        ret = src.cpgBigWigConversion(name=name,output_dir=self.output_dir,cpg_file=cpg_file,
                                       chr_len=self.chrom_length,quality=self.quality,informative_reads=self.informative_reads)
         if ret:
             logging.gemBS.gt("CpG Bigwig Conversion Done: %s" %(ret))
@@ -1121,15 +1174,4 @@ class CpgBigwig(BasicPipeline):
     def extra_log(self):
         """Extra Parameters to be printed"""
         #Virtual methos, to be define in child class
-        printer = logging.gemBS.gt
-        
-        printer("------- CpG BigWig Conversion ----------")
-        printer("Name            : %s", self.name)
-        printer("CpG File        : %s", self.cpg_file)
-        printer("Chrom Length    : %s", self.chrom_length)
-        printer("Quality         : %s", self.quality)
-        printer("Info. Reads     : %s", self.informative_reads)
-        printer("")       
-            
-       
 
