@@ -31,7 +31,7 @@ gemBS_logger.propagate = 0
 gemBS_logger.setLevel(LOG_GEMBS)
 
 def log_gemBS(message, *args, **kws):
-     gemBS_logger.log(LOG_GEMBS, message, *args, **kws)
+    gemBS_logger.log(LOG_GEMBS, message, *args, **kws)
 
 gemBS_logger.gt = log_gemBS
 
@@ -42,7 +42,7 @@ class GemBSFormatter(logging.Formatter):
 
     def __init__(self, fmt="%(levelno)s: %(msg)s"):
         logging.Formatter.__init__(self, fmt)
-
+        
     def format(self, record):
         format_orig = self._fmt
         if record.levelno == LOG_GEMBS:
@@ -368,108 +368,150 @@ def index(input, output, threads=None,list_dbSNP_files=[],dbsnp_index=""):
 
 def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
              file_interleaved=None,file_se=None,read_non_stranded=False,
-             file_bam=None,outputDir=None,
+             file_bam=None,force_flag=False,outputDir=None,
              paired=False,tmpDir="/tmp/",threads=1,under_conversion=None, over_conversion=None):
     """ Star the GEM Bisulfite mapping on the given input.
     
-        name -- Name basic (FLI) for the input and output fastq files
-        index -- Path to the Bisulfite index reference to map to
-        fliInfo -- FLI object with metadata information (useful for read groups)
-        file_pe_one -- First pair fastq file (Paired End)
-        file_pe_two -- Second pair fastq file (Paired End)
-        file_interleaved -- Paired end file interleaved
-        file_se -- Single End fastq file
-        file_bam -- BAM alignment file
-        read_non_stranded -- Read non stranded
-        outputDir -- Directory to store the Bisulfite mapping results
-        paired -- Paired End flag
-        tmpDir -- Temporary directory to perform sorting operations
-        threads -- Number of threads
-        under_conversion -- Under conversion sequence
-        over_conversion -- Over conversion sequence
+    name -- Name basic (FLI) for the input and output fastq files
+    index -- Path to the Bisulfite index reference to map to
+    fliInfo -- FLI object with metadata information (useful for read groups)
+    file_pe_one -- First pair fastq file (Paired End)
+    file_pe_two -- Second pair fastq file (Paired End)
+    file_interleaved -- Paired end file interleaved
+    file_se -- Single End fastq file
+    file_bam -- BAM alignment file
+    force_flag -- Force command even if output file exists and is younger than inputs
+    read_non_stranded -- Read non stranded
+    outputDir -- Directory to store the Bisulfite mapping results
+    paired -- Paired End flag
+    tmpDir -- Temporary directory to perform sorting operations
+    threads -- Number of threads
+    under_conversion -- Under conversion sequence
+    over_conversion -- Over conversion sequence
     """        
     ## prepare inputs
     index = _prepare_index_parameter(index)
     ## prepare the input
     bamToFastq = []  
     mapping = [executables['gem-mapper'], '-I', index]
-
-    if file_pe_one is not None and file_pe_two is not None:
-        mapping.extend(["--i1",file_pe_one,"--i2",file_pe_two])        
-    elif file_interleaved is not None:
-        mapping.extend(["-i",file_interleaved])        
-    elif file_se is not None:
-        mapping.extend(["-i",file_se])
-    elif file_bam is not None:
-        bamToFastq.extend(["samtools","bam2fq", file_bam])
-        
+     
+    nameOutput="%s/%s.bam" %(outputDir,name)
+    
+    run_command = force_flag
+     
     #Check output directory
     if not os.path.exists(outputDir):
         os.makedirs(outputDir)
-    #Paired End
-    if paired:
-        mapping.append("-p")    
-    #Non Stranded
-    if read_non_stranded:
-        mapping.extend(["--bisulfite-read","non-stranded"])        
-    #Number of threads
-    mapping.extend(["-t",threads])
-    #Mapping stats
-    report_file = "%s/%s.json" % (outputDir,name)
-    mapping.extend(["--report-file",report_file])
-    #Read Groups
-    readGroups = "@RG\\tID:%s\\tSM:%s\\tLB:%s\\tPU:%s\\tCN:CNAG\\tPL:Illumina" %(fliInfo.getFli(),fliInfo.sample_barcode,fliInfo.library,fliInfo.getFli())
-    mapping.extend(["-r",readGroups])    
-    #Bisulfite Conversion Values
-    if under_conversion != "":
-        mapping.extend(["--underconversion_sequence",under_conversion])
-    if over_conversion != "":
-        mapping.extend(["--overconversion_sequence",over_conversion])
-    #READ FILTERING
-    readNameClean = [executables['readNameClean']]
+        run_command = True
+    elif not run_command:
+        if os.path.exists(nameOutput):
+            output_mtime = os.path.getmtime(nameOutput)
+        else:
+            run_command = True
+     
+    if file_pe_one is not None and file_pe_two is not None:
+        mapping.extend(["--i1",file_pe_one,"--i2",file_pe_two])
+        if not run_command:
+            mtime1 = os.path.getmtime(file_pe_one)
+            mtime2 = os.path.getmtime(file_pe_one)
+            input_mtime = mtime1 if mtime1 > mtime2 else mtime2
+    elif file_interleaved is not None:
+        mapping.extend(["-i",file_interleaved])
+        if not run_command:
+            input_mtime = os.path.getmtime(file_interleaved)
+    elif file_se is not None:
+        mapping.extend(["-i",file_se])
+        if not run_command:
+            input_mtime = os.path.getmtime(file_se)
+    elif file_bam is not None:
+        bamToFastq.extend(["samtools","bam2fq", file_bam])
+        if not run_command:
+            input_mtime = os.path.getmtime(file_bam)
+
+    if not run_command and input_mtime > output_mtime:
+        run_command = True
+
+    if run_command:
+        #Paired End
+        if paired:
+            mapping.append("-p")    
+        #Non Stranded
+        if read_non_stranded:
+            mapping.extend(["--bisulfite-read","non-stranded"])        
+        #Number of threads
+        mapping.extend(["-t",threads])
+        #Mapping stats
+        report_file = "%s/%s.json" % (outputDir,name)
+        mapping.extend(["--report-file",report_file])
+        #Read Groups
+        readGroups = "@RG\\tID:%s\\tSM:%s\\tLB:%s\\tPU:%s\\tCN:CNAG\\tPL:Illumina" %(fliInfo.getFli(),fliInfo.sample_barcode,fliInfo.library,fliInfo.getFli())
+        mapping.extend(["-r",readGroups])    
+        #Bisulfite Conversion Values
+        if under_conversion != "":
+            mapping.extend(["--underconversion_sequence",under_conversion])
+        if over_conversion != "":
+            mapping.extend(["--overconversion_sequence",over_conversion])
+        #READ FILTERING
+        readNameClean = [executables['readNameClean']]
          
-    #BAM SORT
-    nameOutput="%s/%s.bam" %(outputDir,name)
-    bamSort = ["samtools","sort","-T","%s/%s"%(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
+        #BAM SORT
+        bamSort = ["samtools","sort","-T","%s/%s"%(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
     
-    tools = [mapping,readNameClean,bamSort]
+        tools = [mapping,readNameClean,bamSort]
     
-    if file_bam is not None:
-        tools.insert(0, bamToFastq)
+        if file_bam is not None:
+            tools.insert(0, bamToFastq)
     
-    process = utils.run_tools(tools, name="bisulfite-mapping")
-    if process.wait() != 0:
-        raise ValueError("Error while executing the Bisulfite bisulphite-mapping")
-    
+        process = utils.run_tools(tools, name="bisulfite-mapping")
+        if process.wait() != 0:
+            raise ValueError("Error while executing the Bisulfite bisulphite-mapping")
+    else:
+        logging.gemBS.gt("Mapping skipped (output file newer than inputs.  Use --force to force mapping)")
+
     return os.path.abspath("%s" % nameOutput)
     
     
 def direct_mapping(name=None,index=None,fliInfo=None,paired=None,threads=None,
                    file_pe_one=None,file_pe_two=None,file_input=None,is_bam=False,
-                   read_non_stranded=None,
+                   force_flag=False, read_non_stranded=None,
                    outputDir=None,tmpDir=None,
                    under_conversion=None,over_conversion=None):
     """ Trigger the GEM 3 Bisulfite mapping on a given input or from STDIN 
 
-        name --  Name basic (FLI) for the input and output fastq files
-        index -- Path to the Bisulfite Index reference to map to
-        fliInfo -- FLI object with metadata information (useful for read groups)
-        paired -- Paired End flag
-        threads -- Number of threads
-        is_bam -- True if the input file is BAM or SAM
-        file_pe_one -- First pair fastq file (Paired End)
-        file_pe_two -- Second pair fastq file (Paired End)
-        file_input -- Interleaved file or single end file
-        read_non_stranded -- Reads from non stranded protocol
-        outputDir -- Directory to store the Bisulfite mapping results
-        tmpDir -- Temporary directory to store the Bisulfite mapping results
-        under_conversion -- Under Conversion sequence
-        over_conversion -- Over conversion sequence
+    name --  Name basic (FLI) for the input and output fastq files
+    index -- Path to the Bisulfite Index reference to map to
+    fliInfo -- FLI object with metadata information (useful for read groups)
+    paired -- Paired End flag
+    threads -- Number of threads
+    is_bam -- True if the input file is BAM or SAM
+    force_flag -- Force command even if output file exists and is younger than inputs
+    file_pe_one -- First pair fastq file (Paired End)
+    file_pe_two -- Second pair fastq file (Paired End)
+    file_input -- Interleaved file or single end file
+    read_non_stranded -- Reads from non stranded protocol
+    outputDir -- Directory to store the Bisulfite mapping results
+    tmpDir -- Temporary directory to store the Bisulfite mapping results
+    under_conversion -- Under Conversion sequence
+     over_conversion -- Over conversion sequence
     """
     #Check index
     index = _prepare_index_parameter(index)
     #Prepare Mapping Command
     bamToFastq = []
+    nameOutput="%s/%s.bam" %(outputDir,name)
+    
+    run_command = force_flag
+     
+    #Check output directory
+    if not os.path.exists(outputDir):
+        os.makedirs(outputDir)
+        run_command = True
+    elif not run_command:
+        if os.path.exists(nameOutput):
+            output_mtime = os.path.getmtime(nameOutput)
+        else:
+            run_command = True
+     
     mapping = [executables['gem-mapper'],'-I',index]
     if paired:
         mapping.append("-p")
@@ -479,40 +521,57 @@ def direct_mapping(name=None,index=None,fliInfo=None,paired=None,threads=None,
     if is_bam:
         if file_input:
             bamToFastq.extend(["samtools","bam2fq",file_input])
+            if not run_command:
+                input_mtime = os.path.getmtime(file_input)
         else:
             bamToFastq.extend(["samtools","bam2fq","-"])
+            run_command = True
     else:
         if file_pe_one and file_pe_two:
             mapping.extend(["--i1",file_pe_one,"--i2",file_pe_two])
-        elif file_input: 
-            mapping.extend(["--input",file_input])
-    #Non Stranded protocol
-    if read_non_stranded:
-        mapping.extend(["--bisulfite-read","non-stranded"])
-    #Mapping stats
-    report_file = "%s/%s.json" % (outputDir,name)
-    mapping.extend(["--report-file",report_file])
-    #Read Groups
-    readGroups = "@RG\\tID:%s\\tSM:%s\\tLB:%s\\tPU:%s\\tCN:CNAG\\tPL:Illumina" %(fliInfo.getFli(),fliInfo.sample_barcode,fliInfo.library,fliInfo.getFli())
-    mapping.extend(["-r",readGroups])
-    #Bisulfite Conversion Values
-    if under_conversion != "":
-        mapping.extend(["--underconversion_sequence",under_conversion])
-    if over_conversion != "":
-        mapping.extend(["--overconversion_sequence",over_conversion])
-    #READ FILTERING
-    readNameClean = [executables['readNameClean']]
-    #BAM SORT
-    nameOutput="%s/%s.bam" %(outputDir,name)
-    bamSort = ["samtools","sort","-T","%s/%s"%(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
-    #Mount pipe command
-    tools = [mapping,readNameClean,bamSort]
-    if is_bam:
-        tools.insert(0, bamToFastq)    
-    process = utils.run_tools(tools, name="bisulfite-direct-mapping")
-    if process.wait() != 0:
-        raise ValueError("Error while executing the Bisulphite bisulfite-direct-mapping")
-        
+            if not run_command:
+                mtime1 = os.path.getmtime(file_pe_one)
+                mtime2 = os.path.getmtime(file_pe_one)
+                input_mtime = mtime1 if mtime1 > mtime2 else mtime2
+            elif file_input: 
+                mapping.extend(["--input",file_input])
+                if not run_command:
+                    input_mtime = os.path.getmtime(file_input)
+            else:
+                run_command = True
+               
+    if not run_command and input_mtime > output_mtime:
+        run_command = True
+
+    if run_command:
+        #Non Stranded protocol
+        if read_non_stranded:
+            mapping.extend(["--bisulfite-read","non-stranded"])
+        #Mapping stats
+        report_file = "%s/%s.json" % (outputDir,name)
+        mapping.extend(["--report-file",report_file])
+        #Read Groups
+        readGroups = "@RG\\tID:%s\\tSM:%s\\tLB:%s\\tPU:%s\\tCN:CNAG\\tPL:Illumina" %(fliInfo.getFli(),fliInfo.sample_barcode,fliInfo.library,fliInfo.getFli())
+        mapping.extend(["-r",readGroups])
+        #Bisulfite Conversion Values
+        if under_conversion != "":
+            mapping.extend(["--underconversion_sequence",under_conversion])
+        if over_conversion != "":
+            mapping.extend(["--overconversion_sequence",over_conversion])
+        #READ FILTERING
+        readNameClean = [executables['readNameClean']]
+        #BAM SORT
+        bamSort = ["samtools","sort","-T","%s/%s"%(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
+        #Mount pipe command
+        tools = [mapping,readNameClean,bamSort]
+        if is_bam:
+            tools.insert(0, bamToFastq)    
+        process = utils.run_tools(tools, name="bisulfite-direct-mapping")
+        if process.wait() != 0:
+            raise ValueError("Error while executing the Bisulphite bisulfite-direct-mapping")
+    else:
+        logging.gemBS.gt("Mapping skipped (output file newer than inputs.  Use --force to force mapping)")
+
     return os.path.abspath("%s" % nameOutput)
     
     
@@ -579,303 +638,305 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/"):
     return return_info 
 
 class BsCaller:
-     def __init__(self,reference,species,right_trim=0,left_trim=5,output_dir=None,paired_end=True,keep_unmatched=False,
-                       keep_duplicates=False,dbSNP_index_file="",threads="1",mapq_threshold=None,bq_threshold=None,
-                       haploid=False,conversion=None,ref_bias=None,sample_conversion=None):
-          self.reference = reference
-          self.species = species
-          self.right_trim = right_trim
-          self.left_trim = left_trim
-          self.output_dir = output_dir
-          self.paired_end = paired_end
-          self.keep_unmatched = keep_unmatched
-          self.keep_duplicates = keep_duplicates
-          self.dbSNP_index_file = dbSNP_index_file
-          self.threads = threads
-          self.mapq_threshold = mapq_threshold
-          self.bq_threshold = bq_threshold
-          self.haploid = haploid
-          self.conversion = conversion
-          self.ref_bias = ref_bias
-          self.sample_conversion = sample_conversion
+    def __init__(self,reference,species,right_trim=0,left_trim=5,output_dir=None,paired_end=True,keep_unmatched=False,
+                 keep_duplicates=False,dbSNP_index_file="",threads="1",mapq_threshold=None,bq_threshold=None,
+                 haploid=False,conversion=None,ref_bias=None,sample_conversion=None):
+        self.reference = reference
+        self.species = species
+        self.right_trim = right_trim
+        self.left_trim = left_trim
+        self.output_dir = output_dir
+        self.paired_end = paired_end
+        self.keep_unmatched = keep_unmatched
+        self.keep_duplicates = keep_duplicates
+        self.dbSNP_index_file = dbSNP_index_file
+        self.threads = threads
+        self.mapq_threshold = mapq_threshold
+        self.bq_threshold = bq_threshold
+        self.haploid = haploid
+        self.conversion = conversion
+        self.ref_bias = ref_bias
+        self.sample_conversion = sample_conversion
 
-     def prepare(self, sample, input_bam, chrom_list, output_bcf, report_file):
-          samtools = ['samtools','view','-h',input_bam]
-          for chrom in chrom_list:
-               samtools.append(chrom)
-          bsCall = [samtools]
+    def prepare(self, sample, input_bam, chrom_list, output_bcf, report_file):
+        samtools = ['samtools','view','-h',input_bam]
+        for chrom in chrom_list:
+            samtools.append(chrom)
+        bsCall = [samtools]
 
-          parameters_bscall = ['%s' %(executables["bs_call"]),'-r',self.reference,'-n',sample,'--report-file',report_file]
+        parameters_bscall = ['%s' %(executables["bs_call"]),'-r',self.reference,'-n',sample,'--report-file',report_file]
     
-          parameters_bscall.extend(['--right-trim','%i'%(self.right_trim)])
-          parameters_bscall.extend(['--left-trim','%i'%(self.left_trim)])
+        parameters_bscall.extend(['--right-trim','%i'%(self.right_trim)])
+        parameters_bscall.extend(['--left-trim','%i'%(self.left_trim)])
             
-          if self.paired_end:
-               parameters_bscall.append('-p')
-          if self.keep_unmatched:
-               parameters_bscall.append('-k')
-          if self.keep_duplicates:
-               parameters_bscall.append('-d')
-          if self.haploid:
-               parameters_bscall.append('-1')
-          if self.conversion != None:
-               if self.conversion.lower() == "auto":
-                    if self.sample_conversion.has_key(sample):
-                         parameters_bscall.append("--conversion")
-                         parameters_bscall.append('%s'%(self.sample_conversion[sample]))
-               else:
+        if self.paired_end:
+            parameters_bscall.append('-p')
+        if self.keep_unmatched:
+            parameters_bscall.append('-k')
+        if self.keep_duplicates:
+            parameters_bscall.append('-d')
+        if self.haploid:
+            parameters_bscall.append('-1')
+        if self.conversion != None:
+            if self.conversion.lower() == "auto":
+                if self.sample_conversion.has_key(sample):
+                    parameters_bscall.append("--conversion")
+                    parameters_bscall.append('%s'%(self.sample_conversion[sample]))
+                else:
                     parameters_bscall.append("--conversion")
                     parameters_bscall.append('%s'%(self.conversion))
-          if self.ref_bias != None:
-               parameters_bscall.append("--reference_bias")
-               parameters_bscall.append('%s'%(self.ref_bias))
-          #Thresholds
-          if self.mapq_threshold != None:
-               parameters_bscall.append("--mapq-threshold")
-               parameters_bscall.append('%s'%(self.mapq_threshold))
-          if self.bq_threshold != None:
-               parameters_bscall.append("--bq-threshold")
-               parameters_bscall.append('%s'%(self.bq_threshold))
-          if self.dbSNP_index_file != "":
-               parameters_bscall.append('-D')
-               parameters_bscall.append('%s'%(self.dbSNP_index_file))
+        if self.ref_bias != None:
+            parameters_bscall.append("--reference_bias")
+            parameters_bscall.append('%s'%(self.ref_bias))
+        #Thresholds
+        if self.mapq_threshold != None:
+            parameters_bscall.append("--mapq-threshold")
+            parameters_bscall.append('%s'%(self.mapq_threshold))
+        if self.bq_threshold != None:
+            parameters_bscall.append("--bq-threshold")
+            parameters_bscall.append('%s'%(self.bq_threshold))
+        if self.dbSNP_index_file != "":
+            parameters_bscall.append('-D')
+            parameters_bscall.append('%s'%(self.dbSNP_index_file))
     
-          bsCall.append(parameters_bscall)             
+        bsCall.append(parameters_bscall)             
                 
-          bsCall.append(['bcftools','convert','-o',output_bcf,'-O','b','--threads',self.threads])
-          return bsCall
+        bsCall.append(['bcftools','convert','-o',output_bcf,'-O','b','--threads',self.threads])
+        return bsCall
 
 class MethylationCallIter:
-     def __init__(self, sample_bam, chrom_list):
-          self.sample_bam = sample_bam
-          self.chrom_list = chrom_list
-          self.sample_ix = 0
-          self.chrom_ix = 0
-          self.activeSampleJobs = {}
-          self.completedSampleJobs = {}
-          for sample in sample_bam:
-               self.activeSampleJobs[sample] = []
-               self.completedSampleJobs[sample] = []
+    def __init__(self, sample_bam, chrom_list):
+        self.sample_bam = sample_bam
+        self.chrom_list = chrom_list
+        self.sample_ix = 0
+        self.chrom_ix = 0
+        self.activeSampleJobs = {}
+        self.completedSampleJobs = {}
+        for sample in sample_bam:
+            self.activeSampleJobs[sample] = []
+            self.completedSampleJobs[sample] = []
 
-     def __iter__(self):
-          return  self
+    def __iter__(self):
+        return  self
 
-     def next(self):
-          sample_list = self.sample_bam.keys()
-          if self.sample_ix >= len(sample_list):
-               s = self.check()
-               if s != None:
-                    cl = self.completedSampleJobs[s]
-                    self.completedSampleJobs[s] = []
-                    return (s, None, cl)
-               raise StopIteration
-          else :
-               sample = sample_list[self.sample_ix]
-               s = self.check(sample)
-               if s != None:
-                    cl = self.completedSampleJobs[s]
-                    self.completedSampleJobs[s] = []
-                    return (s, None, cl)
-               bam = self.sample_bam[sample]
-               chrom = None
-               if self.chrom_list:
+    def next(self):
+        sample_list = self.sample_bam.keys()
+        if self.sample_ix >= len(sample_list):
+            s = self.check()
+            if s != None:
+                cl = self.completedSampleJobs[s]
+                self.completedSampleJobs[s] = []
+                return (s, None, cl)
+            else:
+                raise StopIteration
+        else:
+            sample = sample_list[self.sample_ix]
+            s = self.check(sample)
+            if s != None:
+                cl = self.completedSampleJobs[s]
+                self.completedSampleJobs[s] = []
+                return (s, None, cl)
+            else:
+                bam = self.sample_bam[sample]
+                chrom = None
+                if self.chrom_list:
                     chrom = self.chrom_list[self.chrom_ix]
                     ret = (sample, bam, chrom)
                     self.chrom_ix += 1
                     if self.chrom_ix >= len(self.chrom_list):
-                         self.sample_ix += 1
-                         self.chrom_ix = 0
-               else:
+                        self.sample_ix += 1
+                        self.chrom_ix = 0
+                else:
                     ret = (sample, bam, None)
                     self.sample_ix += 1
-               self.activeSampleJobs[sample].append(chrom)
-          return ret
+                self.activeSampleJobs[sample].append(chrom)
+        return ret
 
-     def check(self, sample = None):
-          for s in self.completedSampleJobs:
-               if s != sample and self.completedSampleJobs[s]:
-                    if not self.activeSampleJobs[s]:
-                         return s
-          return None
+    def check(self, sample = None):
+        for s in self.completedSampleJobs:
+            if s != sample and self.completedSampleJobs[s]:
+                if not self.activeSampleJobs[s]:
+                    return s
+        return None
                          
-     def finished(self, sample, chrom):
-          active = self.activeSampleJobs[sample]
-          try:
-               x = active.index(chrom)
-               del active[x]
-          except:
-               pass
-          self.completedSampleJobs[sample].append(chrom)
+    def finished(self, sample, chrom):
+        active = self.activeSampleJobs[sample]
+        try:
+            x = active.index(chrom)
+            del active[x]
+        except:
+            pass
+        self.completedSampleJobs[sample].append(chrom)
           
 class MethylationCallThread(th.Thread):
-     def __init__(self, threadID, methIter, bsCall, lock, output_dir):
-          th.Thread.__init__(self)
-          self.threadID = threadID
-          self.methIter = methIter
-          self.bsCall = bsCall
-          self.lock = lock
-          self.output_dir = output_dir
+    def __init__(self, threadID, methIter, bsCall, lock, output_dir):
+        th.Thread.__init__(self)
+        self.threadID = threadID
+        self.methIter = methIter
+        self.bsCall = bsCall
+        self.lock = lock
+        self.output_dir = output_dir
 
-     def run(self):
-          while True:
-               self.lock.acquire()
-               try:
-                    (sample, input_bam, chrom) = self.methIter.next()
-                    self.lock.release()
-               except StopIteration:
-                    self.lock.release()
-                    break
-               if input_bam != None:
-                    bcf_file = "%s/%s_%s.bcf" %(self.output_dir,sample,chrom)
-                    report_file = "%s/%s_%s.json" %(self.output_dir,sample,chrom)
-                    bsCallCommand = self.bsCall.prepare(sample, input_bam, [chrom], bcf_file, report_file)
-                    process = utils.run_tools(bsCallCommand, name="bscall")
-                    if process.wait() != 0:
-                         raise ValueError("Error while executing the bscall process.")
-                    self.lock.acquire()
-                    self.methIter.finished(sample, chrom)
-                    self.lock.release()
-               else:
-                    list_bcf = []
-                    for c in chrom:
-                         list_bcf.append("%s/%s_%s.bcf" %(self.output_dir,sample,c))
-                    bsConcat(list_bcf, sample, self.output_dir)
+    def run(self):
+        while True:
+            self.lock.acquire()
+            try:
+                (sample, input_bam, chrom) = self.methIter.next()
+                self.lock.release()
+            except StopIteration:
+                self.lock.release()
+                break
+            if input_bam != None:
+                bcf_file = "%s/%s_%s.bcf" %(self.output_dir,sample,chrom)
+                report_file = "%s/%s_%s.json" %(self.output_dir,sample,chrom)
+                bsCallCommand = self.bsCall.prepare(sample, input_bam, [chrom], bcf_file, report_file)
+                process = utils.run_tools(bsCallCommand, name="bscall")
+                if process.wait() != 0:
+                    raise ValueError("Error while executing the bscall process.")
+                self.lock.acquire()
+                self.methIter.finished(sample, chrom)
+                self.lock.release()
+            else:
+                list_bcf = []
+                for c in chrom:
+                    list_bcf.append("%s/%s_%s.bcf" %(self.output_dir,sample,c))
+                bsConcat(list_bcf, sample, self.output_dir)
                
 def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,left_trim=5,chrom_list=None,output_dir=None,paired_end=True,keep_unmatched=False,
                        keep_duplicates=False,dbSNP_index_file="",threads="1",jobs=1,mapq_threshold=None,bq_threshold=None,
                        haploid=False,conversion=None,ref_bias=None,sample_conversion=None):
-     """ Performs the process to make methylation calls.
+    """ Performs the process to make methylation calls.
     
-     reference -- fasta reference file
-     species -- species name
-     sample_bam -- sample dictionary where key is sample and value its bam aligned file 
-     right_trim --  Bases to trim from right of read pair 
-     left_trim -- Bases to trim from left of read pair
-     chrom_list -- Chromosome list to perform the methylation analysis
-     output_dir -- Directory output to store the call results
-     paired_end -- Is paired end data
-     keep_unmatched -- Do not discard reads that do not form proper pairs
-     keep_duplicates -- Do not merge duplicate reads  
-     dbSNP_index_file -- dbSNP Index File            
-     threads -- Number of threads
-     mapq_threshold -- threshold for MAPQ scores
-     bq_threshold -- threshold for base quality scores
-     haploid -- force genotypes to be homozygous
-     conversion -- conversion rates 'under,over'
-     ref_bias -- bias to reference homozygote
-     sample_conversion - per sample conversion rates (calculated if conversion == 'auto')
-     """
-     #Check output directory
-     if not os.path.exists(output_dir):
-          os.makedirs(output_dir)
+    reference -- fasta reference file
+    species -- species name
+    sample_bam -- sample dictionary where key is sample and value its bam aligned file 
+    right_trim --  Bases to trim from right of read pair 
+    left_trim -- Bases to trim from left of read pair
+    chrom_list -- Chromosome list to perform the methylation analysis
+    output_dir -- Directory output to store the call results
+    paired_end -- Is paired end data
+    keep_unmatched -- Do not discard reads that do not form proper pairs
+    keep_duplicates -- Do not merge duplicate reads  
+    dbSNP_index_file -- dbSNP Index File            
+    threads -- Number of threads
+    mapq_threshold -- threshold for MAPQ scores
+    bq_threshold -- threshold for base quality scores
+    haploid -- force genotypes to be homozygous
+    conversion -- conversion rates 'under,over'
+    ref_bias -- bias to reference homozygote
+    sample_conversion - per sample conversion rates (calculated if conversion == 'auto')
+    """
+    #Check output directory
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
         
-     bsCall = BsCaller(reference=reference,species=species,right_trim=right_trim,left_trim=left_trim,output_dir=output_dir,
-                       paired_end=paired_end,keep_unmatched=keep_unmatched,keep_duplicates=keep_duplicates,
-                       dbSNP_index_file=dbSNP_index_file,threads=threads,mapq_threshold=mapq_threshold,bq_threshold=bq_threshold,
-                       haploid=haploid,conversion=conversion,ref_bias=ref_bias,sample_conversion=sample_conversion)
+    bsCall = BsCaller(reference=reference,species=species,right_trim=right_trim,left_trim=left_trim,output_dir=output_dir,
+                      paired_end=paired_end,keep_unmatched=keep_unmatched,keep_duplicates=keep_duplicates,
+                      dbSNP_index_file=dbSNP_index_file,threads=threads,mapq_threshold=mapq_threshold,bq_threshold=bq_threshold,
+                      haploid=haploid,conversion=conversion,ref_bias=ref_bias,sample_conversion=sample_conversion)
 
-     methIter = MethylationCallIter(sample_bam, chrom_list)
-     lock = th.Lock()
-     if jobs > 1:
-         thread_list = []
-         for ix in range(jobs):
-             thread = MethylationCallThread(ix, methIter, bsCall, lock, output_dir)
-             thread.start()
-             thread_list.append(thread)
-         for thread in thread_list:
-             thread.join()
-     else:
-          #for each sample, chromosome combination
-          for sample,input_bam,chrom in methIter:
-               if input_bam != None:
-                    bcf_file = "%s/%s_%s.bcf" %(output_dir,sample,chrom)
-                    report_file = "%s/%s_%s.json" %(output_dir,sample,chrom)
+    methIter = MethylationCallIter(sample_bam, chrom_list)
+    lock = th.Lock()
+    if jobs > 1:
+        thread_list = []
+        for ix in range(jobs):
+            thread = MethylationCallThread(ix, methIter, bsCall, lock, output_dir)
+            thread.start()
+            thread_list.append(thread)
+        for thread in thread_list:
+            thread.join()
+    else:
+        #for each sample, chromosome combination
+        for sample,input_bam,chrom in methIter:
+            if input_bam != None:
+                bcf_file = "%s/%s_%s.bcf" %(output_dir,sample,chrom)
+                report_file = "%s/%s_%s.json" %(output_dir,sample,chrom)
                     
-                    bsCallCommand = bsCall.prepare(sample, input_bam, [chrom], bcf_file, report_file)
-                    process = utils.run_tools(bsCallCommand, name="bscall")
-                    if process.wait() != 0:
-                         raise ValueError("Error while executing the bscall process.")
-                    methIter.finished(sample, chrom)
-               else:
-                    list_bcf = []
-                    for c in chrom:
-                         list_bcf.append("%s/%s_%s.bcf" %(output_dir,sample,c))
-                    bsConcat(list_bcf, sample, output_dir)
+                bsCallCommand = bsCall.prepare(sample, input_bam, [chrom], bcf_file, report_file)
+                process = utils.run_tools(bsCallCommand, name="bscall")
+                if process.wait() != 0:
+                    raise ValueError("Error while executing the bscall process.")
+                methIter.finished(sample, chrom)
+            else:
+                list_bcf = []
+                for c in chrom:
+                    list_bcf.append("%s/%s_%s.bcf" %(output_dir,sample,c))
+                bsConcat(list_bcf, sample, output_dir)
                     
-     return " ".join(sample_bam.keys())
+    return " ".join(sample_bam.keys())
 
             
 def methylationFiltering(bcfFile=None,output_dir=None):
-     """ Filters bcf methylation calls file 
+    """ Filters bcf methylation calls file 
 
-     bcfFile -- bcfFile methylation calling file  
-     output_dir -- Output directory
-     """
+    bcfFile -- bcfFile methylation calling file  
+    output_dir -- Output directory
+    """
         
-     #Check output directory
-     if not os.path.exists(output_dir):
-          os.makedirs(output_dir)
+    #Check output directory
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
         
-     tools = []
-     tools.append(['bcftools','view',bcfFile])
-     tools.append(['%s' %(executables["filter_vcf"]),'-o',output_dir])
+    tools = []
+    tools.append(['bcftools','view',bcfFile])
+    tools.append(['%s' %(executables["filter_vcf"]),'-o',output_dir])
      
-     process = utils.run_tools(tools,name="Methylation Calls Filtering")
-     if process.wait() != 0:
-          raise ValueError("Error while filtering bcf methylation calls.")
+    process = utils.run_tools(tools,name="Methylation Calls Filtering")
+    if process.wait() != 0:
+        raise ValueError("Error while filtering bcf methylation calls.")
     
-     return os.path.abspath("%s" % output_dir)
+    return os.path.abspath("%s" % output_dir)
 
 def bsCalling (reference=None,species=None,input_bam=None,right_trim=0,left_trim=5,chrom=None,sample_id=None,output_dir=None,
                paired_end=True,keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1",mapq_threshold=None,bq_threshold=None,
                haploid=False,conversion=None,ref_bias=None):
-     """ Performs the process to make bisulfite calls per sample and chromosome.
+    """ Performs the process to make bisulfite calls per sample and chromosome.
     
-     reference -- fasta reference file
-     species -- species name
-     input_bam -- Path to input alignment bam file
-     right_trim --  Bases to trim from right of read pair 
-     left_trim -- Bases to trim from left of read pair
-     chrom -- chromosome name to perform the bisulfite calling
-     sample_id -- sample unique identification name
-     output_dir -- Directory output to store the call results
-     paired_end -- Is data paired end
-     keep_unmatched -- Do not discard reads that do not form proper pairs
-     keep_duplicates -- Do not merge duplicate reads 
-     dbSNP_index_file -- dbSNP Index File
-     threads -- Number of threads
-     mapq_threshold -- threshold for MAPQ scores
-     bq_threshold -- threshold for base quality scores
-     haploid -- force genotypes to be homozygous
-     conversion -- conversion rates 'under,over'
-     ref_bias -- bias to reference homozygote
-     """
+    reference -- fasta reference file
+    species -- species name
+    input_bam -- Path to input alignment bam file
+    right_trim --  Bases to trim from right of read pair 
+    left_trim -- Bases to trim from left of read pair
+    chrom -- chromosome name to perform the bisulfite calling
+    sample_id -- sample unique identification name
+    output_dir -- Directory output to store the call results
+    paired_end -- Is data paired end
+    keep_unmatched -- Do not discard reads that do not form proper pairs
+    keep_duplicates -- Do not merge duplicate reads 
+    dbSNP_index_file -- dbSNP Index File
+    threads -- Number of threads
+    mapq_threshold -- threshold for MAPQ scores
+    bq_threshold -- threshold for base quality scores
+    haploid -- force genotypes to be homozygous
+    conversion -- conversion rates 'under,over'
+    ref_bias -- bias to reference homozygote
+    """
     
-     #Check output directory
-     if not os.path.exists(output_dir):
-          os.makedirs(output_dir)
+    #Check output directory
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
         
-     bsCall = BsCaller(reference=reference,species=species,right_trim=right_trim,left_trim=left_trim,output_dir=output_dir,
-                    paired_end=paired_end,keep_unmatched=keep_unmatched,keep_duplicates=keep_duplicates,
-                    dbSNP_index_file=dbSNP_index_file,threads=threads,mapq_threshold=mapq_threshold,bq_threshold=bq_threshold,
-                    haploid=haploid,conversion=conversion,ref_bias=ref_bias,sample_conversion=sample_conversion)
-     #Definition bcf and report file
-     if chrom != None:
-          bcf_file = "%s/%s_%s.bcf" %(output_dir,sample_id,chrom)   
-          report_file = "%s/%s_%s.json" %(output_dir,sample_id,chrom)
-          #Command bisulphite calling
-     else:
-          bcf_file = "%s/%s.bcf" %(output_dir,sample_id)   
-          report_file = "%s/%s.json" %(output_dir,sample_id)
-          #Command bisulphite calling
+    bsCall = BsCaller(reference=reference,species=species,right_trim=right_trim,left_trim=left_trim,output_dir=output_dir,
+                      paired_end=paired_end,keep_unmatched=keep_unmatched,keep_duplicates=keep_duplicates,
+                      dbSNP_index_file=dbSNP_index_file,threads=threads,mapq_threshold=mapq_threshold,bq_threshold=bq_threshold,
+                      haploid=haploid,conversion=conversion,ref_bias=ref_bias,sample_conversion=sample_conversion)
+    #Definition bcf and report file
+    if chrom != None:
+        bcf_file = "%s/%s_%s.bcf" %(output_dir,sample_id,chrom)   
+        report_file = "%s/%s_%s.json" %(output_dir,sample_id,chrom)
+        #Command bisulphite calling
+    else:
+        bcf_file = "%s/%s.bcf" %(output_dir,sample_id)   
+        report_file = "%s/%s.json" %(output_dir,sample_id)
+        #Command bisulphite calling
     
-     bsCallCommand = bsCall.prepare(sample_id, input_bam, [chrom], bcf_file, report_file)
+    bsCallCommand = bsCall.prepare(sample_id, input_bam, [chrom], bcf_file, report_file)
 
-     process = utils.run_tools(bsCallCommand, name="bscall")
-     if process.wait() != 0:
-          raise ValueError("Error while executing the bscall process.")
+    process = utils.run_tools(bsCallCommand, name="bscall")
+    if process.wait() != 0:
+        raise ValueError("Error while executing the bscall process.")
     
-     return os.path.abspath("%s" % bcf_file)
+    return os.path.abspath("%s" % bcf_file)
 
 
 def bsConcat(list_bcfs=None,sample=None,output_dir=None):

@@ -22,7 +22,7 @@ def gemBS():
         commands = {
             "prepare-config" : production.PrepareConfiguration,            
             "index" : production.Index,
-            "mapping-commands" : production.MappingCommnads,
+            "mapping-commands" : production.MappingCommands,
             "mapping" : production.Mapping,
             "direct-mapping" : productionAdvanced.DirectMapping,
             "merging-all" : production.MergingAll,

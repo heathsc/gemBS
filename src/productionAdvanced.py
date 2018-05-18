@@ -10,7 +10,7 @@ class DirectMapping(production.BasicPipeline):
     title = "Bisulphite mapping from a given file or standard input"
     description = """Maps single end or paired end bisulfite sequence using the gem mapper from a given file or standard input. 
                       
-                  Exemple:
+                  Example:
                       1) Given Interleaved FASTQ:
                       gemBS direct-mapping -I ref.BS.gem --fli flowcellname_lanename_indexname --json myfile.json -i interleaved.fq.gz --output-dir OUTPUTPATH --tmp-dir $TMPDIR --threads 8 -p
                       2) Standard Input FASTQ:
@@ -28,6 +28,7 @@ class DirectMapping(production.BasicPipeline):
         parser.add_argument('-1', '--i1', dest="pair_one", metavar="FILE", help='Pair One FASTQ file.', required=False)
         parser.add_argument('-2', '--i2', dest="pair_two", metavar="FILE", help='Pair Two FASTQ file.', required=False)
         parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",default=".", help='Directory to store Bisulfite mapping results. Default: %s' %self.output_dir)
+        parser.add_argument('-F', '--force', dest="force", action="store_true", default=None, help="Force command even if output file exists")
         parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", default="/tmp/", help='Temporary folder to perform sorting operations. Default: %s' %self.tmp_dir)      
         parser.add_argument('-t', '--threads', dest="threads",default="1", help='Number of threads to perform sorting operations. Default %s' %self.threads)
         parser.add_argument('-b', '--is-bam', dest="is_bam", action="store_true", default=False, help="Input data (File or STDIN) is a bam or sam file.")        
@@ -51,6 +52,8 @@ class DirectMapping(production.BasicPipeline):
         self.output_dir = args.output_dir
         #Paired
         self.paired = args.paired_end
+        #Force flag
+        self.force_flag = args.force        
         #Read Non Standard
         self.read_non_stranded = args.read_non_stranded
         #TMP
@@ -106,12 +109,12 @@ class DirectMapping(production.BasicPipeline):
 
         ret = src.direct_mapping(name=self.name,index=self.index,fliInfo=self.fliInfo,paired=self.paired,threads=self.threads,
                    file_pe_one=self.pair_one,file_pe_two=self.pair_two,file_input=self.input_file,is_bam=self.is_bam,
-                   read_non_stranded=self.read_non_stranded,
+                   force_flag=self.force_flag,read_non_stranded=self.read_non_stranded,
                    outputDir=self.output_dir,tmpDir=self.tmp_dir,
                    under_conversion=self.underconversion_sequence,over_conversion=self.overconversion_sequence)
 
         if ret:
-            logging.gemBS.gt("Bisulfite Mapping done!! Output File: %s" %(ret))
+            logging.gemBS.gt("Bisulfite Mapping done. Output File: %s" %(ret))
 
     def extra_log(self):
         """Extra Parameters to be printed"""
