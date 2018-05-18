@@ -13,29 +13,23 @@ FOLDER_BIN=./bin/
 
 all: release
 
-static:	setup
+static:	setup gem3-static
 	$(MAKE) --directory=src static
-	cd gen; ./configure;
 	$(MAKE) --directory=gen static
 	$(MAKE) --directory=filter_vcf static
 	$(MAKE) --directory=cpgToWig static
 	$(MAKE) --directory=sln static
 	$(MAKE) --directory=bs_call static
-	cd gem3-mapper; ./configure;
-	$(MAKE) --directory=gem3-mapper static
 
-release: setup	
+release: setup	gem3
 	$(MAKE) --directory=src	
-	cd gen; ./configure;      
 	$(MAKE) --directory=gen
 	$(MAKE) --directory=filter_vcf
 	$(MAKE) --directory=cpgToWig
 	$(MAKE) --directory=sln
 	$(MAKE) --directory=bs_call
-	cd gem3-mapper; ./configure;
-	$(MAKE) --directory=gem3-mapper
 
-debug: setup
+debug: setup gem3-debug
 	$(MAKE) --directory=src debug
 	cd gen; ./configure
 	$(MAKE) --directory=gen debug
@@ -44,13 +38,27 @@ debug: setup
 	$(MAKE) --directory=sln debug
 	$(MAKE) --directory=bs_call debug
 	cd gem3-mapper; ./configure;
-	$(MAKE) --directory=gem3-mapper debug
 
-setup: 
+setup: gen/Makefile
 	@mkdir -p $(FOLDER_BIN) 
 
+gen/Makefile: gen/Makefile.in gen/configure
+	cd gen; ./configure
+
+gem3: gem3-mapper/Makefile.mk
+	$(MAKE) --directory=gem3-mapper
+	
+gem3-static: gem3-mapper/Makefile.mk
+	$(MAKE) --directory=gem3-mapper static
+	
+gem3-debug: gem3-mapper/Makefile.mk
+	$(MAKE) --directory=gem3-mapper debug
+	
+gem3-mapper/Makefile.mk: gem3-mapper/Makefile.mk.in gem3-mapper/configure
+	cd gem3-mapper; ./configure
+	
 clean:
-	@rm -f $(FOLDER_BIN)/*
+	@rm -f $(FOLDER_BIN)/* *~
 	$(MAKE) --directory=gen clean
 	$(MAKE) --directory=gem3-mapper clean
 	$(MAKE) --directory=bs_call clean
