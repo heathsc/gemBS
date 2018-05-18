@@ -143,6 +143,7 @@ executables = execs_dict({
     "dbSNP_idx":"dbSNP_idx",
     "filter_vcf": "filter_vcf",
     "sln": "sln",
+    "cpgToWig": "cpgToWig",
     })
 
 
@@ -935,34 +936,19 @@ def cpgBigWigConversion(name=None,output_dir=None,cpg_file=None,chr_len=None,qua
         os.makedirs(output_dir)
     
     #1.Output files
+    fileBase = "%s/%s.bs" %(output_dir,name)
     wigCallFile = "%s/%s.bs_call.wig" %(output_dir,name)
     wigCovFile = "%s/%s.bs_cov.wig" %(output_dir,name)
     
     #Parsing CpG Files to create BigWig
-    lastChromosome = [""];
-    with open(wigCallFile , 'w') as callFile:
-        with open(wigCovFile , 'w') as covFile:
-            with gzip.open(cpg_file, "r") as cpgInputFile:
-                for line in cpgInputFile:
-                    fields = line.rstrip().split('\t')
-                    if len(fields) == 13:
-                        chromosome = fields[0]
-                        location = fields[1]
-                        genotype_context = fields[3]
-                        qual = int(fields[4])
-                        meth_value = fields[5]
-                        conv_reads = int(fields[7])
-                        unconv_reads = int(fields[8])
-                        cov = conv_reads + unconv_reads
-                        #Check filtering
-                        if genotype_context == "CG" and qual >= int(quality) and cov >= int(informative_reads) and meth_value != "-":
-                            if chromosome != lastChromosome[0]:
-                                callFile.write("variableStep\tchrom=%s\tspan=2\n" %(chromosome))
-                                covFile.write("variableStep\tchrom=%s\tspan=2\n" %(chromosome))
-                                lastChromosome[0] = chromosome
-                            
-                            callFile.write("%s\t%s\n"%(location,meth_value))
-                            covFile.write("%s\t%i\n"%(location,cov))
+    
+    cpgToWigCommand = ['%s' %(executables["cpgToWig"]),'-q',quality,'-m',informative_reads,'-o',fileBase, cpg_file]
+    print(cpgToWigCommand)
+    print "Yo!"
+    process = utils.run_tools([cpgToWigCommand], name="cpgToWig")
+    
+    if process.wait() != 0:
+        raise ValueError("Error while transforming methylation calls to wig.")        
                         
     #Transform wig files to BigWig using kent Tools wigToBigWig
     
