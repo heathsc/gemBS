@@ -1,0 +1,5 @@
+tools/samtools*
+tools/bcftools*
+*~
+*.[oa]
+*.so
