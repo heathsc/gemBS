@@ -1,5 +1,10 @@
 tools/samtools*
 tools/bcftools*
+tools/gen/Makefile
+tools/gen/config.log
+tools/gen/config.status
+tools/gen/include/config.h
+tools/gen/libsrc/Makefile
 *~
 *.[oa]
 *.so
