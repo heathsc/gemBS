@@ -55,7 +55,7 @@ def _install_bundle(install_dir):
    
     if not os.path.exists(install_dir):
         os.mkdir(install_dir)
-        
+
     # copy tools
     bins = [x for x in os.listdir("tools/bin")]
     for file in bins:
@@ -77,7 +77,7 @@ def _install_bundle(install_dir):
         shutil.copy("%s/%s" % ("tools/bs_call/bin", file), install_dir)
         os.chmod(result_file, 0755)
 
-    # copy compiled bs_call tools
+    # copy compiled gem3 tools
     bins = [x for x in os.listdir("tools/gem3-mapper/bin")]
     for file in bins:
         print "Copy binary: %s to %s" % (file, install_dir)
@@ -86,7 +86,6 @@ def _install_bundle(install_dir):
             os.remove(result_file)
         shutil.copy("%s/%s" % ("tools/gem3-mapper/bin", file), install_dir)
         os.chmod(result_file, 0755)
-
 
 # hack the setup tools installation
 class install(_install):
@@ -97,7 +96,7 @@ class install(_install):
         # find target folder
         install_dir = None
         for file in self.get_outputs():
-           if file.endswith("/src/__init__.py"):
+           if file.endswith("/gemBS/__init__.py"):
                 install_dir = "%s/gemBSbinaries" % os.path.split(file)[0]
                 break
 
@@ -110,7 +109,7 @@ class build_py(_build_py):
     def run(self):
         compile_gemBS_tools()
         parent_dir = os.path.split(os.path.abspath(__file__))[0]
-        target_dir = "%s/%s" % (parent_dir, "src/gemBSbinaries")
+        target_dir = "%s/%s" % (parent_dir, "gemBS/gemBSbinaries")
         _install_bundle(target_dir)
         _build_py.run(self)
         
@@ -132,8 +131,8 @@ setup(cmdclass=_commands,
       author='Marcos Fernandez-Callejo, Santiago Marco-Sola, Simon Heath',
       author_email='marcos.fernandez@cnag.crg.eu',
       url='http://statgen.cnag.cat/gemBS/',
-      packages=['src'],
-      package_data={"": ["%s/%s" % ("src/gemBSbinaries", x) for x in ["readNameClean",
+      packages=['gemBS'],
+      package_data={"": ["%s/%s" % ("gemBS/gemBSbinaries", x) for x in ["readNameClean",
                                                                       "filter_vcf",
                                                                       "cpgToWig",
                                                                       "align_stats",
@@ -145,7 +144,7 @@ setup(cmdclass=_commands,
                                                                       "dbSNP_idx"
                                                                      ]]},
       entry_points = {
-        'console_scripts': ['gemBS=src.commands:gemBS'],
+        'console_scripts': ['gemBS=gemBS.commands:gemBS'],
       }
      )
 

@@ -7,7 +7,7 @@ import productionAdvanced
 import sys
 from sys import exit
 
-import src
+import gemBS
 
 __VERSION__ = "2.1.0"
 

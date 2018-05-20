@@ -11,7 +11,7 @@ import threading as th
 from utils import Command, CommandException
 from reportStats import LaneStats,SampleStats
 
-import src
+import gemBS
 import report
 import sphinx
 import bsCallReports

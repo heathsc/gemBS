@@ -2,7 +2,7 @@
 """Production pipelines"""
 import os
 import logging
-import src
+import gemBS
 from utils import CommandException
 import production
 
