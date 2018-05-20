@@ -115,11 +115,16 @@ class execs_dict(dict):
                 logging.debug("Using binary from GEM_BS_PATH : %s" % file)
                 return file
 
-        if pkg_resources.resource_exists("src", "gemBSbinaries/%s" % item):
-            f = pkg_resources.resource_filename("src", "gemBSbinaries/%s" % item)
+        if pkg_resources.resource_exists("gemBS", "gemBSbinaries/%s" % item):
+            f = pkg_resources.resource_filename("gemBS", "gemBSbinaries/%s" % item)
             logging.debug("Using bundled binary : %s" % f)
             return f
             
+        if pkg_resources.resource_exists("gemBS", "bin/%s" % item):
+            f = pkg_resources.resource_filename("gemBS", "bin/%s" % item)
+            logging.debug("Using bundled binary : %s" % f)
+            return f
+        
         # try to find from static distribution
         if len(sys.argv) > 0:
             try:
@@ -144,6 +149,8 @@ executables = execs_dict({
     "filter_vcf": "filter_vcf",
     "sln": "sln",
     "cpgToWig": "cpgToWig",
+    "samtools": "samtools",
+    "bcftools": "bcftools",
     })
 
 
@@ -424,7 +431,7 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
         if not run_command:
             input_mtime = os.path.getmtime(file_se)
     elif file_bam is not None:
-        bamToFastq.extend(["samtools","bam2fq", file_bam])
+        bamToFastq.extend([executables['samtools'],"bam2fq", file_bam])
         if not run_command:
             input_mtime = os.path.getmtime(file_bam)
 
@@ -455,7 +462,7 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
         readNameClean = [executables['readNameClean']]
          
         #BAM SORT
-        bamSort = ["samtools","sort","-T","%s/%s"%(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
+        bamSort = [executables['samtools'],"sort","-T","%s/%s"%(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
     
         tools = [mapping,readNameClean,bamSort]
     
@@ -520,11 +527,11 @@ def direct_mapping(name=None,index=None,fliInfo=None,paired=None,threads=None,
     #Treat BAM/FASTQ input
     if is_bam:
         if file_input:
-            bamToFastq.extend(["samtools","bam2fq",file_input])
+            bamToFastq.extend([executables['samtools'],"bam2fq",file_input])
             if not run_command:
                 input_mtime = os.path.getmtime(file_input)
         else:
-            bamToFastq.extend(["samtools","bam2fq","-"])
+            bamToFastq.extend([executables['samtools'],"bam2fq","-"])
             run_command = True
     else:
         if file_pe_one and file_pe_two:
@@ -561,7 +568,7 @@ def direct_mapping(name=None,index=None,fliInfo=None,paired=None,threads=None,
         #READ FILTERING
         readNameClean = [executables['readNameClean']]
         #BAM SORT
-        bamSort = ["samtools","sort","-T","%s/%s"%(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
+        bamSort = [executables['samtools'],"sort","-T","%s/%s"%(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
         #Mount pipe command
         tools = [mapping,readNameClean,bamSort]
         if is_bam:
@@ -594,7 +601,7 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/"):
         bammerging = []       
        
         if len(listBams) > 1 :
-            bammerging.extend(["samtools","merge","--threads",threads,"-f",bam_filename])        
+            bammerging.extend([executables['samtools'],"merge","--threads",threads,"-f",bam_filename])        
         
             for bamFile in listBams:
                 bammerging.append(bamFile)
@@ -618,7 +625,7 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/"):
         return_info[sample] = os.path.abspath("%s" % bam_filename)
         
         #Samtools index
-        indexing = ["samtools","index","%s"%(bam_filename)]
+        indexing = [executables['samtools'],"index","%s"%(bam_filename)]
         processIndex = utils.run_tools([indexing],name="Indexing")
         
         if processIndex.wait() != 0:
@@ -659,7 +666,7 @@ class BsCaller:
         self.sample_conversion = sample_conversion
 
     def prepare(self, sample, input_bam, chrom_list, output_bcf, report_file):
-        samtools = ['samtools','view','-h',input_bam]
+        samtools = [executables['samtools'],'view','-h',input_bam]
         for chrom in chrom_list:
             samtools.append(chrom)
         bsCall = [samtools]
@@ -701,7 +708,7 @@ class BsCaller:
     
         bsCall.append(parameters_bscall)             
                 
-        bsCall.append(['bcftools','convert','-o',output_bcf,'-O','b','--threads',self.threads])
+        bsCall.append([executables['bcftools'],'convert','-o',output_bcf,'-O','b','--threads',self.threads])
         return bsCall
 
 class MethylationCallIter:
@@ -866,7 +873,7 @@ def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,
     return " ".join(sample_bam.keys())
 
             
-def methylationFiltering(bcfFile=None,output_dir=None):
+def methylationFiltering(bcfFile=None,output_dir=None,name=None):
     """ Filters bcf methylation calls file 
 
     bcfFile -- bcfFile methylation calling file  
@@ -878,8 +885,8 @@ def methylationFiltering(bcfFile=None,output_dir=None):
         os.makedirs(output_dir)
         
     tools = []
-    tools.append(['bcftools','view',bcfFile])
-    tools.append(['%s' %(executables["filter_vcf"]),'-o',output_dir])
+    output_file = "{}/{}_cpg.txt".format(output_dir,name)
+    tools.append([executables['bcftools'],'+mextr',bcfFile,'--','-z','-o',output_file])
      
     process = utils.run_tools(tools,name="Methylation Calls Filtering")
     if process.wait() != 0:
@@ -955,8 +962,8 @@ def bsConcat(list_bcfs=None,sample=None,output_dir=None):
     bcfSampleMd5 = "%s/%s.raw.md5" %(output_dir,sample)
    
     #Concatenation
-    #concat = ['bcftools','concat','-O','b','-o',bcfSample," ".join(list_bcfs)]
-    concat = ['bcftools','concat','-O','b','-o',bcfSample]
+    #concat = [executables['bcftools'],'concat','-O','b','-o',bcfSample," ".join(list_bcfs)]
+    concat = [executables['bcftools'],'concat','-O','b','-o',bcfSample]
     concat.extend(list_bcfs)
      
     process = utils.run_tools([concat],name="Concatenation Calls")
@@ -964,7 +971,7 @@ def bsConcat(list_bcfs=None,sample=None,output_dir=None):
         raise ValueError("Error while concatenating bcf calls.")
         
     #Indexing
-    indexing = ['bcftools','index',bcfSample]
+    indexing = [executables['bcftools'],'index',bcfSample]
     #md5sum
     md5sum = ['md5sum',bcfSample]
         

@@ -107,7 +107,7 @@ class DirectMapping(production.BasicPipeline):
         self.log_parameter()
         logging.gemBS.gt("Bisulfite Direct Mapping...")      
 
-        ret = src.direct_mapping(name=self.name,index=self.index,fliInfo=self.fliInfo,paired=self.paired,threads=self.threads,
+        ret = gemBS.direct_mapping(name=self.name,index=self.index,fliInfo=self.fliInfo,paired=self.paired,threads=self.threads,
                    file_pe_one=self.pair_one,file_pe_two=self.pair_two,file_input=self.input_file,is_bam=self.is_bam,
                    force_flag=self.force_flag,read_non_stranded=self.read_non_stranded,
                    outputDir=self.output_dir,tmpDir=self.tmp_dir,

@@ -4,6 +4,8 @@ import argparse
 import utils
 import production
 import productionAdvanced
+import pkg_resources
+import os
 import sys
 from sys import exit
 
@@ -18,6 +20,17 @@ def gemBS():
                 )
         parser.add_argument('--loglevel', dest="loglevel", default=None, help="Log level (error, warn, info, debug)")
         parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __VERSION__)
+        if pkg_resources.resource_exists("gemBS", "libexec/bcftools"):
+            f = pkg_resources.resource_filename("gemBS", "libexec/bcftools")
+            os.environ["BCFTOOLS_PLUGINS"] = f
+        if pkg_resources.resource_exists("gemBS", "bin"):
+            f = pkg_resources.resource_filename("gemBS", "bin")
+        path = os.environ["PATH"]
+        if path == None:
+            path = f
+        else:
+            path = f + ":" + path
+            os.environ["PATH"] = f
 
         commands = {
             "prepare-config" : production.PrepareConfiguration,            
@@ -46,7 +59,7 @@ def gemBS():
 
         args = parser.parse_args()
         if args.loglevel is not None:
-            src.loglevel(args.loglevel)
+            gemBS.loglevel(args.loglevel)
         else:
         		sys.tracebacklimit = 0
         try:

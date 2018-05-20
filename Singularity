@@ -17,15 +17,6 @@ From: ubuntu:bionic   # This is a comment
     && chmod 755 wigToBigWig)
     pip install numpy matplotlib configparser multiprocess
     mkdir /usr/local/build; cd /usr/local/build
-    wget https://github.com/samtools/samtools/releases/download/1.8/samtools-1.8.tar.bz2
-    tar -jxf samtools-1.8.tar.bz2 && rm samtools-1.8.tar.bz2
-    (cd samtools-1.8; ./configure --prefix=/usr/local && \
-    make all all-htslib && make install install-htslib)
-    rm -rf samtools-1.8
-    wget https://github.com/samtools/bcftools/releases/download/1.8/bcftools-1.8.tar.bz2
-    tar -jxf bcftools-1.8.tar.bz2 && rm bcftools-1.8.tar.bz2
-    (cd bcftools-1.8; ./configure --prefix=/usr/local && make && make install)
-    rm -rf bcftools-1.8
 	 (mkdir /ext && cd /ext && mkdir disk1 disk2 disk3 disk4 disk5 disk6 disk7 disk8 disk9)
 	 git clone --recursive https://github.com/heathsc/gemBS.git -b development
     (cd gemBS; python setup.py install && \

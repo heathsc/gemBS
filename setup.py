@@ -3,6 +3,7 @@ use_setuptools()
 
 import os
 import sys
+import glob
 
 from distutils.core import setup
 from setuptools import setup, Command
@@ -53,39 +54,70 @@ def _install_bundle(install_dir):
         print "Unable to determine installation directory !"
         exit(1)
    
-    if not os.path.exists(install_dir):
-        os.mkdir(install_dir)
+    gemBSbin_dir = "%s/%s" % (install_dir, "gemBSbinaries")
+    if not os.path.exists(gemBSbin_dir):
+        os.mkdir(gemBSbin_dir)
 
     # copy tools
     bins = [x for x in os.listdir("tools/bin")]
     for file in bins:
         if not file.endswith("gz"):
-            print "Copy binary: %s to %s" % (file, install_dir)
-            result_file = "%s/%s" % (install_dir, file)
+            print "Copy binary: %s to %s" % (file, gemBSbin_dir)
+            result_file = "%s/%s" % (gemBSbin_dir, file)
             if os.path.exists(result_file):
                 os.remove(result_file)
-            shutil.copy("%s/%s" % ("tools/bin", file), install_dir)
+            shutil.copy("%s/%s" % ("tools/bin", file), gemBSbin_dir)
             os.chmod(result_file, 0755)
 
     # copy compiled bs_call tools
     bins = [x for x in os.listdir("tools/bs_call/bin")]
     for file in bins:
-        print "Copy binary: %s to %s" % (file, install_dir)
-        result_file = "%s/%s" % (install_dir, file)
+        print "Copy binary: %s to %s" % (file, gemBSbin_dir)
+        result_file = "%s/%s" % (gemBSbin_dir, file)
         if os.path.exists(result_file):
             os.remove(result_file)
-        shutil.copy("%s/%s" % ("tools/bs_call/bin", file), install_dir)
+        shutil.copy("%s/%s" % ("tools/bs_call/bin", file), gemBSbin_dir)
         os.chmod(result_file, 0755)
 
     # copy compiled gem3 tools
     bins = [x for x in os.listdir("tools/gem3-mapper/bin")]
     for file in bins:
-        print "Copy binary: %s to %s" % (file, install_dir)
+        print "Copy binary: %s to %s" % (file, gemBSbin_dir)
         result_file = "%s/%s" % (install_dir, file)
         if os.path.exists(result_file):
             os.remove(result_file)
-        shutil.copy("%s/%s" % ("tools/gem3-mapper/bin", file), install_dir)
-        os.chmod(result_file, 0755)
+        shutil.copy("%s/%s" % ("tools/gem3-mapper/bin", file), gemBSbin_dir)
+        os.chmod(gemBSbin_dir, 0755)
+
+    # copy samtools and bcftools
+    bin_dir = "%s/%s" % (install_dir, "bin")
+    lib_dir = "%s/%s" % (install_dir, "lib")
+    plugins_dir = "%s/%s" % (install_dir, "libexec/bcftools")
+    for dir in [bin_dir, lib_dir, plugins_dir]:
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+    if os.path.exists("tools/samtools/samtools"):
+        print "Copy binary: samtools to {}".format(bin_dir)
+        shutil.copy("tools/samtools/samtools", bin_dir)
+    for htslib in glob.glob("tools/samtools/htslib*"):
+        if os.path.isdir(htslib):
+            for file in ["htsfile", "tabix", "bgzip"]:
+                if os.path.exists("{}/{}".format(htslib,file)):
+                    print "Copy binary: {} to {}".format(file, bin_dir)
+                    shutil.copy("{}/{}".format(htslib,file), bin_dir)
+            for file in ["libhts.a", "libhts.so"]:
+                if os.path.exists("{}/{}".format(htslib,file)):
+                    print "Copy library: {} to {}".format(file, lib_dir)
+                    shutil.copy("{}/{}".format(htslib,file), lib_dir)
+                    
+            
+    if os.path.exists("tools/bcftools/bcftools"):
+        print "Copy binary: bcftools to {}".format(bin_dir)
+        shutil.copy("tools/bcftools/bcftools", bin_dir)
+    plugins = [x for x in glob.glob("tools/bcftools/plugins/*.so")]
+    for file in plugins:
+        print "Copy plugin: {} to {}".format(file, plugins_dir)
+        shutil.copy(file, plugins_dir)
 
 # hack the setup tools installation
 class install(_install):
@@ -97,7 +129,7 @@ class install(_install):
         install_dir = None
         for file in self.get_outputs():
            if file.endswith("/gemBS/__init__.py"):
-                install_dir = "%s/gemBSbinaries" % os.path.split(file)[0]
+                install_dir = "%s" % os.path.split(file)[0]
                 break
 
         _install_bundle(install_dir)
@@ -109,7 +141,7 @@ class build_py(_build_py):
     def run(self):
         compile_gemBS_tools()
         parent_dir = os.path.split(os.path.abspath(__file__))[0]
-        target_dir = "%s/%s" % (parent_dir, "gemBS/gemBSbinaries")
+        target_dir = "%s/%s" % (parent_dir, "gemBS")
         _install_bundle(target_dir)
         _build_py.run(self)
         

@@ -5,6 +5,13 @@ tools/gen/config.log
 tools/gen/config.status
 tools/gen/include/config.h
 tools/gen/libsrc/Makefile
+build/
+distribute-0.6.14-py2.7.egg
+distribute_setup.pyc
+gemBS.egg-info/
+gemBS/bin/
+gemBS/gemBSbinaries/
+tools/bin/
 *~
 *.[oa]
 *.so

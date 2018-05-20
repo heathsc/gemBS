@@ -119,12 +119,12 @@ class PrepareConfiguration(Command):
         #Try text metadata file
         if args.text_metadata is not None:
             if os.path.isfile(args.text_metadata):
-                src.prepareConfiguration(text_metadata=args.text_metadata,jsonOutput=args.json)
+                gemBS.prepareConfiguration(text_metadata=args.text_metadata,jsonOutput=args.json)
             else:
                 raise CommandException("Sorry!! File %s not found!" %(args.text_metadata))
         elif args.lims_cnag_json is not None:
             if os.path.isfile(args.lims_cnag_json):
-                src.prepareConfiguration(lims_cnag_json=args.lims_cnag_json,jsonOutput=args.json)
+                gemBS.prepareConfiguration(lims_cnag_json=args.lims_cnag_json,jsonOutput=args.json)
             else:
                 raise CommandException("Sorry!! File %s not found!" %(args.lims_cnag_json))
         else:
@@ -171,7 +171,7 @@ class Index(BasicPipeline):
         
         self.log_parameter()
         logging.gemBS.gt("Creating index")
-        ret = src.index(self.input, self.output, threads=self.threads,list_dbSNP_files=self.list_dbSNP_files,dbsnp_index=self.dbsnp_index)
+        ret = gemBS.index(self.input, self.output, threads=self.threads,list_dbSNP_files=self.list_dbSNP_files,dbsnp_index=self.dbsnp_index)
         if ret:
             logging.gemBS.gt("Index done: %s.gem" %(ret))
             
@@ -389,7 +389,7 @@ class Mapping(BasicPipeline):
         self.log_parameter()
         logging.gemBS.gt("Bisulfite Mapping...")
         if self.stream:
-            ret = src.direct_mapping(name=self.name,index=self.index,fliInfo=self.fliInfo,
+            ret = gemBS.direct_mapping(name=self.name,index=self.index,fliInfo=self.fliInfo,
                                      paired = self.paired,threads=self.threads,
                                      file_pe_one=None,file_pe_two=None,file_input=None,is_bam=False,
                                      read_non_stranded = self.read_non_stranded,
@@ -397,7 +397,7 @@ class Mapping(BasicPipeline):
                                      under_conversion=self.underconversion_sequence,
                                      over_conversion=self.overconversion_sequence)
         else:
-            ret = src.mapping(name=self.name,index=self.index,fliInfo=self.fliInfo,
+            ret = gemBS.mapping(name=self.name,index=self.index,fliInfo=self.fliInfo,
                               file_pe_one=self.input_pair_one,file_pe_two=self.input_pair_two,
                               file_interleaved = self.input_interleaved,
                               file_se = self.input_se,
@@ -476,7 +476,7 @@ class MergingAll(BasicPipeline):
             
         self.log_parameter()
         logging.gemBS.gt("Merging process started...")
-        ret = src.merging(inputs=self.samplesBams,threads=self.threads,output_dir=self.output_dir,tmpDir=self.tmp_dir)
+        ret = gemBS.merging(inputs=self.samplesBams,threads=self.threads,output_dir=self.output_dir,tmpDir=self.tmp_dir)
          
         if ret:
             logging.gemBS.gt("Merging process done!! Output files generated:")
@@ -533,7 +533,7 @@ class MergingSample(BasicPipeline):
             
         self.log_parameter()
         logging.gemBS.gt("Merging process started...")
-        ret = src.merging(inputs=self.samplesBams,threads=self.threads,output_dir=self.output_dir,tmpDir=self.tmp_dir)
+        ret = gemBS.merging(inputs=self.samplesBams,threads=self.threads,output_dir=self.output_dir,tmpDir=self.tmp_dir)
          
         if ret:
             logging.gemBS.gt("Merging process done!! Output files generated:")
@@ -687,7 +687,7 @@ class MethylationCall(BasicPipeline):
         self.log_parameter()
         logging.gemBS.gt("Methylation Calling...")
         if len(args.list_chroms) > 0:
-            ret = src.methylationCalling(reference=self.fasta_reference,species=self.species,
+            ret = gemBS.methylationCalling(reference=self.fasta_reference,species=self.species,
                                          right_trim=self.right_trim, left_trim=self.left_trim,
                                          sample_bam=self.sampleBam,chrom_list=self.list_chroms,
                                          output_dir=self.output_dir,paired_end=self.paired,keep_unmatched=self.keep_unmatched,
@@ -754,16 +754,17 @@ class MethylationFiltering(BasicPipeline):
         
     def run(self,args):
         self.output_dir = args.output_dir
+        self.path_bcf = args.path_bcf
         self.bcf_list = []
         self.threads = args.jobs
         
         if args.bcf_file == None:
             if args.path_bcf != None and args.json_file != None:
                 for k,v in FLIdata(args.json_file).sampleData.iteritems():
-                    bcf = "{}/{}.raw.bcf".format(args.path_bcf,v.sample_barcode)
-                    if bcf not in self.bcf_list:
+                    bcf = "{}/{}.raw.bcf".format(self.path_bcf,v.sample_barcode)
+                    if v.sample_barcode not in self.bcf_list:
                         if os.path.isfile(bcf):
-                            self.bcf_list.append(bcf)
+                            self.bcf_list.append(v.sample_barcode)
             if not self.bcf_list:
                 raise ValueError("No BCF files found to filter.")
         else:
@@ -785,13 +786,14 @@ class MethylationFiltering(BasicPipeline):
             for thread in threads:
                 thread.join()
         else:
-            for bcf in self.bcf_list:
-                self.do_filter(bcf)
+            for sample in self.bcf_list:
+                self.do_filter(sample)
 
-    def do_filter(self, bcf):
+    def do_filter(self, sample):
+        bcf = "{}/{}.raw.bcf".format(self.path_bcf, sample)
         self.bcf_file = bcf
         #Call methylation filtering
-        ret = src.methylationFiltering(bcfFile=self.bcf_file,output_dir=self.output_dir)
+        ret = gemBS.methylationFiltering(bcfFile=bcf,output_dir=self.output_dir,name=sample)
         if ret:
             logging.gemBS.gt("Methylation filtering of {} done, results located at: {}".format(bcf, ret))
             
@@ -886,7 +888,7 @@ class BsCall(BasicPipeline):
         self.log_parameter()
         logging.gemBS.gt("BsCall per sample and chromosome...")
         
-        ret = src.bsCalling (reference=self.reference,species=self.species,input_bam=self.input,chrom=self.chrom,
+        ret = gemBS.bsCalling (reference=self.reference,species=self.species,input_bam=self.input,chrom=self.chrom,
                              right_trim=self.right_trim, left_trim=self.left_trim,
                              sample_id=self.sample_id,output_dir=self.output_dir,
                              paired_end=self.paired,keep_unmatched=self.keep_unmatched,
@@ -946,7 +948,7 @@ class BsCallConcatenate(BasicPipeline):
         self.log_parameter()
         logging.gemBS.gt("BCF concatenate files...")
         args.list_bcfs.sort(key=lambda x: '{0:0>8}'.format(x).lower())        
-        ret = src.bsConcat(list_bcfs=self.list_bcf,sample=self.sample_id,output_dir=self.output_dir)
+        ret = gemBS.bsConcat(list_bcfs=self.list_bcf,sample=self.sample_id,output_dir=self.output_dir)
         if ret:
             logging.gemBS.gt("BCF Concatenation Done: %s" %(ret))
             
@@ -1167,7 +1169,7 @@ class CpgBigwig(BasicPipeline):
         
         #Cpg BigWig Conversion
         (name, cpg_file) = tup
-        ret = src.cpgBigWigConversion(name=name,output_dir=self.output_dir,cpg_file=cpg_file,
+        ret = gemBS.cpgBigWigConversion(name=name,output_dir=self.output_dir,cpg_file=cpg_file,
                                       chr_len=self.chrom_length,quality=self.quality,informative_reads=self.informative_reads)
         if ret:
             logging.gemBS.gt("CpG Bigwig Conversion Done: %s" %(ret))
