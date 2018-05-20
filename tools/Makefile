@@ -70,7 +70,7 @@ gem3-debug: gem3-mapper/Makefile.mk
 gem3-mapper/Makefile.mk: gem3-mapper/Makefile.mk.in gem3-mapper/configure
 	cd gem3-mapper; ./configure
 
-$(SAMTOOLS_DIR)/config.h: $(SAMTOOLS_DIR)
+$(SAMTOOLS_DIR)/config.mk: $(SAMTOOLS_DIR)
 	cd $(SAMTOOLS_DIR); ./configure --prefix=$(INSTALL_PREFIX)
 
 $(SAMTOOLS): $(SAMTOOLS_DIR)/config.h
