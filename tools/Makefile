@@ -25,7 +25,7 @@ FOLDER_BIN=./bin/
 
 all: release
 
-static:	setup gem3-static $(SAMTOOLS) $(BCFTOOLS)
+static:	setup gem3-static $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
 	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
 	$(MAKE) --directory=$(BCFTOOLS_DIR) all
 	$(MAKE) --directory=src static
@@ -34,7 +34,7 @@ static:	setup gem3-static $(SAMTOOLS) $(BCFTOOLS)
 	$(MAKE) --directory=sln static
 	$(MAKE) --directory=bs_call static
 
-release: setup	gem3 $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR)/config.h
+release: setup	gem3 $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
 	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
 	$(MAKE) --directory=$(BCFTOOLS_DIR) all
 	$(MAKE) --directory=src
@@ -43,7 +43,7 @@ release: setup	gem3 $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR)/config.h
 	$(MAKE) --directory=sln
 	$(MAKE) --directory=bs_call
 
-debug: setup gem3-debug $(SAMTOOLS) $(BCFTOOLS)
+debug: setup gem3-debug $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
 	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
 	$(MAKE) --directory=$(BCFTOOLS_DIR) all
 	$(MAKE) --directory=src debug
