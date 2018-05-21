@@ -176,7 +176,7 @@ setup(cmdclass=_commands,
                                                                       "dbSNP_idx"
                                                                      ]]},
       entry_points = {
-        'console_scripts': ['gemBS=gemBS.commands:gemBS'],
+        'console_scripts': ['gemBS=gemBS.commands:gemBS_main'],
       }
      )
 

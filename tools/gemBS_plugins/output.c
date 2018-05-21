@@ -51,15 +51,20 @@ void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt
   int n1 = (int)(args->min_prop * (double)ns + 0.5);
   if(n1 > min_n) min_n = n1;
   // Build up prob. distribution Q(i) where Q(i) = prob that i samples have genotype CG/CG
+  bool skip = true;
   for(int ix = 0; ix < ns; ix++) {
     gt_meth *g1 = sample_gt[idx]+ix, *g2 =sample_gt[idx ^ 1]+ix;
     double z = 0.0;
     if(!(g1->skip || g2->skip)) {
       if((g1->counts[5] + g1->counts[7] >= args->min_inform) || (g2->counts[6] + g1->counts[4] >= args->min_inform)) {
-	if(args->sel_mode == SELECT_HOM) z = exp(g1->gt_prob[4] + g2->gt_prob[7]);
-	else {
+	if(args->sel_mode == SELECT_HOM) {
+	  z = exp(g1->gt_prob[4] + g2->gt_prob[7]);
+	  if(g1->max_gt == 4 && g2->max_gt == 7) skip = false;
+	} else {
 	  z = (exp(g1->gt_prob[1]) + exp(g1->gt_prob[4]) + exp(g1->gt_prob[5]) + exp(g1->gt_prob[6])) *
 	    (exp(g2->gt_prob[2]) + exp(g2->gt_prob[5]) + exp(g2->gt_prob[7]) + exp(g2->gt_prob[8]));
+	  if((g1->max_gt == 1 || (g1->max_gt >= 4 && g1->max_gt <= 6)) && 
+	     (g2->max_gt == 2 || g2->max_gt == 5 || g2->max_gt == 7 || g2->max_gt == 8)) skip = false;
 	}
       }
     }
@@ -69,7 +74,7 @@ void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt
   double z = p[0];
   for(int i = 1; i <= ns && i < min_n; i++) z += p[i];
   int phred = calc_phred(z);
-  if(phred >= args->sel_thresh) {
+  if(!skip && phred >= args->sel_thresh) {
     int cx_len = bcf_get_info_values(args->hdr, rec, "CX", (void **)&cx, &cx_n, BCF_HT_STR);    
     int cx_sz = tags[FMT_CX].st[idx].ne / ns;
     if(args->mode == CPGMODE_COMBINED) {

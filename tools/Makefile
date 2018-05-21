@@ -26,26 +26,28 @@ FOLDER_BIN=./bin/
 all: release
 
 static:	setup gem3-static $(SAMTOOLS) $(BCFTOOLS)
+	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
+	$(MAKE) --directory=$(BCFTOOLS_DIR) all
 	$(MAKE) --directory=src static
 	$(MAKE) --directory=gen static
-	$(MAKE) --directory=filter_vcf static
 	$(MAKE) --directory=cpgToWig static
 	$(MAKE) --directory=sln static
 	$(MAKE) --directory=bs_call static
 
-release: setup	gem3 $(SAMTOOLS) $(BCFTOOLS)
-	$(MAKE) --directory=src	
+release: setup	gem3 $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR)/config.h
+	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
+	$(MAKE) --directory=$(BCFTOOLS_DIR) all
+	$(MAKE) --directory=src
 	$(MAKE) --directory=gen
-	$(MAKE) --directory=filter_vcf
 	$(MAKE) --directory=cpgToWig
 	$(MAKE) --directory=sln
 	$(MAKE) --directory=bs_call
 
 debug: setup gem3-debug $(SAMTOOLS) $(BCFTOOLS)
+	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
+	$(MAKE) --directory=$(BCFTOOLS_DIR) all
 	$(MAKE) --directory=src debug
-	cd gen; ./configure
 	$(MAKE) --directory=gen debug
-	$(MAKE) --directory=filter_vcf debug
 	$(MAKE) --directory=cpgToWig debug
 	$(MAKE) --directory=sln debug
 	$(MAKE) --directory=bs_call debug
@@ -72,16 +74,9 @@ gem3-mapper/Makefile.mk: gem3-mapper/Makefile.mk.in gem3-mapper/configure
 $(SAMTOOLS_DIR)/config.mk:
 	cd $(SAMTOOLS_DIR); ./configure
 
-$(SAMTOOLS): $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk
-	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
-	touch $(SAMTOOLS)
-
 $(BCFTOOLS_DIR)/config.h: $(BCFTOOLS_DIR)/plugins/mextr.c $(BCFTOOLS_DIR)/plugins/snpxtr.c
 	cd $(BCFTOOLS_DIR); ./configure
-	touch $(BCFTOOLS)
-
-$(BCFTOOLS): $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
-	$(MAKE) --directory=$(BCFTOOLS_DIR) all
+	touch $(BCFTOOLS_DIR)/config.h
 
 $(SAMTOOLS_DIR):
 	wget $(SAMTOOLS_URL) && tar -jxf $(SAMTOOLS_TAR) && rm -f $(SAMTOOLS_TAR)

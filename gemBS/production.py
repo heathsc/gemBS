@@ -751,10 +751,22 @@ class MethylationFiltering(BasicPipeline):
         parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.', default=None)
         parser.add_argument('-P','--jobs', dest="jobs", default=1, type=int, help='Number of parallel jobs')
         parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',required=True)
+        parser.add_argument('-s','--strand-specific', dest="strand_specific", action="store_true", default=False, help="Output separate lines for each strand.")
+        parser.add_argument('-q','--phred-threshold', dest="phred", default="20", help="Min threshold for genotype phred score.")
+        parser.add_argument('-I','--inform', dest="inform", default="1", help="Min threshold for informative reads.")
+        parser.add_argument('-M','--min-nc', dest="min_nc", default="1", help="Min threshold for non-converted reads for non CpG sites.")
+        parser.add_argument('-H','--select-het', dest="select_het", action="store_true", default=False, help="Select heterozygous and homozgyous sites.")
+        parser.add_argument('-n','--non-cpg', dest="non_cpg", action="store_true", default=False, help="Output non-cpg sites.")
         
     def run(self,args):
         self.output_dir = args.output_dir
         self.path_bcf = args.path_bcf
+        self.strand_specific = args.strand_specific
+        self.select_het = args.select_het
+        self.non_cpg = args.non_cpg
+        self.phred = args.phred
+        self.inform = args.inform
+        self.min_nc = args.min_nc
         self.bcf_list = []
         self.threads = args.jobs
         
@@ -793,7 +805,8 @@ class MethylationFiltering(BasicPipeline):
         bcf = "{}/{}.raw.bcf".format(self.path_bcf, sample)
         self.bcf_file = bcf
         #Call methylation filtering
-        ret = gemBS.methylationFiltering(bcfFile=bcf,output_dir=self.output_dir,name=sample)
+        ret = gemBS.methylationFiltering(bcfFile=bcf,output_dir=self.output_dir,name=sample,strand_specific=self.strand_specific,non_cpg=self.non_cpg,
+                                         select_het=self.select_het,inform=self.inform,phred=self.phred,min_nc=self.min_nc)
         if ret:
             logging.gemBS.gt("Methylation filtering of {} done, results located at: {}".format(bcf, ret))
             

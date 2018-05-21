@@ -208,7 +208,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out __unused__)
   check_hdr_params(&args);
   static struct option loptions[] = {
     {"cpgfile",required_argument,0,'c'},
-    {"noncpgfile",optional_argument,0,'n'},
+    {"noncpgfile",required_argument,0,'n'},
     {"report-file",required_argument,0,'r'},
     {"no_header",no_argument,0,'H'},
     {"common-gt",no_argument,0,'g'},

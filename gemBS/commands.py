@@ -13,7 +13,7 @@ import gemBS
 
 __VERSION__ = "2.1.0"
 
-def gemBS():
+def gemBS_main():
     try:
         parser = argparse.ArgumentParser(prog="gemBS",
                 description="gemBS is a bioinformatic pipeline to perform the different steps involved in the Bisulfite Sequencing Analysis."
@@ -30,7 +30,7 @@ def gemBS():
             path = f
         else:
             path = f + ":" + path
-            os.environ["PATH"] = f
+            os.environ["PATH"] = path
 
         commands = {
             "prepare-config" : production.PrepareConfiguration,            

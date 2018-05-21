@@ -873,7 +873,8 @@ def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,
     return " ".join(sample_bam.keys())
 
             
-def methylationFiltering(bcfFile=None,output_dir=None,name=None):
+def methylationFiltering(bcfFile=None,output_dir=None,name=None,strand_specific=False,non_cpg=False,select_het=False,
+                         inform=1,phred=20,min_nc=1):
     """ Filters bcf methylation calls file 
 
     bcfFile -- bcfFile methylation calling file  
@@ -884,11 +885,21 @@ def methylationFiltering(bcfFile=None,output_dir=None,name=None):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         
-    tools = []
     output_file = "{}/{}_cpg.txt".format(output_dir,name)
-    tools.append([executables['bcftools'],'+mextr',bcfFile,'--','-z','-o',output_file])
-     
-    process = utils.run_tools(tools,name="Methylation Calls Filtering")
+    mextr = [executables['bcftools'],'+mextr',bcfFile,'--','-z','-o',output_file,'--inform',inform,'--threshold',phred]
+    if strand_specific:
+        mextr.append('--mode')
+        mextr.append('strand-specific')
+    if select_het:
+        mextr.append('--select')
+        mextr.append('het')
+    if non_cpg:
+        non_cpg_output_file = "{}/{}_non_cpg.txt".format(output_dir,name)
+        mextr.append('--noncpgfile')
+        mextr.append(non_cpg_output_file)
+        mextr.append('--min-nc')
+        mextr.append(min_nc)
+    process = utils.run_tools([mextr],name="Methylation Calls Filtering")
     if process.wait() != 0:
         raise ValueError("Error while filtering bcf methylation calls.")
     
