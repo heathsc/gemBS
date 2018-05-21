@@ -19,6 +19,5 @@ From: ubuntu:bionic   # This is a comment
     mkdir /usr/local/build; cd /usr/local/build
 	 (mkdir /ext && cd /ext && mkdir disk1 disk2 disk3 disk4 disk5 disk6 disk7 disk8 disk9)
 	 git clone --recursive https://github.com/heathsc/gemBS.git -b development
-    (cd gemBS; python setup.py install && \
-	 cp extras/gemBS_singularity.py /usr/local/bin/gemBS && chmod 755 /usr/local/bin/gemBS)
+    (cd gemBS; python setup.py install)
     rm -rf gemBS && cd && rmdir /usr/local/build

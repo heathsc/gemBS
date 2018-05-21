@@ -9,7 +9,8 @@ from distutils.core import setup
 from setuptools import setup, Command
 from setuptools.command.install import install as _install
 from setuptools.command.build_py import build_py as _build_py
-
+from setuptools.command.install_scripts import install_scripts as _install_scripts
+from setuptools.command.install_lib import install_lib as _install_lib
 from distutils.command.clean import clean as _clean
 
 import subprocess
@@ -126,12 +127,10 @@ class install(_install):
         _install.run(self)
         
         # find target folder
-        install_dir = None
-        for file in self.get_outputs():
-           if file.endswith("/gemBS/__init__.py"):
-                install_dir = "%s" % os.path.split(file)[0]
-                break
-
+        if gemBS_install_dir.endswith('/'):
+            install_dir = "{}gemBS".format(gemBS_install_dir)
+        else:
+            install_dir = "{}/gemBS".format(gemBS_install_dir)
         _install_bundle(install_dir)
         
  
@@ -144,7 +143,27 @@ class build_py(_build_py):
         target_dir = "%s/%s" % (parent_dir, "gemBS")
         _install_bundle(target_dir)
         _build_py.run(self)
-        
+
+class install_lib(_install_lib):
+    def run(self):
+        # Store install_dir for future use
+        global gemBS_install_dir
+        gemBS_install_dir = self.install_dir
+        _install_lib.run(self)
+    
+    def get_install_dir(self):
+        return self.install_dir
+    
+class install_scripts(_install_scripts):
+    
+    def write_script(self, script_name, contents, mode="t", *ignored):
+        i = contents.find('sys.exit')
+        if i >= 0:
+            j = contents.rfind('\n', 0, i)
+            if j >= 0:
+                contents = contents[:j+1] + "    sys.path.insert(0,'{}')\n".format(gemBS_install_dir) + contents[j+1:]
+        _install_scripts.write_script(self, script_name, contents, mode, *ignored)
+            
 # hack the setup tools cleaning
 class clean(_clean):
 
@@ -153,7 +172,7 @@ class clean(_clean):
         clean_gemBS_tools()
 
 
-_commands = {'install': install,'build_py': build_py,'clean':clean}
+_commands = {'install': install,'install_lib': install_lib, 'install_scripts': install_scripts, 'build_py': build_py,'clean':clean}
 
 
 setup(cmdclass=_commands,
