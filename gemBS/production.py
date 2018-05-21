@@ -31,18 +31,31 @@ class Fli(object):
         return self.fli
 
 
-class FLIdata(object):
+class JSONdata(object):
     #Class to manage the flowcell lane index information of the project
     def __init__(self,json_file=None):
         self.json_file = json_file
         self.sampleData = {}
-   
+        self.config = {}
+
         with open(self.json_file, 'r') as fileJson:
-            config = json.load(fileJson)      
-            data=config['FLIdata']
+            jsconfig = json.load(fileJson)
+            try:
+                conf = jsconfig['config']
+                defaults = conf['DEFAULT']
+                for sect in ['mapping', 'calling', 'filtering', 'bigwig']:
+                    self.config[sect] = {}
+                    if conf.has_key(sect):
+                        for key,val in conf[sect].iteritems():
+                            self.config[sect][key] = val
+                    for key,val in defaults.iteritems():
+                        if not conf[sect].has_key(key):
+                            self.config[sect][key] = val
+            except KeyError:
+                self.config = {}
+            data=jsconfig['sampleData']
             for fli in data:
                 fliCommands = Fli()            
-                
                 fliCommands.fli = fli
                 for key, value in data[fli].iteritems():
                     if key == "sample_barcode":
@@ -55,6 +68,15 @@ class FLIdata(object):
                         fliCommands.file = value
 
                     self.sampleData[fli] = fliCommands
+
+    def check(self, section, key, arg, default=None, boolean=False):
+        if not arg and self.config[section].has_key(key):
+            ret = self.config[section][key]
+        else:
+            ret = default
+        if boolean:
+            ret = json.loads(ret.lower())
+        return ret
 
 class BasicPipeline(Command):
     """General mapping pipeline class."""
@@ -102,6 +124,8 @@ class PrepareConfiguration(Command):
                           FORMAT: sample_id,library,flowcell,lane,index
                           
                           Option 2: CNAG Lims Subproject json file
+
+                          In addition, a config file with default parameters for the gemBS commands can also be supplied.
                     
                       If you are managing CNAG bisulfite sequencing data and you have acces to the CNAG lims then Option 2 is the most user friendly.
                       Otherwise Option 1.
@@ -113,18 +137,19 @@ class PrepareConfiguration(Command):
                                                                                    FORMAT:  sample_id,library,flowcell,lane,index                                                                           
                                                                                 """,default=None)
         parser.add_argument('-l', '--lims-cnag-json', dest="lims_cnag_json", help="""Lims Cnag subproject json file.""",default=None)
+        parser.add_argument('-c', '--config', dest="config", help="""Text config file with gemBS parameters.""",default=None)
         parser.add_argument('-j', '--json', dest="json", help='JSON ouput file',required=True)
         
     def run(self,args):        
         #Try text metadata file
         if args.text_metadata is not None:
             if os.path.isfile(args.text_metadata):
-                gemBS.prepareConfiguration(text_metadata=args.text_metadata,jsonOutput=args.json)
+                gemBS.prepareConfiguration(text_metadata=args.text_metadata,jsonOutput=args.json,configFile=args.config)
             else:
                 raise CommandException("Sorry!! File %s not found!" %(args.text_metadata))
         elif args.lims_cnag_json is not None:
             if os.path.isfile(args.lims_cnag_json):
-                gemBS.prepareConfiguration(lims_cnag_json=args.lims_cnag_json,jsonOutput=args.json)
+                gemBS.prepareConfiguration(lims_cnag_json=args.lims_cnag_json,jsonOutput=args.json,configFile=args.config)
             else:
                 raise CommandException("Sorry!! File %s not found!" %(args.lims_cnag_json))
         else:
@@ -182,12 +207,12 @@ class MappingCommands(BasicPipeline):
 
     def register(self,parser):
         ## required parameters
-        parser.add_argument('-I', '--index', dest="index", metavar="index_file.BS.gem", help='Path to the Bisulfite Index Reference file.', required=True)
+        parser.add_argument('-I', '--index', dest="index", metavar="index_file.BS.gem", help='Path to the Bisulfite Index Reference file.', required=False)
         parser.add_argument('-j', '--json', dest="json_file", metavar="JSON_FILE", help='JSON file configuration.', required=True)
-        parser.add_argument('-i', '--input-dir', dest="input_dir", metavar="PATH", help='Directory where is located input data. FASTQ or BAM format.', required=True)
-        parser.add_argument('-o', '--output-dir', dest="ouput_dir", metavar="PATH",default=".", help='Directory to store Bisulfite mapping results. Default: %s' %self.output_dir)
-        parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", default="/tmp/", help='Temporary folder to perform sorting operations. Default: %s' %self.tmp_dir)      
-        parser.add_argument('-t', '--threads', dest="threads",default="1", help='Number of threads to perform sorting operations. Default: %s' %self.threads)
+        parser.add_argument('-i', '--input-dir', dest="input_dir", metavar="PATH", help='Directory where is located input data. FASTQ or BAM format.', required=False)
+        parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH", help='Directory to store Bisulfite mapping results. Default: .')
+        parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", help='Temporary folder to perform sorting operations. Default: /tmp')      
+        parser.add_argument('-t', '--threads', dest="threads", help='Number of threads to perform sorting operations. Default: %s' %self.threads)
         parser.add_argument('-p', '--paired-end', dest="paired_end", action="store_true", default=None, help="Input data is Paired End")
         parser.add_argument('-s', '--read-non-stranded', dest="read_non_stranded", action="store_true",default=False, 
                             help='Automatically selects the proper C->T and G->A read conversions based on the level of Cs and Gs on the read.') 
@@ -201,7 +226,18 @@ class MappingCommands(BasicPipeline):
         from sets import Set
         paired_types = Set(['PAIRED', 'INTERLEAVED', 'PAIRED_STREAM'])
         ## All Flowcell Lane Index        
-        for k,v in FLIdata(args.json_file).sampleData.iteritems():
+        jsonData = JSONdata(args.json_file)
+        config = jsonData.config['mapping']
+        args.index = jsonData.check(section='mapping',key='gem_index',arg=args.index)
+        args.input_dir = jsonData.check(section='mapping',key='sequence_dir',arg=args.input_dir)
+        args.tmp_dir = jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,default='/tmp')
+        args.threads = jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
+        args.read_non_stranded = jsonData.check(section='mapping',key='non_stranded',arg=args.read_non_stranded, boolean = True)
+        args.underconversion_sequence = jsonData.check(section='mapping',key='underconversion_sequence',arg=args.underconversion_sequence)
+        args.overconversion_sequence = jsonData.check(section='mapping',key='overconversion_sequence',arg=args.overconversion_sequence)
+        args.output_dir = jsonData.check(section='mapping',key='bam_dir',arg=args.output_dir,default='.')
+        output_sample = '@SAMPLE' in args.output_dir
+        for k,v in jsonData.sampleData.iteritems():
             ##Non Stranded
             non_stranded = ""
             if args.read_non_stranded:
@@ -212,17 +248,20 @@ class MappingCommands(BasicPipeline):
                 conversion_parameters += " -n %s" %(args.underconversion_sequence)
             if args.overconversion_sequence is not None:  
                 conversion_parameters += " -v %s" %(args.overconversion_sequence)
-            
+            if output_sample:
+                output = args.output_dir.replace('@SAMPLE',v.sample_barcode)
+            else:
+                output = args.output_dir
             paired = args.paired_end
             if paired == None:
                 if v.type in paired_types:
                     paired = True
             if paired:
                 print "gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s -p %s %s"\
-                       %(args.index,k,args.json_file,args.input_dir,args.ouput_dir,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters)
+                       %(args.index,k,args.json_file,args.input_dir,output,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters)
             else:
                 print "gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s -p %s %s"\
-                      %(args.index,k,args.json_file,args.input_dir,args.ouput_dir,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters)
+                      %(args.index,k,args.json_file,args.input_dir,output,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters)
             
         
 class Mapping(BasicPipeline):
@@ -268,7 +307,7 @@ class Mapping(BasicPipeline):
         #Flowcell Lane Index
         self.name = args.fli
         #Flowcell Lane Index Info
-        self.fliInfo = FLIdata(args.json_file).sampleData[self.name] 
+        self.fliInfo = JSONdata(args.json_file).sampleData[self.name] 
         #Index
         self.index = args.index
         #Output Directory
@@ -455,7 +494,7 @@ class MergingAll(BasicPipeline):
         #Create Dictionary of samples and bam file        
         self.samplesBams = {}  
         self.records = 0
-        for k,v in FLIdata(args.json_file).sampleData.iteritems():
+        for k,v in JSONdata(args.json_file).sampleData.iteritems():
             fileBam = "%s/%s.bam" %(args.input_dir,v.getFli())
             self.records = self.records + 1
             if os.path.isfile(fileBam):
@@ -511,7 +550,7 @@ class MergingSample(BasicPipeline):
         self.samplesBams = {} 
         self.records = 0
         
-        for k,v in FLIdata(args.json_file).sampleData.iteritems():
+        for k,v in JSONdata(args.json_file).sampleData.iteritems():
             if self.sample_id == v.sample_barcode:            
                 fileBam = "%s/%s.bam" %(args.input_dir,v.getFli())
                 self.records = self.records + 1
@@ -621,7 +660,7 @@ class MethylationCall(BasicPipeline):
                 self.conversion = None
             else:
                 sample_lane_files = {}
-                for k,v in FLIdata(args.json_file).sampleData.iteritems():
+                for k,v in JSONdata(args.json_file).sampleData.iteritems():
                     fileJson = "%s/%s.json" %(args.mapping_json,v.getFli())
                     if os.path.isfile(fileJson):
                         if v.sample_barcode not in sample_lane_files: 
@@ -674,7 +713,7 @@ class MethylationCall(BasicPipeline):
         
         #Check input bam existance
         self.sampleBam = {}
-        for k,v in FLIdata(args.json_file).sampleData.iteritems():
+        for k,v in JSONdata(args.json_file).sampleData.iteritems():
             fileBam = "%s/%s.bam" %(self.input_dir,v.sample_barcode)
 
             if not os.path.isfile(fileBam):
@@ -772,7 +811,7 @@ class MethylationFiltering(BasicPipeline):
         
         if args.bcf_file == None:
             if args.path_bcf != None and args.json_file != None:
-                for k,v in FLIdata(args.json_file).sampleData.iteritems():
+                for k,v in JSONdata(args.json_file).sampleData.iteritems():
                     bcf = "{}/{}.raw.bcf".format(self.path_bcf,v.sample_barcode)
                     if v.sample_barcode not in self.bcf_list:
                         if os.path.isfile(bcf):
@@ -871,7 +910,7 @@ class BsCall(BasicPipeline):
                 self.conversion = None
             else:
                 lane_stats_list = []
-                for k,v in FLIdata(args.json_file).sampleData.iteritems():
+                for k,v in JSONdata(args.json_file).sampleData.iteritems():
                     if v.sample_barcode == self.sample_id:
                         fileJson = "%s/%s.json" %(args.mapping_json,v.getFli())
                         if os.path.isfile(fileJson):
@@ -998,7 +1037,7 @@ class MappingReports(BasicPipeline):
         self.sample_lane_files = {}   
       
         self.records = 0
-        for k,v in FLIdata(args.json_file).sampleData.iteritems():
+        for k,v in JSONdata(args.json_file).sampleData.iteritems():
             self.records = self.records + 1
             fileJson = "%s/%s.json" %(args.input_dir,v.getFli())
             if os.path.isfile(fileJson):
@@ -1059,7 +1098,7 @@ class VariantsReports(BasicPipeline):
         self.sample_chr_files = {}
         self.sample_list = {}
         
-        for k,v in FLIdata(args.json_file).sampleData.iteritems():
+        for k,v in JSONdata(args.json_file).sampleData.iteritems():
             self.sample_list[v.sample_barcode] = 0
 
         for sample,num in self.sample_list.iteritems():
@@ -1142,7 +1181,7 @@ class CpgBigwig(BasicPipeline):
         
         if args.cpg_file == None:
             if args.path_cpg != None and args.json_file != None:
-                for k,v in FLIdata(args.json_file).sampleData.iteritems():
+                for k,v in JSONdata(args.json_file).sampleData.iteritems():
                     cpg = "{}/{}_cpg.txt.gz".format(args.path_cpg,v.sample_barcode)
                     tup = (v.sample_barcode, cpg)
                     if tup not in self.cpg_list:

@@ -8,6 +8,7 @@ From: ubuntu:bionic   # This is a comment
     gemBS singularity container
 	 
 %post
+	 (mkdir /ext && cd /ext && mkdir disk1 disk2 disk3 disk4 disk5 disk6 disk7 disk8 disk9)
     apt-get update
     apt-get install -y python build-essential git python-pip wget pigz
     apt-get install -y zlib1g-dev libbz2-dev gsl-bin libgsl0-dev
@@ -17,7 +18,6 @@ From: ubuntu:bionic   # This is a comment
     && chmod 755 wigToBigWig)
     pip install numpy matplotlib configparser multiprocess
     mkdir /usr/local/build; cd /usr/local/build
-	 (mkdir /ext && cd /ext && mkdir disk1 disk2 disk3 disk4 disk5 disk6 disk7 disk8 disk9)
 	 git clone --recursive https://github.com/heathsc/gemBS.git -b development
     (cd gemBS; python setup.py install)
     rm -rf gemBS && cd && rmdir /usr/local/build

@@ -10,11 +10,12 @@ import pkg_resources
 import threading as th
 import tempfile
 import csv
+from configparser import ConfigParser
+from configparser import ExtendedInterpolation
+
 from . import utils
 
 import json
-
-from production import FLIdata,Fli
 
 import gzip
 
@@ -185,10 +186,30 @@ def _prepare_index_parameter(index, gemBS_suffix=True):
     return index
     
 
-def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None):
+def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None,configFile=None):
     """ Creates a configuration JSON file.
         From a metadata text file or a json coming from lims
     """
+    generalDictionary = {}
+    if configFile is not None:
+        config = ConfigParser(interpolation=ExtendedInterpolation())
+        config.read(configFile)
+        config_dict = {}
+        def_dict = {}
+        for key,val in config['DEFAULT'].iteritems():
+            def_dict[key] = val
+        config_dict['DEFAULT'] = def_dict
+        sections = ['DEFAULT', 'mapping', 'calling', 'filtering', 'bigwig']
+        for sect in config:
+            if sect in sections:
+                if sect != 'DEFAULT':
+                    config_dict[sect] = {}
+                    for key,val in config[sect].iteritems():
+                        if not (def_dict.has_key(key) and def_dict[key] == val):
+                            config_dict[sect][key] = val
+            else:
+                raise ValueError("Section {} not known".format(sect))
+        generalDictionary['config'] = config_dict        
     if text_metadata is not None:
         #Parses Metadata coming from text file
         headers = { 
@@ -203,8 +224,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None)
             }
         from sets import Set
         data_types = Set(['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM'])
-        generalDictionary = {}
-        generalDictionary['FLIdata'] = {}
+        generalDictionary['sampleData'] = {}
         with open(text_metadata, 'r') as f:
             reader = csv.reader(f)
             try:
@@ -284,7 +304,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None)
                                 sampleDirectory['file'] = file_dict
                                 if len(file_dict) == 2 and not sampleDirectory.has_key('type'):
                                     sampleDirectory['type'] = "PAIRED"
-                        generalDictionary['FLIdata'][fli] = sampleDirectory
+                        generalDictionary['sampleData'][fli] = sampleDirectory
             elif len(line) == 5:
                 # Parse as simple 5 field csv file (no header)
                 while True:
@@ -295,7 +315,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None)
                     lane = line[3].strip()
                     index = line[4].strip()
                     fli = "{}_{}_{}".format(flowcell, lane, index)
-                    generalDictionary['FLIdata'][fli] = sampleDirectory
+                    generalDictionary['sampleData'][fli] = sampleDirectory
                     try:
                         line = reader.next()
                     except StopIteration:
@@ -307,7 +327,6 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None)
             
     elif lims_cnag_json is not None:
         # Parses json from cnag lims
-        generalDictionary = {}
         with open(lims_cnag_json) as jsonFile:
             sampleDirectory = json.load(jsonFile)
             vectorElements = sampleDirectory["objects"]
@@ -317,7 +336,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None)
                     sample = {}
                     sample["sample_barcode"] = element["sample_barcode"]
                     sample["library_barcode"] = element["library_barcode"]
-                    generalDictionary['FLIdata'][fli] = sample
+                    generalDictionary['sampleData'][fli] = sample
                 
         with open(jsonOutput, 'w') as of:
             json.dump(generalDictionary, of, indent=2)

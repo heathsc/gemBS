@@ -45,7 +45,7 @@ class DirectMapping(production.BasicPipeline):
         #Flowcell Lane Index
         self.name = args.fli
         #Flowcell Lane Index Info
-        self.fliInfo = production.FLIdata(args.json_file).sampleData[self.name] 
+        self.fliInfo = production.JSONdata(args.json_file).sampleData[self.name] 
         #Index
         self.index = args.index
         #Output Directory
