@@ -447,3 +447,11 @@ def uniqueList(seq):
     seen = set()
     seen_add = seen.add
     return [ x for x in seq if not (x in seen or seen_add(x))]
+
+def makeFileName(dirname, filename):
+    """
+    Makes a filename by forming dirname + '/' + filename 
+    except when filename starts with a '/', in which case
+    it is not modified
+    """
+    return dirname.rstrip('/') + '/' + filename if filename[0] != '/' else filename

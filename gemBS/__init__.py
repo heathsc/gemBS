@@ -486,7 +486,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
 
     return os.path.abspath("%s" % nameOutput)
         
-def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/"):
+def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/",force=False):
     """ Merge bam alignment files 
     
         inputs -- Dictionary of samples and bam list files inputs(Key=sample, Value = [bam1,...,bamN])
@@ -498,53 +498,47 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/"):
     
     for sample,listBams  in inputs.iteritems():
         #bam output file
-        bam_filename = "%s/%s.bam" %(output_dir,sample)
+        output = output_dir
+        if '@SAMPLE' in output_dir:
+            output = output_dir.replace('@SAMPLE',sample)
+        
+        bam_filename = "%s/%s.bam" %(output,sample)
         #index bam file
-        index_filename = "%s/%s.bai" %(output_dir,sample)
+        index_filename = "%s/%s.bai" %(output,sample)
  
         bammerging = []       
-       
-        if len(listBams) > 1 :
-            bammerging.extend([executables['samtools'],"merge","--threads",threads,"-f",bam_filename])        
-        
-            for bamFile in listBams:
-                bammerging.append(bamFile)
-        else:
-            bammerging.extend([executables['sln'],listBams[0],bam_filename])
 
         #Check output directory
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        if not os.path.exists(output): os.makedirs(output)
+
+        input_mtime = 0
+        made_bam = False;
+        for bamFile in listBams:
+            mt = os.path.getmtime(bamFile)
+            if mt > input_mtime: input_mtime = mt
+        if force or not (os.path.exists(bam_filename) and os.path.getmtime(bam_filename) > input_mtime):
+            logging.debug("Merging sample: %s" % sample)
+            if len(listBams) > 1 :
+                bammerging.extend([executables['samtools'],"merge","--threads",threads,"-f",bam_filename])        
+                for bamFile in listBams:
+                    bammerging.append(bamFile)
+                process = utils.run_tools([bammerging], name="bisulphite-merging",output=bam_filename)
+            else:
+                bammerging.extend([executables['sln'],listBams[0],bam_filename])
+                process = utils.run_tools([bammerging], name="bisulphite-merging",output=None)
+            made_bam = True
         
-        logging.debug("Merging sample: %s" % sample)
-        
-        if len(listBams) > 1 :
-            process = utils.run_tools([bammerging], name="bisulphite-merging",output=bam_filename)
-        else:
-            process = utils.run_tools([bammerging], name="bisulphite-merging",output=None)
-        
-        if process.wait() != 0:
-            raise ValueError("Error while executing the Bisulphite merging")
-        
+            if process.wait() != 0:
+                raise ValueError("Error while executing the Bisulphite merging")
+            
         return_info[sample] = os.path.abspath("%s" % bam_filename)
         
         #Samtools index
-        indexing = [executables['samtools'],"index","%s"%(bam_filename)]
-        processIndex = utils.run_tools([indexing],name="Indexing")
-        
-        if processIndex.wait() != 0:
-            raise ValueError("Error while indexing.")
-        
-        #Rename file
-        reName = ['mv',
-        '%s.bai' %(bam_filename),                         
-        index_filename
-        ]        
-        
-        processRename = utils.run_tools([reName],name="Rename Index")
-                
-        if processRename.wait() != 0:
-            raise ValueError("Rename Index.")
+        if force or made_bam or not (os.path.exists(index_filename) and os.path.getmtime(index_filename) > os.path.getmtime(bam_filename)):
+            indexing = [executables['samtools'],"index","%s"%(bam_filename)]
+            processIndex = utils.run_tools([indexing],name="Indexing")
+            if processIndex.wait() != 0: raise ValueError("Error while indexing.")
+            os.rename('{}.bai'.format(bam_filename),index_filename)
     
     return return_info 
 

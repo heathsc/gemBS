@@ -9,7 +9,7 @@ from sys import exit
 import subprocess
 import threading as th
 
-from utils import Command, CommandException
+from utils import Command, CommandException, makeFileName
 from reportStats import LaneStats,SampleStats
 
 import gemBS
@@ -291,10 +291,10 @@ class Mapping(BasicPipeline):
  
     def register(self,parser):
         ## required parameters
+        parser.add_argument('-j', '--json', dest="json_file", metavar="JSON_FILE", help='JSON file configuration.', required=True)
         parser.add_argument('-I', '--index', dest="index", metavar="index_file.BS.gem", help='Path to the Bisulfite Index Reference file.', required=False)
         parser.add_argument('-f', '--fli', dest="fli", metavar="DATA_FILE", help='Data file/file pair to be mapped.', required=False)
         parser.add_argument('-n', '--sample', dest="sample", metavar="DATA_FILE", help='Sample to be mapped.', required=False)
-        parser.add_argument('-j', '--json', dest="json_file", metavar="JSON_FILE", help='JSON file configuration.', required=True)
         parser.add_argument('-i', '--input-dir', dest="input_dir", metavar="PATH", help='Directory where is located input data. FASTQ, FASTA, SAM or BAM format.', required=False)
         parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH", help='Directory to store Bisulfite mapping results. Default: .')
         parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", help='Temporary folder to perform sorting operations. Default: /tmp')      
@@ -387,7 +387,7 @@ class Mapping(BasicPipeline):
             if files:            
                 # If filenames were specified in configuration file then use them
                 if(ftype == 'PAIRED'):
-                    inputFiles = [input_dir + '/' + files['1'], input_dir + '/' + files['2']]
+                    inputFiles = [makeFileName(input_dir,files['1']), makeFileName(input_dir,files['2'])]
                 else:
                     for k,v in files.iteritems():
                         if ftype is None:
@@ -397,7 +397,7 @@ class Mapping(BasicPipeline):
                                 ftype = 'SAM'
                             else:
                                 ftype = 'INTERLEAVED' if self.paired else 'SINGLE'
-                        inputFiles.append(input_dir + '/' + v)
+                        inputFiles.append(makeFileName(input_dir,v))
                         break
             else:
                 # Otherwise search in input directory for possible data files
@@ -433,9 +433,9 @@ class Mapping(BasicPipeline):
                     else:
                         if (ftype == None or ftype == 'PAIRED') and m1.group(4) in ['fastq', 'fq', 'fasta', 'fa']:
                             if m1.group(3) == '1' and m2.group(3) == '2':
-                                inputFiles = [input_dir + '/' + file1, input_dir + '/' + file2]
+                                inputFiles = [makeFileName(input_dir,file1), makeFileName(input_dir,file2)]
                             elif m1.group(3) == '2' and m2.group(3) == '1':
-                                inputFiles = [input_dir + '/' + file2, input_dir + '/' + file1]
+                                inputFiles = [makeFileName(input_dir,file2), makeFileName(input_dir,file1)]
                             self.ftype = 'PAIRED'
                             self.paired = True
 
@@ -449,14 +449,10 @@ class Mapping(BasicPipeline):
         self.log_parameter()
 
         logging.gemBS.gt("Bisulfite Mapping...")
-        ret = gemBS.mapping(name=fli,index=self.index,fliInfo=fliInfo,
-                            inputFiles=inputFiles,ftype=ftype,
-                            read_non_stranded=self.read_non_stranded,
-                            force_flag=self.force_flag,
-                            outputDir=output_dir,paired=self.paired,
-                            tmpDir=self.tmp_dir,threads=self.threads,
-                            under_conversion=self.underconversion_sequence,
-                            over_conversion=self.overconversion_sequence) 
+        ret = gemBS.mapping(name=fli,index=self.index,fliInfo=fliInfo,inputFiles=inputFiles,ftype=ftype,
+                            read_non_stranded=self.read_non_stranded,force_flag=self.force_flag,
+                            outputDir=output_dir,paired=self.paired,tmpDir=self.tmp_dir,threads=self.threads,
+                            under_conversion=self.underconversion_sequence,over_conversion=self.overconversion_sequence) 
         
         if ret:
             logging.gemBS.gt("Bisulfite Mapping done. Output File: %s" %(ret))
@@ -478,128 +474,69 @@ class Mapping(BasicPipeline):
         
         printer("")
 
-class MergingAll(BasicPipeline):
+class Merging(BasicPipeline):
     title = "Merging bams"
-    description = """Merges all bam alignments involved in a given Bisulfite project.
+    description = """Merges all bam alignments involved in a given Bisulfite project or for a given sample.
                      Each bam alignment file belonging to a sample should be merged to perform the methylation calling."""
                      
     def register(self,parser):
         ## required parameters                     
-        parser.add_argument('-i', '--input-dir', dest="input_dir",metavar="PATH", help='Path where are located the BAM aligned files.', required=True)
         parser.add_argument('-j', '--json', dest="json_file", metavar="JSON_FILE", help='JSON file configuration.', required=True)
-        parser.add_argument('-t', '--threads', dest="threads", metavar="THREADS", default="1", help='Number of threads, Default: %s' %self.threads)
-        parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",help='Output directory to store merged results.',required=True)
+        parser.add_argument('-i', '--input-dir', dest="input_dir",metavar="PATH", help='Path where are located the BAM aligned files.', required=False)
+        parser.add_argument('-t', '--threads', dest="threads", metavar="THREADS", help='Number of threads, Default: %s' %self.threads)
+        parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",help='Output directory to store merged results.',required=False)
         parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", default="/tmp/", help='Temporary folder to perform sorting operations. Default: %s' %self.tmp_dir)
+        parser.add_argument('-s', '--sample-id',dest="sample_id",metavar="SAMPLE",help="Sample unique identificator",required=False) 
+        parser.add_argument('-F', '--force', dest="force", action="store_true", help="Force command even if output file exists")
         
     def run(self, args):
-        #Threads
-        self.threads = args.threads
-        #Output Directory
-        self.output_dir = args.output_dir
-        #TMP DIR
-        self.tmp_dir = args.tmp_dir
-        
+        # JSON data
+        self.jsonData = JSONdata(args.json_file)
+        # configuration data
+        config = self.jsonData.config['mapping']
+
+        self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default=self.threads)
+        self.input_dir = self.jsonData.check(section='mapping',key='bam_dir',arg=args.input_dir,dir_type=True,default='.')
+        self.output_dir = self.jsonData.check(section='mapping',key='merged_bam_dir',arg=args.output_dir,default='.',dir_type=True)
+        self.tmp_dir = self.jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,default='/tmp',dir_type=True)
+
         #Create Dictionary of samples and bam file        
         self.samplesBams = {}  
         self.records = 0
         for k,v in JSONdata(args.json_file).sampleData.iteritems():
-            fileBam = "%s/%s.bam" %(args.input_dir,v.getFli())
+            fli = v.getFli()
+            sample = v.sample_barcode
+            if args.sample_id and sample != args.sample_id: continue
+            input_dir = self.input_dir
+            if '@SAMPLE' in input_dir:
+                input_dir = input_dir.replace('@SAMPLE',sample)
+            fileBam = '{}/{}.bam'.format(input_dir,fli)
             self.records = self.records + 1
             if os.path.isfile(fileBam):
-                if v.sample_barcode not in self.samplesBams:
-                    self.samplesBams[v.sample_barcode] = [fileBam]
+                if sample not in self.samplesBams:
+                    self.samplesBams[sample] = [fileBam]
                 else:
-                    self.samplesBams[v.sample_barcode].append(fileBam) 
+                    self.samplesBams[sample].append(fileBam) 
                     
-        #Check list of file
+        #Check list of files
         self.totalFiles = 0
         for sample,listBams in self.samplesBams.iteritems():
             self.totalFiles += len(listBams)
               
         if self.totalFiles < 1:
-            raise CommandException("Sorry not bam files were found!!")
+            raise CommandException("Sorry no bam files were found")
         elif self.totalFiles != self.records:
-            raise CommandException("Sorry not all bam files were created!!")
+            raise CommandException("Sorry not all bam files were found".format(sample))
             
         self.log_parameter()
         logging.gemBS.gt("Merging process started...")
-        ret = gemBS.merging(inputs=self.samplesBams,threads=self.threads,output_dir=self.output_dir,tmpDir=self.tmp_dir)
+        ret = gemBS.merging(inputs=self.samplesBams,threads=self.threads,output_dir=self.output_dir,tmpDir=self.tmp_dir,force=args.force)
          
         if ret:
             logging.gemBS.gt("Merging process done!! Output files generated:")
             for sample,outputBam  in ret.iteritems():
                 logging.gemBS.gt("%s: %s" %(sample, outputBam))
-                    
-
-class MergingSample(BasicPipeline):   
-    title = "Merging bams"
-    description = """Merges all bam alignments for a given Bisulfite Sample."""
-
-    def register(self,parser):
-        ## required parameters                     
-        parser.add_argument('-i', '--input-dir', dest="input_dir",metavar="PATH", help='Path were are located the BAM aligned files.', required=True)
-        parser.add_argument('-j', '--json', dest="json_file", metavar="JSON_FILE", help='JSON file configuration.', required=True)
-        parser.add_argument('-s', '--sample-id',dest="sample_id",metavar="SAMPLE",help="Sample unique identificator") 
-        parser.add_argument('-t', '--threads', dest="threads", metavar="THREADS", default="1", help='Number of threads, Default: %s' %self.threads)
-        parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",help='Output directory to store merged results.',required=True)
-        parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", default="/tmp/", help='Temporary folder to perform sorting operations. Default: %s' %self.tmp_dir) 
-        
-    def run(self, args):
-        #Threads
-        self.threads = args.threads
-        #Output Directory
-        self.output_dir = args.output_dir
-        #sample
-        self.sample_id = args.sample_id
-        #TMP DIR
-        self.tmp_dir = args.tmp_dir
-        
-        #Create Dictionary of samples and bam file
-        self.samplesBams = {} 
-        self.records = 0
-        
-        for k,v in JSONdata(args.json_file).sampleData.iteritems():
-            if self.sample_id == v.sample_barcode:            
-                fileBam = "%s/%s.bam" %(args.input_dir,v.getFli())
-                self.records = self.records + 1
-                if os.path.isfile(fileBam):
-                    if v.sample_barcode not in self.samplesBams:
-                        self.samplesBams[v.sample_barcode] = [fileBam]
-                    else:
-                        self.samplesBams[v.sample_barcode].append(fileBam) 
-                        
-        #Check list of file
-        self.totalFiles = 0
-        for sample,listBams in self.samplesBams.iteritems():
-            self.totalFiles += len(listBams)
-              
-        if self.totalFiles < 1:
-            raise CommandException("Sorry no bam files were found!!")
-        elif self.totalFiles != self.records:
-            raise CommandException("Sorry not all bam files were created!!")
-            
-        self.log_parameter()
-        logging.gemBS.gt("Merging process started...")
-        ret = gemBS.merging(inputs=self.samplesBams,threads=self.threads,output_dir=self.output_dir,tmpDir=self.tmp_dir)
-         
-        if ret:
-            logging.gemBS.gt("Merging process done!! Output files generated:")
-            for sample,outputBam  in ret.iteritems():
-                logging.gemBS.gt("%s: %s" %(sample, outputBam))
-        
-        
-    def extra_log(self):
-        """Extra Parameters to be printed"""
-        #Virtual methos, to be define in child class
-        printer = logging.gemBS.gt
-        
-        printer("------- Merging Sample Parameter -------")
-        printer("Sample ID           : %s", self.sample_id)
-        printer("")
-                     
-
-
-        
+                            
 class MethylationCall(BasicPipeline):
     title = "Methylation Calling"
     description = """Performs a methylation calling from a bam aligned file.
