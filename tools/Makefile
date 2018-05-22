@@ -28,7 +28,7 @@ all: release
 static:	setup gem3-static $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
 	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
 	$(MAKE) --directory=$(BCFTOOLS_DIR) all
-	$(MAKE) --directory=src static
+	$(MAKE) --directory=readNameClean static
 	$(MAKE) --directory=gen static
 	$(MAKE) --directory=cpgToWig static
 	$(MAKE) --directory=sln static
@@ -37,7 +37,7 @@ static:	setup gem3-static $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_D
 release: setup	gem3 $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
 	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
 	$(MAKE) --directory=$(BCFTOOLS_DIR) all
-	$(MAKE) --directory=src
+	$(MAKE) --directory=readNameClean
 	$(MAKE) --directory=gen
 	$(MAKE) --directory=cpgToWig
 	$(MAKE) --directory=sln
@@ -46,7 +46,7 @@ release: setup	gem3 $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(
 debug: setup gem3-debug $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
 	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
 	$(MAKE) --directory=$(BCFTOOLS_DIR) all
-	$(MAKE) --directory=src debug
+	$(MAKE) --directory=readNameClean debug
 	$(MAKE) --directory=gen debug
 	$(MAKE) --directory=cpgToWig debug
 	$(MAKE) --directory=sln debug
