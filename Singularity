@@ -2,8 +2,11 @@ BootStrap: docker
 From: ubuntu:bionic   # This is a comment
 
 %runscript
-    echo "This is what happens when you run the container..."
+    exec /usr/local/bin/gemBS $@
 
+%help
+    gemBS singularity container
+	 
 %post
     apt-get update
     apt-get install -y python build-essential git python-pip wget pigz
