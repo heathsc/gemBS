@@ -392,22 +392,18 @@ def index(input, output, threads=None,list_dbSNP_files=[],dbsnp_index=""):
     return os.path.abspath("%s" % output)
 
 
-def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
-             file_interleaved=None,file_se=None,read_non_stranded=False,
-             file_bam=None,force_flag=False,outputDir=None,
-             paired=False,tmpDir="/tmp/",threads=1,under_conversion=None, over_conversion=None):
-    """ Star the GEM Bisulfite mapping on the given input.
+def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
+             read_non_stranded=False,force_flag=False,outputDir=None,
+             paired=False,tmpDir="/tmp",threads=1,under_conversion=None, over_conversion=None):
+    """ Start the GEM Bisulfite mapping on the given input.
     
     name -- Name basic (FLI) for the input and output fastq files
     index -- Path to the Bisulfite index reference to map to
     fliInfo -- FLI object with metadata information (useful for read groups)
-    file_pe_one -- First pair fastq file (Paired End)
-    file_pe_two -- Second pair fastq file (Paired End)
-    file_interleaved -- Paired end file interleaved
-    file_se -- Single End fastq file
-    file_bam -- BAM alignment file
-    force_flag -- Force command even if output file exists and is younger than inputs
+    inputFiles -- List of input files
+    ftype -- input file type
     read_non_stranded -- Read non stranded
+    force_flag -- Force command even if output file exists and is younger than inputs
     outputDir -- Directory to store the Bisulfite mapping results
     paired -- Paired End flag
     tmpDir -- Temporary directory to perform sorting operations
@@ -434,25 +430,20 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
             output_mtime = os.path.getmtime(nameOutput)
         else:
             run_command = True
-     
-    if file_pe_one is not None and file_pe_two is not None:
-        mapping.extend(["--i1",file_pe_one,"--i2",file_pe_two])
+
+    if len(inputFiles) == 2:
+        mapping.extend(["--i1",inputFiles[0],"--i2",inputFiles[1]])
         if not run_command:
-            mtime1 = os.path.getmtime(file_pe_one)
-            mtime2 = os.path.getmtime(file_pe_one)
+            mtime1 = os.path.getmtime(inputFiles[0])
+            mtime2 = os.path.getmtime(inputFiles[1])
             input_mtime = mtime1 if mtime1 > mtime2 else mtime2
-    elif file_interleaved is not None:
-        mapping.extend(["-i",file_interleaved])
+    elif len(inputFiles) == 1:
+        if ftype in ['SAM', 'BAM']:
+            bamToFastq.extend([executables['samtools'],"bam2fq", inputFiles[0]])
+        else:
+            mapping.extend(["-i",inputFiles[0]])
         if not run_command:
-            input_mtime = os.path.getmtime(file_interleaved)
-    elif file_se is not None:
-        mapping.extend(["-i",file_se])
-        if not run_command:
-            input_mtime = os.path.getmtime(file_se)
-    elif file_bam is not None:
-        bamToFastq.extend([executables['samtools'],"bam2fq", file_bam])
-        if not run_command:
-            input_mtime = os.path.getmtime(file_bam)
+            input_mtime = os.path.getmtime(inputFiles[0])
 
     if not run_command and input_mtime > output_mtime:
         run_command = True
@@ -485,8 +476,7 @@ def mapping(name=None,index=None,fliInfo=None,file_pe_one=None,file_pe_two=None,
     
         tools = [mapping,readNameClean,bamSort]
     
-        if file_bam is not None:
-            tools.insert(0, bamToFastq)
+        if bamToFastq: tools.insert(0, bamToFastq)
     
         process = utils.run_tools(tools, name="bisulfite-mapping")
         if process.wait() != 0:

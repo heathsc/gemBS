@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Production pipelines"""
 import os
+import re
 import logging
 import json
 import sys
@@ -69,13 +70,15 @@ class JSONdata(object):
 
                     self.sampleData[fli] = fliCommands
 
-    def check(self, section, key, arg, default=None, boolean=False):
+    def check(self, section, key, arg, default=None, boolean=False, dir_type=False):
         if not arg and self.config[section].has_key(key):
             ret = self.config[section][key]
         else:
             ret = default
         if boolean:
             ret = json.loads(ret.lower())
+        elif dir_type:
+            ret = ret.rstrip('/')
         return ret
 
 class BasicPipeline(Command):
@@ -213,8 +216,8 @@ class MappingCommands(BasicPipeline):
         parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH", help='Directory to store Bisulfite mapping results. Default: .')
         parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", help='Temporary folder to perform sorting operations. Default: /tmp')      
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads to perform sorting operations. Default: %s' %self.threads)
-        parser.add_argument('-p', '--paired-end', dest="paired_end", action="store_true", default=None, help="Input data is Paired End")
-        parser.add_argument('-s', '--read-non-stranded', dest="read_non_stranded", action="store_true",default=False, 
+        parser.add_argument('-p', '--paired-end', dest="paired_end", action="store_true", help="Input data is Paired End")
+        parser.add_argument('-s', '--read-non-stranded', dest="read_non_stranded", action="store_true", 
                             help='Automatically selects the proper C->T and G->A read conversions based on the level of Cs and Gs on the read.') 
         parser.add_argument('-n', '--underconversion-sequence', dest="underconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control unmethylated cytosines which fails to be\
                              deaminated and thus appears to be Methylated.', default=None, required=False)
@@ -229,14 +232,15 @@ class MappingCommands(BasicPipeline):
         jsonData = JSONdata(args.json_file)
         config = jsonData.config['mapping']
         args.index = jsonData.check(section='mapping',key='gem_index',arg=args.index)
-        args.input_dir = jsonData.check(section='mapping',key='sequence_dir',arg=args.input_dir)
-        args.tmp_dir = jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,default='/tmp')
+        args.input_dir = jsonData.check(section='mapping',key='sequence_dir',arg=args.input_dir,dir_type=True)
+        args.tmp_dir = jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,default='/tmp',dir_type=True)
         args.threads = jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
-        args.read_non_stranded = jsonData.check(section='mapping',key='non_stranded',arg=args.read_non_stranded, boolean = True)
+        args.read_non_stranded = jsonData.check(section='mapping',key='non_stranded',arg=args.read_non_stranded,boolean=True)
         args.underconversion_sequence = jsonData.check(section='mapping',key='underconversion_sequence',arg=args.underconversion_sequence)
         args.overconversion_sequence = jsonData.check(section='mapping',key='overconversion_sequence',arg=args.overconversion_sequence)
-        args.output_dir = jsonData.check(section='mapping',key='bam_dir',arg=args.output_dir,default='.')
+        args.output_dir = jsonData.check(section='mapping',key='bam_dir',arg=args.output_dir,default='.',dir_type=True)
         output_sample = '@SAMPLE' in args.output_dir
+        input_sample = '@SAMPLE' in args.input_dir
         for k,v in jsonData.sampleData.iteritems():
             ##Non Stranded
             non_stranded = ""
@@ -252,16 +256,20 @@ class MappingCommands(BasicPipeline):
                 output = args.output_dir.replace('@SAMPLE',v.sample_barcode)
             else:
                 output = args.output_dir
+            if input_sample:
+                input_dir = args.input_dir.replace('@SAMPLE',v.sample_barcode)
+            else:
+                input_dir = args.input_dir
             paired = args.paired_end
             if paired == None:
                 if v.type in paired_types:
                     paired = True
             if paired:
                 print "gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s -p %s %s"\
-                       %(args.index,k,args.json_file,args.input_dir,output,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters)
+                       %(args.index,k,args.json_file,input_dir,output,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters)
             else:
-                print "gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s -p %s %s"\
-                      %(args.index,k,args.json_file,args.input_dir,output,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters)
+                print "gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s %s %s"\
+                      %(args.index,k,args.json_file,input_dir,output,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters)
             
         
 class Mapping(BasicPipeline):
@@ -283,190 +291,190 @@ class Mapping(BasicPipeline):
  
     def register(self,parser):
         ## required parameters
-        parser.add_argument('-I', '--index', dest="index", metavar="index_file.BS.gem", help='Path to the Bisulfite Index Reference file.', required=True)
-        parser.add_argument('-f', '--fli', dest="fli", metavar="DATA_FILE", help='Data file/file pair to be mapped.', required=True)
+        parser.add_argument('-I', '--index', dest="index", metavar="index_file.BS.gem", help='Path to the Bisulfite Index Reference file.', required=False)
+        parser.add_argument('-f', '--fli', dest="fli", metavar="DATA_FILE", help='Data file/file pair to be mapped.', required=False)
+        parser.add_argument('-n', '--sample', dest="sample", metavar="DATA_FILE", help='Sample to be mapped.', required=False)
         parser.add_argument('-j', '--json', dest="json_file", metavar="JSON_FILE", help='JSON file configuration.', required=True)
-        parser.add_argument('-i', '--input-dir', dest="input_dir", metavar="PATH", help='Directory where is located input data. FASTQ or BAM format.', required=False)
-        parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",default=".", help='Directory to store Bisulfite mapping results. Default: %s' %self.output_dir)
-        parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", default="/tmp/", help='Temporary folder to perform sorting operations. Default: %s' %self.tmp_dir)      
-        parser.add_argument('-t', '--threads', dest="threads",default="1", help='Number of threads to perform sorting operations. Default %s' %self.threads)
-        parser.add_argument('-p', '--paired-end', dest="paired_end", action="store_true", default=None, help="Input data is Paired End")
-        parser.add_argument('-F', '--force', dest="force", action="store_true", default=None, help="Force command even if output file exists")
-        parser.add_argument('-s', '--read-non-stranded', dest="read_non_stranded", action="store_true",default=False, 
+        parser.add_argument('-i', '--input-dir', dest="input_dir", metavar="PATH", help='Directory where is located input data. FASTQ, FASTA, SAM or BAM format.', required=False)
+        parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH", help='Directory to store Bisulfite mapping results. Default: .')
+        parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", help='Temporary folder to perform sorting operations. Default: /tmp')      
+        parser.add_argument('-t', '--threads', dest="threads", help='Number of threads to perform sorting operations. Default %s' %self.threads)
+        parser.add_argument('-T', '--type', dest="ftype", help='Type of data file (PAIRED, SINGLE, INTERLEAVED, STREAM, BAM)')
+        parser.add_argument('-p', '--paired-end', dest="paired_end", action="store_true", help="Input data is Paired End")
+        parser.add_argument('-F', '--force', dest="force", action="store_true", help="Force command even if output file exists")
+        parser.add_argument('-s', '--read-non-stranded', dest="read_non_stranded", action="store_true", 
                               help='Automatically selects the proper C->T and G->A read conversions based on the level of Cs and Gs on the read.')     
-        parser.add_argument('-n', '--underconversion-sequence', dest="underconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control unmethylated cytosines which fails to be\
+        parser.add_argument('-u', '--underconversion-sequence', dest="underconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control unmethylated cytosines which fails to be\
                               deaminated and thus appears to be Methylated.', default=None,required=False)
         parser.add_argument('-v', '--overconversion-sequence', dest="overconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control methylated cytosines which are\
                               deaminated and thus appears to be Unmethylated.', default=None,required=False)
-         
-           
+                    
     def run(self, args):     
-        from sets import Set
-        paired_types = Set(['PAIRED', 'INTERLEAVED', 'PAIRED_STREAM'])
-        stream_types = Set(['STREAM', 'SINGLE_STREAM', 'PAIRED_STREAM'])
-        #Flowcell Lane Index
-        self.name = args.fli
-        #Flowcell Lane Index Info
-        self.fliInfo = JSONdata(args.json_file).sampleData[self.name] 
-        #Index
-        self.index = args.index
-        #Output Directory
-        self.output_dir = args.output_dir
-        #Paired
-        self.paired = args.paired_end
-        if self.paired == None:
-            if self.fliInfo.type in paired_types:
-                self.paired = True
+        self.all_types = ['PAIRED', 'SINGLE', 'INTERLEAVED', 'BAM', 'SAM', 'STREAM', 'SINGLE_STREAM', 'PAIRED_STREAM']
+        self.paired_types = ['PAIRED', 'INTERLEAVED', 'PAIRED_STREAM']
+        self.stream_types = ['STREAM', 'SINGLE_STREAM', 'PAIRED_STREAM']
+
+        if args.ftype:
+            args.ftype = args.ftype.upper()
+            if args.ftype in self.all_types:
+                if args.ftype == 'STREAM': 
+                    args.ftype = 'PAIRED_STREAM' if args.paired_end else 'SINGLE_STREAM'
+                elif args.ftype in self.paired_types:
+                    args.paired_end = True
+                elif args.paired_end:
+                    raise ValueError('Type {} is not paired'.format(args.ftype))
+            else:
+                raise ValueError('Invalid type specified {}'.format(args.ftype))
+        self.ftype = args.ftype
+
+        # JSON data
+        self.jsonData = JSONdata(args.json_file)
+        # configuration data
+        config = self.jsonData.config['mapping']
+        # sample data
+        self.paired_end = args.paired_end
+        self.name = args.sample
+        self.index = self.jsonData.check(section='mapping',key='gem_index',arg=args.index)
+        if not self.index: raise ValueError("No GEM Index file supplied for mapping operation")
+        self.input_dir = self.jsonData.check(section='mapping',key='sequence_dir',arg=args.input_dir,dir_type=True,default='.')
+        self.tmp_dir = self.jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,default='/tmp',dir_type=True)
+        self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
+        self.read_non_stranded = self.jsonData.check(section='mapping',key='non_stranded',arg=args.read_non_stranded, boolean=True)
+        self.output_dir = self.jsonData.check(section='mapping',key='bam_dir',arg=args.output_dir,default='.',dir_type=True)
+        self.underconversion_sequence = self.jsonData.check(section='mapping',key='underconversion_sequence',arg=args.underconversion_sequence)
+        self.overconversion_sequence = self.jsonData.check(section='mapping',key='overconversion_sequence',arg=args.overconversion_sequence)
         #Force flag
         self.force_flag = args.force
-        #Read Non Standard
-        self.read_non_stranded = args.read_non_stranded
-        #TMP
-        self.tmp_dir = args.tmp_dir 
-        #Threads
-        self.threads = args.threads
-        
-        #Input Data
-        self.input_pair_one = None
-        self.input_pair_two = None
-        self.input_interleaved = None        
-        self.input_se = None
-        self.input_bam = None 
-        if args.input_dir == None:
-            args.input_dir = "."
-        self.stream = False
-        ftype = self.fliInfo.type
-        if ftype in stream_types:
-            self.stream = True
-        elif self.fliInfo.file:
-            self.inputPath = args.input_dir + "/"
-        files = self.fliInfo.file
-        if files:
-            if ftype == 'PAIRED':
-                self.input_pair_one = self.inputPath + files['1']
-                self.input_pair_two = self.inputPath +  files['2']
-            elif ftype == 'SINGLE':
-                for k,v in files.iteritems():
-                    self.input_pair_se = self.inputPath + v
-                    break
-            elif ftype == 'INTERLEAVED':
-                for k,v in files.iteritems():
-                    self.input_interleaved = self.inputPath + v
-                    break
-            elif ftype == 'SAM' or ftype == 'BAM':
-                for k,v in files.iteritems():
-                    self.input_bam = self.inputPath + v
-                    break
-        else:
-            self.inputPath = args.input_dir + "/" + self.fliInfo.getFli()
-        
-            #Check for input data
-            if args.paired_end:
-                #Pair One
-                if os.path.isfile(self.inputPath + "_1.fastq"):
-                    self.input_pair_one = self.inputPath + "_1.fastq"
-                elif os.path.isfile(self.inputPath + "_1.fastq.gz"):
-                    self.input_pair_one = self.inputPath + "_1.fastq.gz"
-                elif os.path.isfile(self.inputPath + "_1.fq"):
-                    self.input_pair_one = self.inputPath + "_1.fq"
-                elif os.path.isfile(self.inputPath + "_1.fq.gz"):
-                    self.input_pair_one = self.inputPath + "_1.fq.gz"
-                    
-                #Pair Two
-                if os.path.isfile(self.inputPath + "_2.fastq"):
-                    self.input_pair_two = self.inputPath + "_2.fastq"
-                elif os.path.isfile(self.inputPath + "_2.fastq.gz"):
-                    self.input_pair_two = self.inputPath + "_2.fastq.gz"
-                elif os.path.isfile(self.inputPath + "_2.fq"):
-                    self.input_pair_two = self.inputPath + "_2.fq"
-                elif os.path.isfile(self.inputPath + "_2.fq.gz"):
-                    self.input_pair_two = self.inputPath + "_2.fq.gz"
-                
-                #Interleaved
-                if self.input_pair_one is None and self.input_pair_two is None:
-                    if os.path.isfile(self.inputPath + ".fastq"):
-                        self.input_interleaved = self.inputPath + ".fastq"
-                    elif os.path.isfile(self.inputPath + ".fastq.gz"):
-                        self.input_interleaved = self.inputPath + ".fastq.gz"
-                    elif os.path.isfile(self.inputPath + ".fq"):
-                        self.input_interleaved = self.inputPath + ".fq"
-                    elif os.path.isfile(self.inputPath + ".fq.gz"):
-                        self.input_interleaved = self.inputPath + ".fq.gz"
-            #Single End
-            else:
-                if os.path.isfile(self.inputPath + ".fastq"):
-                    self.input_se = self.inputPath + ".fastq"
-                elif os.path.isfile(self.inputPath + ".fastq.gz"):
-                    self.input_se = self.inputPath + ".fastq.gz"
-                elif os.path.isfile(self.inputPath + ".fq"):
-                    self.input_se = self.inputPath + ".fq"
-                elif os.path.isfile(self.inputPath + ".fq.gz"):
-                    self.input_se =self.inputPath + ".fq.gz"  
-                    
-            #Check for BAM input data
-            if self.input_pair_one is None and self.input_pair_two is None and self.input_interleaved is None and self.input_se is None:
-                if os.path.isfile(self.inputPath + ".bam"):
-                    self.input_bam = self.inputPath + ".bam"
-                
-        #Check for input existance
-        if self.input_pair_one is None and self.input_pair_two is None and self.input_interleaved is None and self.input_se is None and self.input_bam is None and self.stream is False:
-            raise CommandException("No input files where found in %s directory." %(args.input_dir))
-            
-        #Check Bisulfite Conversion
-        self.underconversion_sequence = ""
-        if args.underconversion_sequence is not None:
-            self.underconversion_sequence = args.underconversion_sequence
-            
-        self.overconversion_sequence = ""
-        if args.overconversion_sequence is not None: 
-            self.overconversion_sequence = args.overconversion_sequence
-            
+
         #Check Temp Directory
         if not os.path.isdir(self.tmp_dir):
             raise CommandException("Temporary directory %s does not exists or is not a directory." %(self.tmp_dir))
 
-        self.log_parameter()
-        logging.gemBS.gt("Bisulfite Mapping...")
-        if self.stream:
-            ret = gemBS.direct_mapping(name=self.name,index=self.index,fliInfo=self.fliInfo,
-                                     paired = self.paired,threads=self.threads,
-                                     file_pe_one=None,file_pe_two=None,file_input=None,is_bam=False,
-                                     read_non_stranded = self.read_non_stranded,
-                                     outputDir=self.output_dir,tmpDir=self.tmp_dir,
-                                     under_conversion=self.underconversion_sequence,
-                                     over_conversion=self.overconversion_sequence)
+        if args.fli:
+            self.do_mapping(args.fli)
         else:
-            ret = gemBS.mapping(name=self.name,index=self.index,fliInfo=self.fliInfo,
-                              file_pe_one=self.input_pair_one,file_pe_two=self.input_pair_two,
-                              file_interleaved = self.input_interleaved,
-                              file_se = self.input_se,
-                              read_non_stranded = self.read_non_stranded,
-                              file_bam = self.input_bam,force_flag = self.force_flag,
-                              outputDir=self.output_dir,paired = self.paired,
-                              tmpDir=self.tmp_dir,threads=self.threads,
-                              under_conversion=self.underconversion_sequence,
-                              over_conversion=self.overconversion_sequence) 
-            
+            for fli,v in self.jsonData.sampleData.iteritems():
+                if self.name and v.sample_barcode != self.name: continue
+                self.do_mapping(fli)
+                    
+    def do_mapping(self, fli):
+        
+        try:
+            fliInfo = self.jsonData.sampleData[fli] 
+        except KeyError:
+            raise ValueError('Data file {} not found in config file'.format(fli))
+
+        #Paired
+        self.paired = self.paired_end
+        ftype = self.ftype
+        if not self.paired:
+            if ftype == None: ftype = fliInfo.type 
+            if ftype in self.paired_types: self.paired = True
+
+        input_dir = self.input_dir
+        if '@SAMPLE' in input_dir:
+            input_dir = input_dir.replace('@SAMPLE',fliInfo.sample_barcode)
+        output_dir = self.output_dir
+        if '@SAMPLE' in output_dir:
+            output_dir = output_dir.replace('@SAMPLE',fliInfo.sample_barcode)
+        inputFiles = []
+        
+        # Find input files
+        if not ftype:
+            ftype = fliInfo.type
+        if not ftype in self.stream_types:
+            files = fliInfo.file
+            if files:            
+                # If filenames were specified in configuration file then use them
+                if(ftype == 'PAIRED'):
+                    inputFiles = [input_dir + '/' + files['1'], input_dir + '/' + files['2']]
+                else:
+                    for k,v in files.iteritems():
+                        if ftype is None:
+                            if 'bam' in v: 
+                                ftype = 'BAM'
+                            elif 'sam' in v:
+                                ftype = 'SAM'
+                            else:
+                                ftype = 'INTERLEAVED' if self.paired else 'SINGLE'
+                        inputFiles.append(input_dir + '/' + v)
+                        break
+            else:
+                # Otherwise search in input directory for possible data files
+                if not os.path.isdir(input_dir):
+                    raise ValueError("Input directory {} does not exist".format(input_dir))
+
+                # Look for likely data files in input_dir
+                reg = re.compile("(.*){}(.*)(.)[.](fastq|fq|fasta|fa|bam|sam)([.][^.]+)?$".format(fliInfo.getFli()), re.I)
+                mlist = []
+                for file in os.listdir(input_dir):
+                    m = reg.match(file)
+                    if m: 
+                        if m.group(5) in [None, '.gz', '.xz', 'bz2', 'z']: 
+                            if ftype == 'PAIRED' and (m.group(3) not in ['1', '2'] or m.group(4).lower() not in ['fasta', 'fa', 'fastq', 'fq']): continue
+                            if ftype in ['SAM', 'BAM'] and m.group(4).lower() not in ['sam', 'bam']: continue
+                            mlist.append((file, m))
+                            
+                if len(mlist) == 1:
+                    (file, m) = mlist[0]
+                    skip = false
+                    if ftype is None:
+                        if m.group(4).lower() in ['SAM', 'BAM']:
+                            ftype = 'BAM' if m.group(4).lower == 'BAM' else 'SAM'
+                        else:
+                            ftype = 'INTERLEAVED' if self.paired else 'SINGLE'
+                    elif ftype == 'PAIRED' or (ftype == 'SAM' and m.group(4).lower != 'sam') or (ftype == 'BAM' and m.group(4).lower() != 'bam'): skip = True
+                    if not skip: inputFiles.append(file)
+                elif len(mlist) == 2:
+                    (file1, m1) = mlist[0]
+                    (file2, m2) = mlist[1]
+                    for ix in [1, 2, 4]:
+                        if m1.group(ix) != m2.group(ix): break
+                    else:
+                        if (ftype == None or ftype == 'PAIRED') and m1.group(4) in ['fastq', 'fq', 'fasta', 'fa']:
+                            if m1.group(3) == '1' and m2.group(3) == '2':
+                                inputFiles = [input_dir + '/' + file1, input_dir + '/' + file2]
+                            elif m1.group(3) == '2' and m2.group(3) == '1':
+                                inputFiles = [input_dir + '/' + file2, input_dir + '/' + file1]
+                            self.ftype = 'PAIRED'
+                            self.paired = True
+
+            if not inputFiles:
+                raise ValueError('Could not find input files for {} in {}'.format(fliInfo.getFli(),input_dir))
+
+        self.curr_fli = fli
+        self.curr_ftype = ftype
+        self.inputFiles = inputFiles
+        self.curr_output_dir = output_dir
+        self.log_parameter()
+
+        logging.gemBS.gt("Bisulfite Mapping...")
+        ret = gemBS.mapping(name=fli,index=self.index,fliInfo=fliInfo,
+                            inputFiles=inputFiles,ftype=ftype,
+                            read_non_stranded=self.read_non_stranded,
+                            force_flag=self.force_flag,
+                            outputDir=output_dir,paired=self.paired,
+                            tmpDir=self.tmp_dir,threads=self.threads,
+                            under_conversion=self.underconversion_sequence,
+                            over_conversion=self.overconversion_sequence) 
+        
         if ret:
             logging.gemBS.gt("Bisulfite Mapping done. Output File: %s" %(ret))
-     
             
     def extra_log(self):
         """Extra Parameters to be printed"""
-        #Virtual methos, to be define in child class
+        #Virtual methods, to be define in child class
         printer = logging.gemBS.gt
         
         printer("------------ Mappings Parameter ------------")
-        printer("Name             : %s", self.name)
+        printer("Name             : %s", self.curr_fli)
         printer("Index            : %s", self.index)
         printer("Paired           : %s", self.paired)
         printer("Read non stranded: %s", self.read_non_stranded)
-        printer("Input Pair One   : %s", self.input_pair_one)
-        printer("Input Pair Two   : %s", self.input_pair_two)
-        printer("Input Interleaved: %s", self.input_interleaved)
-        printer("Input Single End : %s", self.input_se)        
-        printer("Input BAM        : %s", self.input_bam)
-        
+        printer("Type             : %s", self.curr_ftype)
+        if self.inputFiles:
+            printer("Input Files      : %s", ','.join(self.inputFiles))
+        printer("Output dir       : %s", self.curr_output_dir)
         
         printer("")
 
