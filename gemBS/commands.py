@@ -3,7 +3,6 @@
 import argparse
 import utils
 import production
-import productionAdvanced
 import pkg_resources
 import os
 import sys
@@ -37,7 +36,6 @@ def gemBS_main():
             "index" : production.Index,
             "mapping-commands" : production.MappingCommands,
             "mapping" : production.Mapping,
-            "direct-mapping" : productionAdvanced.DirectMapping,
             "merging-all" : production.MergingAll,
             "merging-sample" : production.MergingSample,
             "methylation-call" : production.MethylationCall,
