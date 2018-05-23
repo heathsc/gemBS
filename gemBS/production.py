@@ -168,9 +168,11 @@ class Index(BasicPipeline):
 
     def register(self, parser):
         ## required parameters
-        parser.add_argument('-i', '--input', dest="input", help='Path to a single fasta reference genome file.', required=True)
+        parser.add_argument('-i', '--input', dest="input", help='Path to a single fasta reference genome file.',required=True)
+        parser.add_argument('-o', '--output_dir', dest="output_dir", help='Directory for output files')
+        parser.add_argument('-n', '--name', dest="name", help='Base name for index files')
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads. By default GEM indexer will use the maximum available on the system.',default=None)
-        parser.add_argument('-d','--list-dbSNP-files',dest="list_db_snp_files",nargs="+",metavar="FILES",
+        parser.add_argument('-d', '--list-dbSNP-files',dest="list_db_snp_files",nargs="+",metavar="FILES",
                             help="List of dbSNP files (can be compressed) to create an index to later use it at the bscall step. The bed files should have the name of the SNP in column 4.",default=[],required=False)
         parser.add_argument('-x', '--dbsnp-index', dest="dbsnp_index", help='dbSNP output index file name.',default="",required=False)
 
@@ -185,21 +187,26 @@ class Index(BasicPipeline):
         
         if not os.path.exists(self.input):
             raise CommandException("Input file not found : %s" % self.input)
-        
-        if self.input.endswith(".fasta.gz"):
-            self.output = "%s.BS" %(self.input[:-9])
-        elif self.input.endswith(".fa.gz"):
-            self.output = "%s.BS" %(self.input[:-6])
-        elif self.input.endswith(".fasta"):
-            self.output = "%s.BS" %(self.input[:-6])    
-        elif self.input.endswith(".fa"):
-            self.output = "%s.BS" %(self.input[:-3])
-        else:
-            raise CommandException("Sorry!! Input file %s should be a Fasta file with one of these suffixes: .fa .fasta .fa.gz fasta.gz.")
-        
+
+        self.name = args.name
+        if not self.name:
+            # No base name supplied so we derive it from input file
+            reg = re.compile("(.*)([.][^.]+)$")
+            self.name = os.path.basename(self.input)
+            m = reg.match(self.name)
+            if m and m.group(2).lower() in ['.gz','.xz','.bz2','.z']:
+                self.name = m.group(1)
+                m = reg.match(self.name)
+            if m and m.group(2).lower() in ['.fasta','.fa','.fna','.fn']:
+                self.name = m.group(1)
+
+        if self.name.endswith('.gem'): self.name = self.name[:-4]
+        if not self.name.endswith('.BS'): self.name += '.BS'
+        if args.output_dir: self.name = makeFileName(args.output_dir,self.name)
+
         self.log_parameter()
         logging.gemBS.gt("Creating index")
-        ret = gemBS.index(self.input, self.output, threads=self.threads,list_dbSNP_files=self.list_dbSNP_files,dbsnp_index=self.dbsnp_index)
+        ret = gemBS.index(self.input, self.name, threads=self.threads,tmpDir=args.output_dir,list_dbSNP_files=self.list_dbSNP_files,dbsnp_index=self.dbsnp_index)
         if ret:
             logging.gemBS.gt("Index done: %s.gem" %(ret))
             
@@ -228,9 +235,10 @@ class MappingCommands(BasicPipeline):
     def run(self,args):
         from sets import Set
         paired_types = Set(['PAIRED', 'INTERLEAVED', 'PAIRED_STREAM'])
+
         ## All Flowcell Lane Index        
         jsonData = JSONdata(args.json_file)
-        config = jsonData.config['mapping']
+
         args.index = jsonData.check(section='mapping',key='gem_index',arg=args.index)
         args.input_dir = jsonData.check(section='mapping',key='sequence_dir',arg=args.input_dir,dir_type=True)
         args.tmp_dir = jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,default='/tmp',dir_type=True)
@@ -329,9 +337,7 @@ class Mapping(BasicPipeline):
 
         # JSON data
         self.jsonData = JSONdata(args.json_file)
-        # configuration data
-        config = self.jsonData.config['mapping']
-        # sample data
+
         self.paired_end = args.paired_end
         self.name = args.sample
         self.index = self.jsonData.check(section='mapping',key='gem_index',arg=args.index)
@@ -495,7 +501,6 @@ class Merging(BasicPipeline):
         # configuration data
         config = self.jsonData.config['mapping']
 
-        self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default=self.threads)
         self.input_dir = self.jsonData.check(section='mapping',key='bam_dir',arg=args.input_dir,dir_type=True,default='.')
         self.output_dir = self.jsonData.check(section='mapping',key='merged_bam_dir',arg=args.output_dir,default='.',dir_type=True)
         self.tmp_dir = self.jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,default='/tmp',dir_type=True)
@@ -551,17 +556,19 @@ class MethylationCall(BasicPipeline):
                                    
     def register(self, parser):
         ## required parameters
-        parser.add_argument('-r','--fasta-reference',dest="fasta_reference",metavar="PATH",help="Path to the fasta reference file.",required=True)
+        parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.',required=True)
+        parser.add_argument('-r','--fasta-reference',dest="fasta_reference",metavar="PATH",help="Path to the fasta reference file.")
         parser.add_argument('-e','--species',dest="species",metavar="SPECIES",default="HomoSapiens",help="Sample species name. Default: %s" %self.species)
-        parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.')
+        parser.add_argument('-l','--list-chroms',dest="list_chroms",nargs="+",metavar="CHROMS",help="List of chromosomes to perform the methylation pipeline.")
+        parser.add_argument('-s','--sample-id',dest="sample_id",metavar="SAMPLE",help="Sample unique identificator")  
         parser.add_argument('-p','--path-bam',dest="path_bam",metavar="PATH_BAM",help='Path where are stored sample BAM files.',default=None)
         parser.add_argument('-q','--mapq-threshold', dest="mapq_threshold", type=int, default=None, help="Threshold for MAPQ scores")
-        parser.add_argument('-Q','--bq-threshold', dest="bq_threshold", type=int, default=None, help="Threshold for base quality scores")
-        parser.add_argument('-g','--right-trim', dest="right_trim", metavar="BASES",type=int, default=0, help='Bases to trim from right of read pair, Default: 0')
-        parser.add_argument('-f','--left-trim', dest="left_trim", metavar="BASES",type=int, default=5, help='Bases to trim from left of read pair, Default: 5')        
+        parser.add_argument('-Q','--qual-threshold', dest="qual_threshold", type=int, default=None, help="Threshold for base quality scores")
+        parser.add_argument('-g','--right-trim', dest="right_trim", metavar="BASES",type=int, help='Bases to trim from right of read pair, Default: 0')
+        parser.add_argument('-f','--left-trim', dest="left_trim", metavar="BASES",type=int, help='Bases to trim from left of read pair, Default: 5')        
         parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',default=None)
         parser.add_argument('-d','--paired-end', dest="paired_end", action="store_true", default=False, help="Input data is Paired End")
-        parser.add_argument('-t','--threads', dest="threads", metavar="THREADS", default="1", help='Number of threads, Default: %s' %self.threads)
+        parser.add_argument('-t','--threads', dest="threads", metavar="THREADS", help='Number of threads, Default: %s' %self.threads)
         parser.add_argument('-P','--jobs', dest="jobs", default=1, type=int, help='Number of parallel jobs')
         parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", default=False, help="Do not merge duplicate reads.")    
         parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", default=False, help="Do not discard reads that do not form proper pairs.")
@@ -569,17 +576,21 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('-C','--conversion', dest="conversion", default=None, help="Set under and over conversion rates (under,over)")
         parser.add_argument('-J','--mapping-json',dest="mapping_json",help='Input mapping statistics JSON files',default=None)
         parser.add_argument('-B','--reference_bias', dest="ref_bias", default=None, help="Set bias to reference homozygote")
-        parser.add_argument('-b','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.",required=False,default="")
-        parser.add_argument('-l','--list-chroms',dest="list_chroms",nargs="+",metavar="CHROMS",help="""List of chromosomes to perform the methylation pipeline.
-                                                                                                       Can be a file where every line is a chromosome contig. 
-                                                                                                       By default human chromosomes: %s """ %self.chroms,
-                            default=["chr1","chr2","chr3","chr4","chr5","chr6","chr7",
-                                     "chr8","chr9","chr10","chr11","chr12","chr13",
-                                     "chr14","chr15","chr16","chr17","chr18","chr19",
-                                     "chr20","chr21","chr22","chrX","chrY","chrM"])
-       
+        parser.add_argument('-b','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.")
+
     def run(self,args):
-        self.threads = args.threads
+        # JSON data
+        self.jsonData = JSONdata(args.json_file)
+        # configuration data
+        config = self.jsonData.config['calling']
+
+        self.threads = self.jsonData.check(section='calling',key='threads',arg=args.threads,default='1')
+        self.jobs = self.jsonData.check(section='calling',key='jobs',arg=args.jobs,default='1')
+        self.mapq_threshold = self.jsonData.check(section='calling',key='mapq_threshold',arg=args.mapq_threshold)
+        self.qual_threshold = self.jsonData.check(section='calling',key='qual_threshold',arg=args.qual_threshold)
+        self.left_trim = self.jsonData.check(section='calling',key='left_trim',arg=args.left_trim,default='5')
+        self.right_trim = self.jsonData.check(section='calling',key='right_trim',arg=args.right_trim,default='0')
+
         self.fasta_reference = args.fasta_reference 
         self.species = args.species
         self.input_dir = args.path_bam

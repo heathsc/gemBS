@@ -342,7 +342,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None,
             json.dump(generalDictionary, of, indent=2)
            
 
-def index(input, output, threads=None,list_dbSNP_files=[],dbsnp_index=""):
+def index(input, output, threads=None,tmpDir=None,list_dbSNP_files=[],dbsnp_index=""):
     """Run the gem-indexer on the given input. Input has to be the path
     to a single fasta file that contains the genome to be indexed.
     Output should be the path to the target index file. Note that
@@ -361,6 +361,11 @@ def index(input, output, threads=None,list_dbSNP_files=[],dbsnp_index=""):
         '-i',input,
         '-o',output
     ]
+
+    if tmpDir:
+        tmpDir = tmpDir.rstrip('/') + '/'
+        indexer.append('--tmp-folder')
+        indexer.append(tmpDir)
 
     if threads is not None:
         indexer.extend(['-t', str(threads)])
