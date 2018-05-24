@@ -171,6 +171,7 @@ class Index(BasicPipeline):
         parser.add_argument('-i', '--input', dest="input", help='Path to a single fasta reference genome file.',required=True)
         parser.add_argument('-o', '--output_dir', dest="output_dir", help='Directory for output files')
         parser.add_argument('-n', '--name', dest="name", help='Base name for index files')
+        parser.add_argument('-c', '--chrom-sizes', dest="chrom_sizes", help='Name for chrom sizes file')
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads. By default GEM indexer will use the maximum available on the system.',default=None)
         parser.add_argument('-d', '--list-dbSNP-files',dest="list_db_snp_files",nargs="+",metavar="FILES",
                             help="List of dbSNP files (can be compressed) to create an index to later use it at the bscall step. The bed files should have the name of the SNP in column 4.",default=[],required=False)
@@ -201,15 +202,26 @@ class Index(BasicPipeline):
                 self.name = m.group(1)
 
         if self.name.endswith('.gem'): self.name = self.name[:-4]
-        if not self.name.endswith('.BS'): self.name += '.BS'
         if args.output_dir: self.name = makeFileName(args.output_dir,self.name)
-
+        self.index_base = self.name if self.name.endswith('.BS') else self.name + '.BS'
         self.log_parameter()
-        logging.gemBS.gt("Creating index")
-        ret = gemBS.index(self.input, self.name, threads=self.threads,tmpDir=args.output_dir,list_dbSNP_files=self.list_dbSNP_files,dbsnp_index=self.dbsnp_index)
-        if ret:
-            logging.gemBS.gt("Index done: %s.gem" %(ret))
-            
+        
+        if os.path.exists(self.index_base + '.gem'):
+            logging.warning("Bisulphite Index {}.gem already exists, skipping indexing".format(self.index_base))
+        else:
+            logging.gemBS.gt("Creating index")
+            ret = gemBS.index(self.input, self.index_base, threads=self.threads,tmpDir=args.output_dir,list_dbSNP_files=self.list_dbSNP_files,dbsnp_index=self.dbsnp_index)
+            if ret:
+                logging.gemBS.gt("Index done: %s.gem" %(ret))
+
+        if args.chrom_sizes: self.chrom_sizes = args.chrom_sizes
+        else: self.chrom_sizes = self.name + '.chrom.sizes'
+        if os.path.exists(self.chrom_sizes):
+            logging.warning("Chromosome sizes file {} already exists, skipping indexing".format(self.chrom_sizes))
+        else:
+            ret = gemBS.makeChromSizes(self.index_base, self.chrom_sizes)
+            if ret:
+                logging.gemBS.gt("Chromosome sizes file done: {}".format(ret))
        
 class MappingCommands(BasicPipeline):
     title = "Show Mapping commands"
