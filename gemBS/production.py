@@ -44,7 +44,7 @@ class JSONdata(object):
             try:
                 conf = jsconfig['config']
                 defaults = conf['DEFAULT']
-                for sect in ['mapping', 'calling', 'filtering', 'bigwig']:
+                for sect in ['mapping', 'calling', 'filtering', 'bigwig', 'index', 'DEFAULT']:
                     self.config[sect] = {}
                     if conf.has_key(sect):
                         for key,val in conf[sect].iteritems():
@@ -162,22 +162,36 @@ class PrepareConfiguration(Command):
 class Index(BasicPipeline):
     title = "Index genomes"
     description = """Reference indexing for Bisulfite GEM mapping 
-                     Generates a file called reference.BS.gem (Index) and 
-                     reference.BS.info (Information about the index process) 
+                     Generates by default a file called reference.BS.gem (Index), 
+                     reference.BS.info (Information about the index process) and
+                     reference.chrom.sizes (a list of contigs and sizes)
     """
 
     def register(self, parser):
         ## required parameters
-        parser.add_argument('-i', '--input', dest="input", help='Path to a single fasta reference genome file.',required=True)
+        parser.add_argument('-i', '--input', dest="input", help='Path to a single fasta reference genome file.')
         parser.add_argument('-o', '--output_dir', dest="output_dir", help='Directory for output files')
         parser.add_argument('-n', '--name', dest="name", help='Base name for index files')
+        parser.add_argument('-j', '--json', dest="json_file", metavar="JSON_FILE", help='JSON file configuration.')
         parser.add_argument('-c', '--chrom-sizes', dest="chrom_sizes", help='Name for chrom sizes file')
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads. By default GEM indexer will use the maximum available on the system.',default=None)
+        parser.add_argument('-s', '--sampling-rate', dest="sampling_rate", help='Text sampling rate.  Increasing will decrease index size at the expense of slower mapping performance.',default=None)
         parser.add_argument('-d', '--list-dbSNP-files',dest="list_db_snp_files",nargs="+",metavar="FILES",
                             help="List of dbSNP files (can be compressed) to create an index to later use it at the bscall step. The bed files should have the name of the SNP in column 4.",default=[],required=False)
         parser.add_argument('-x', '--dbsnp-index', dest="dbsnp_index", help='dbSNP output index file name.',default="",required=False)
 
     def run(self, args):
+        if args.json_file:
+            jsonData = JSONdata(args.json_file)
+            args.input = jsonData.check(section='index',key='reference',arg=args.input)
+            args.output_dir = jsonData.check(section='index',key='reference_dir',arg=args.output_dir,dir_type=True)
+            args.name = jsonData.check(section='index',key='reference_base',arg=args.name)
+            args.chrom_sizes = jsonData.check(section='index',key='chrom_sizes_file',arg=args.chrom_sizes)
+            args.threads = jsonData.check(section='index',key='threads',arg=args.threads)
+            args.sampling_rate = jsonData.check(section='index',key='sampling_rate',arg=args.threads)
+
+        if not args.input: raise ValueError('No input reference file specified for Index command')
+
         self.input = args.input
         self.threads = args.threads
         self.list_dbSNP_files = args.list_db_snp_files
@@ -210,7 +224,7 @@ class Index(BasicPipeline):
             logging.warning("Bisulphite Index {}.gem already exists, skipping indexing".format(self.index_base))
         else:
             logging.gemBS.gt("Creating index")
-            ret = gemBS.index(self.input, self.index_base, threads=self.threads,tmpDir=args.output_dir,list_dbSNP_files=self.list_dbSNP_files,dbsnp_index=self.dbsnp_index)
+            ret = gemBS.index(self.input, self.index_base, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=args.output_dir,list_dbSNP_files=self.list_dbSNP_files,dbsnp_index=self.dbsnp_index)
             if ret:
                 logging.gemBS.gt("Index done: %s.gem" %(ret))
 

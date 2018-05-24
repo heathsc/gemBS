@@ -156,7 +156,7 @@ executables = execs_dict({
     })
 
 
-def _prepare_index_parameter(index, gemBS_suffix=True):
+def _prepare_index_parameter(index):
     """Prepares the index file and checks that the index
     exists. The function throws a IOError if the index file
     can not be found.
@@ -172,18 +172,14 @@ def _prepare_index_parameter(index, gemBS_suffix=True):
         raise ValueError("GEM Bisulphite index must be a string")
     file_name = index
 
-    if not file_name.endswith(".BS.gem"):
-        file_name = file_name + ".BS.gem"
-
     if not os.path.exists(file_name):
-        raise IOError("Bisulphite Index file not found : %s" % file_name)
+        if not index.endswith('.BS.gem') and os.path.exists(index + '.BS.gem'):
+            index += '.BS.gem'
+        elif not index.endswith(".gem") and os.path.exists(index + '.gem'):
+            index += '.gem'
+        else:
+            raise IOError("Bisulphite Index file not found : %s" % file_name)
 
-    if gemBS_suffix:
-        if not index.endswith(".BS.gem"):
-            index = index + ".BS.gem"
-    else:
-        if index.endswith(".BS.gem"):
-            index = index[:-4]
     return index
     
 def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None,configFile=None):
@@ -199,7 +195,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None,
         for key,val in config['DEFAULT'].iteritems():
             def_dict[key] = val
         config_dict['DEFAULT'] = def_dict
-        sections = ['DEFAULT', 'mapping', 'calling', 'filtering', 'bigwig']
+        sections = ['DEFAULT', 'mapping', 'calling', 'filtering', 'bigwig', 'index']
         for sect in config:
             if sect in sections:
                 if sect != 'DEFAULT':
@@ -208,7 +204,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None,
                         if not (def_dict.has_key(key) and def_dict[key] == val):
                             config_dict[sect][key] = val
             else:
-                raise ValueError("Section {} not known".format(sect))
+                logging.warning("Config section '{}' not known, skipping".format(sect))
         generalDictionary['config'] = config_dict        
     if text_metadata is not None:
         #Parses Metadata coming from text file
@@ -342,7 +338,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None,
             json.dump(generalDictionary, of, indent=2)
            
 
-def index(input, output, threads=None,tmpDir=None,list_dbSNP_files=[],dbsnp_index=""):
+def index(input, output, threads=None,tmpDir=None,list_dbSNP_files=[],dbsnp_index="",sampling_rate=None):
     """Run the gem-indexer on the given input. Input has to be the path
     to a single fasta file that contains the genome to be indexed.
     Output should be the path to the target index file. Note that
@@ -366,6 +362,10 @@ def index(input, output, threads=None,tmpDir=None,list_dbSNP_files=[],dbsnp_inde
         tmpDir = tmpDir.rstrip('/') + '/'
         indexer.append('--tmp-folder')
         indexer.append(tmpDir)
+
+    if sampling_rate:
+        indexer.append('-s')
+        indexer.append(sampling_rate)
 
     if threads is not None:
         indexer.extend(['-t', str(threads)])
@@ -487,7 +487,8 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
         #Number of threads
         mapping.extend(["-t",threads])
         #Mapping stats
-        report_file = "%s/%s.json" % (outputDir,name)
+        report_file = "{}/{}.json".format(outputDir,name)
+        logfile = "{}/{}.err".format(outputDir,name)
         mapping.extend(["--report-file",report_file])
         #Read Groups
         readGroups = "@RG\\tID:%s\\tSM:%s\\tLB:%s\\tPU:%s\\tCN:CNAG\\tPL:Illumina" %(fliInfo.getFli(),fliInfo.sample_barcode,fliInfo.library,fliInfo.getFli())
@@ -506,8 +507,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
         tools = [mapping,readNameClean,bamSort]
     
         if bamToFastq: tools.insert(0, bamToFastq)
-    
-        process = utils.run_tools(tools, name="bisulfite-mapping")
+        process = utils.run_tools(tools, name="bisulfite-mapping", logfile=logfile)
         if process.wait() != 0:
             raise ValueError("Error while executing the Bisulfite bisulphite-mapping")
     else:

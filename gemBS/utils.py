@@ -277,13 +277,14 @@ class ProcessWrapper(object):
     After the wait, all log files are deleted by default.
     """
 
-    def __init__(self, keep_logfiles=False, name=None, force_debug=False, raw=None):
+    def __init__(self, keep_logfiles=True, name=None, force_debug=False, raw=None, no_logfiles=False):
         """Create an empty process wrapper
 
         keep_logfiles -- if true, log files are not deleted
         """
         self.processes = []
         self.keep_logfiles = keep_logfiles
+        self.no_logfiles = no_logfiles
         self.name = name
         self.stdout = None
         self.stdin = None
@@ -297,7 +298,7 @@ class ProcessWrapper(object):
         If output is specified, it is connected to the stdout of the underlying subprocess.
         Environment is optional and will be passed to the process as well.
 
-        This is indened to be used in pipes and specifying output will close the pipe
+        This is intended to be used in pipes and specifying output will close the pipe
         """
         logfile = logfile
         parent = None
@@ -305,10 +306,9 @@ class ProcessWrapper(object):
             parent = self.processes[-1]
         if logfile is None and logging.getLogger().level is not logging.DEBUG and not self.force_debug:
             # create a temporary log file
-            tmpfile = tempfile.NamedTemporaryFile(suffix='.log', prefix=self.__command_name(command) + ".", delete=(not self.keep_logfiles))
+            tmpfile = tempfile.NamedTemporaryFile(suffix='.err', prefix=self.__command_name(command) + ".", delete=(not self.keep_logfiles))
             logfile = tmpfile.name
             tmpfile.close()
-
         p = Process(self, command, input=input, output=output, env=env, logfile=logfile, parent=parent)
         self.processes.append(p)
         return p
@@ -396,7 +396,7 @@ def _prepare_output(output):
         raise ProcessError("Can not pass raw file descriptors")
     return None
     
-def run_tools(tools, input=None, output=None, name=None, keep_logfiles=False,
+def run_tools(tools, input=None, output=None, name=None, keep_logfiles=True,
               force_debug=False, env=None, logfile=None):
     """
     Run the tools defined in the tools list using a new process per tool.
