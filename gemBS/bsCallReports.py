@@ -473,7 +473,7 @@ class HtmlIndexBsCall(HtmlBsCallReport):
              samples_summary -- Dictionar of samples and summary fields. [sample][dictFieldSummary]   
                                                                          [dictFieldsSummary]{"alignments":ListAligmentAndCoverage,"variants":ListVariantsAndCoverage,"methylation":ListMethylation}
         """
-        self.index_html_document = "%s/%s.html" %(output_dir,name_project)
+        self.index_html_document = os.path.join(output_dir,"{}.html".format(name_project))
         HtmlBsCallReport.__init__(self,html_file_name=self.index_html_document,parentName="",currentName="",parentDocument="")
         self.output_dir = output_dir
         self.inputs = inputs
@@ -503,31 +503,31 @@ class HtmlIndexBsCall(HtmlBsCallReport):
         readLevelStats = ReadsAndBases()
         baseLevelStats = BaseLevel()
         #Coverages
-        allCoverage = Coverage(concept="All",yLabel="#Sites",pngFile="%s/IMG/%s_coverage_all.png" %(self.output_dir,sample) )
-        variantCoverage = Coverage(concept="Variants",yLabel="#SNPs",pngFile="%s/IMG/%s_coverage_variants.png" %(self.output_dir,sample))
-        dbSnpCoverage = Coverage(concept="dbSnp",yLabel="#SNPs",pngFile="%s/IMG/%s_coverage_dbsnp.png" %(self.output_dir,sample))
-        refCpGcoverage = Coverage(concept="RefCpG",yLabel="#CpGs",pngFile="%s/IMG/%s_coverage_refCpG.png" %(self.output_dir,sample))
-        refCpGInfCoverage = Coverage(concept="RefCpGInf",yLabel="#CpGs",pngFile="%s/IMG/%s_coverage_refCpGInf.png" %(self.output_dir,sample))
-        nonRefCpGcoverage = Coverage(concept="NonRefCpG",yLabel="#CpGs",pngFile="%s/IMG/%s_coverage_nonRefCpG.png" %(self.output_dir,sample))
-        nonRefCpGinfCoverage = Coverage(concept="NonRefCpGInf",yLabel="#CpGs",pngFile="%s/IMG/%s_coverage_nonRefCpGinf.png" %(self.output_dir,sample))
+        allCoverage = Coverage(concept="All",yLabel="#Sites",pngFile=os.path.join(self.output_dir,'IMG',"{}_coverage_all.png".format(sample)))
+        variantCoverage = Coverage(concept="Variants",yLabel="#SNPs",pngFile=os.path.join(self.output_dir,'IMG',"{}_coverage_variants.png".format(sample)))
+        dbSnpCoverage = Coverage(concept="dbSnp",yLabel="#SNPs",pngFile=os.path.join(self.output_dir,'IMG',"{}_coverage_dbsnp.png".format(sample)))
+        refCpGcoverage = Coverage(concept="RefCpG",yLabel="#CpGs",pngFile=os.path.join(self.output_dir,'IMG',"{}_coverage_refCpG.png".format(sample)))
+        refCpGInfCoverage = Coverage(concept="RefCpGInf",yLabel="#CpGs",pngFile=os.path.join(self.output_dir,'IMG',"{}_coverage_refCpGInf.png".format(sample)))
+        nonRefCpGcoverage = Coverage(concept="NonRefCpG",yLabel="#CpGs",pngFile=os.path.join(self.output_dir,'IMG',"{}_coverage_nonRefCpG.png".format(sample)))
+        nonRefCpGinfCoverage = Coverage(concept="NonRefCpGInf",yLabel="#CpGs",pngFile=os.path.join(self.output_dir,'IMG',"{}_coverage_nonRefCpGinf.png".format(sample)))
         #GC Coverage
         gcCoverage = GCcoverage("%s/IMG/%s_gc_coverage.png" %(self.output_dir,sample))
         #TotalStats
         totalStats = TotalStats()
         #Quality
-        qualityAll = Quality(concept="All",yLabel="#Sites",pngFile="%s/IMG/%s_quality_all.png" %(self.output_dir,sample))
-        qualityVariant = Quality(concept="Variants",yLabel="#SNPs",pngFile="%s/IMG/%s_quality_variant.png" %(self.output_dir,sample))
-        qualityRefCpG = Quality(concept="RefCpG",yLabel="#CpGs",pngFile="%s/IMG/%s_quality_refcpg.png" %(self.output_dir,sample))
-        qualityNonRefCpG = Quality(concept="NonRefCpG",yLabel="#CpGs",pngFile="%s/IMG/%s_quality_nonRefCpg.png" %(self.output_dir,sample))
+        qualityAll = Quality(concept="All",yLabel="#Sites",pngFile=os.path.join(self.output_dir,'IMG',"{}_quality_all.png".format(sample)))
+        qualityVariant = Quality(concept="Variants",yLabel="#SNPs",pngFile=os.path.join(self.output_dir,'IMG',"{}_quality_variant.png".format(sample)))
+        qualityRefCpG = Quality(concept="RefCpG",yLabel="#CpGs",pngFile=os.path.join(self.output_dir,'IMG',"{}_quality_refcpg.png".format(sample)))
+        qualityNonRefCpG = Quality(concept="NonRefCpG",yLabel="#CpGs",pngFile=os.path.join(self.output_dir,'IMG',"{}_quality_nonRefCpg.png".format(sample)))
         #QC Distributions
-        fsVariant = QCDistribution(concept="FisherStrandVariant",typeDistribution="FisherStrand",typeBaseLocation="",pngFile="%s/IMG/%s_fs_variant.png" %(self.output_dir,sample))
+        fsVariant = QCDistribution(concept="FisherStrandVariant",typeDistribution="FisherStrand",typeBaseLocation="",pngFile=os.path.join(self.output_dir,'IMG',"{}_fs_variant.png".format(sample)))
         fsVariant.setAxisXLabel(newLabel="Fisher Strand Phred scale probability")
-        qdVariant = QCDistribution(concept="QualityByDepthVariant",typeDistribution="QualityByDepth",typeBaseLocation="Variant",pngFile="%s/IMG/%s_qd_variant.png" %(self.output_dir,sample))
-        qdNonVariant = QCDistribution(concept="QualityByDepthNonVariant",typeDistribution="QualityByDepth",typeBaseLocation="NonVariant",pngFile="%s/IMG/%s_qd_nonvariant.png" %(self.output_dir,sample))
-        rmsmqVariant = QCDistribution(concept="RMSMappingQualityVariant",typeDistribution="RMSMappingQuality",typeBaseLocation="Variant",pngFile="%s/IMG/%s_rmsmq_variant.png" %(self.output_dir,sample))
-        rmsmqNonVariant = QCDistribution(concept="RMSMappingQualityNonVariant",typeDistribution="RMSMappingQuality",typeBaseLocation="NonVariant",pngFile="%s/IMG/%s_rmsmq_nonvariant.png" %(self.output_dir,sample))
-        gofVariant = QCDistribution(concept="GoodnessOfFitVariant",typeDistribution="GoodnessOfFit",typeBaseLocation="Variant",pngFile="%s/IMG/%s_gof_variant.png" %(self.output_dir,sample))
-        gofNonVariant = QCDistribution(concept="GoodnessOfFitNonVariant",typeDistribution="GoodnessOfFit",typeBaseLocation="NonVariant",pngFile="%s/IMG/%s_gof_nonvariant.png" %(self.output_dir,sample))        
+        qdVariant = QCDistribution(concept="QualityByDepthVariant",typeDistribution="QualityByDepth",typeBaseLocation="Variant",pngFile=os.path.join(self.output_dir,'IMG',"{}_qd_variant.png".format(sample)))
+        qdNonVariant = QCDistribution(concept="QualityByDepthNonVariant",typeDistribution="QualityByDepth",typeBaseLocation="NonVariant",pngFile=os.path.join(self.output_dir,'IMG',"{}_qd_nonvariant.png".format(sample)))
+        rmsmqVariant = QCDistribution(concept="RMSMappingQualityVariant",typeDistribution="RMSMappingQuality",typeBaseLocation="Variant",pngFile=os.path.join(self.output_dir,'IMG',"{}_rmsmq_variant.png".format(sample)))
+        rmsmqNonVariant = QCDistribution(concept="RMSMappingQualityNonVariant",typeDistribution="RMSMappingQuality",typeBaseLocation="NonVariant",pngFile=os.path.join(self.output_dir,'IMG',"{}_rmsmq_nonvariant.png".format(sample)))
+        gofVariant = QCDistribution(concept="GoodnessOfFitVariant",typeDistribution="GoodnessOfFit",typeBaseLocation="Variant",pngFile=os.path.join(self.output_dir,'IMG',"{}_gof_variant.png".format(sample)))
+        gofNonVariant = QCDistribution(concept="GoodnessOfFitNonVariant",typeDistribution="GoodnessOfFit",typeBaseLocation="NonVariant",pngFile=os.path.join(self.output_dir,'IMG',"{}_gof_nonvariant.png".format(sample)))
         #VCF Filter Stats
         vcfFilterStats = VCFFilterStats()
         #Mutations
@@ -538,7 +538,7 @@ class HtmlIndexBsCall(HtmlBsCallReport):
         methylationNonRefCpG = Methylation("AllNonRefCpG")
         methylationPassNonRefCpG = Methylation("PassedNonRefCpG")
         #NonCpGReadProfile
-        nonCpGReadProfile = NonCpGReadProfile("%s/IMG/%s_nonCpgReadProfile.png" %(self.output_dir,sample))
+        nonCpGReadProfile = NonCpGReadProfile(os.path.join(self.output_dir,'IMG',"{}_nonCpgReadProfile.png".format(sample)))
         #SummaryMethylation
         summaryMethylation = SummaryMethylation() 
         
@@ -592,8 +592,8 @@ class HtmlIndexBsCall(HtmlBsCallReport):
                     pass # invalid json
 
         #Prepare plot for Methylation levels
-        plotMethylation = PlotMethylationLevels(concept="Methylation Levels",pngFile="%s/IMG/%s_methylation_levels.png" %(self.output_dir,sample),
-        meth_list=[methylationAllRefCpG,methylationPassRefCpG,methylationNonRefCpG,methylationPassNonRefCpG])
+        plotMethylation = PlotMethylationLevels(concept="Methylation Levels",pngFile=os.path.join(self.output_dir,'IMG',"{}_methylation_levels.png".format(sample)),
+                                                meth_list=[methylationAllRefCpG,methylationPassRefCpG,methylationNonRefCpG,methylationPassNonRefCpG])
 
         #Get Table Summary
         summaryMethylation.setData(concept = "AllRefCpg",values=methylationAllRefCpG.methylation_cpgs)
@@ -605,7 +605,7 @@ class HtmlIndexBsCall(HtmlBsCallReport):
         #Prepare GC Values for plotting and getting GC Correlation
         gcCoverage.selectDataToPlot()                                              
         samples_summary = SummarySample(sampleName=sample,readLevelStats=readLevelStats,baseLevelStats=baseLevelStats,gcCoverage=gcCoverage,totalStats=totalStats,variantCoverage=variantCoverage,
-          mutationStats=mutationsStats,methylationPassRefCpg=methylationPassRefCpG,refCpgCoverage=refCpGcoverage)  
+                                        mutationStats=mutationsStats,methylationPassRefCpg=methylationPassRefCpG,refCpgCoverage=refCpGcoverage)  
                                        
         sample_stats_summaries = samples_summary.getTable()
         
@@ -618,7 +618,7 @@ class HtmlIndexBsCall(HtmlBsCallReport):
                             qualityRefCpG,qualityNonRefCpG,plotMethylation,summaryMethylation]
                             }
         #1.1 Create Mapping and Coverage Statistics
-        mappingCoverageHtml = "%s/%s_mapping_coverage.html" %(self.output_dir,sample) 
+        mappingCoverageHtml = os.path.join(self.output_dir,"{}_mapping_coverage.html".format(sample))
         parent_name = "%s/mapping_coverage" %(self.name_project)
         sample_mapping_coverage = HtmlMappingCoverage(html_file_name=mappingCoverageHtml,current_name=sample,parent_name=parent_name,parent_document=self.index_html_document)
         #1.1.2 Setup mapping coverage report
@@ -633,8 +633,8 @@ class HtmlIndexBsCall(HtmlBsCallReport):
             process_list.append(process)
 
         #1.2 Create Bs-Genotype Calls Report
-        variantsHtml = "%s/%s_variants.html" %(self.output_dir,sample) 
-        parent_variants = "%s/variants" %(self.name_project)
+        variantsHtml = os.path.join(self.output_dir,"{}_variants.html".format(sample))
+        parent_variants = os.path.join(self.name_project,'variants')
         sample_variants = HtmlBsGenotypeCalls(html_file_name=variantsHtml,current_name=sample,parent_name=parent_variants,parent_document=self.index_html_document)
         #1.2.1 Setup Variants Report
         sample_variants.configureStats(stats_vector=sample_stats["calls"])
@@ -647,8 +647,8 @@ class HtmlIndexBsCall(HtmlBsCallReport):
             process_list.append(process)
 
         #1.3 Create Methylation Statitics
-        methylationHtml = "%s/%s_methylation.html" %(self.output_dir,sample)
-        parent_methylation = "%s/methylation" %(self.name_project)           
+        methylationHtml = os.path.join(self.output_dir,"{}_methylation.html".format(sample))
+        parent_methylation = os.path.join(self.name_project,'methylation')
         sample_methylation = HtmlMethylation(html_file_name=methylationHtml,current_name=sample,parent_name=parent_methylation,parent_document=self.index_html_document)
         #1.3.1 Setup Methylation Report
         sample_methylation.configureStats(stats_vector=sample_stats["methylation"])
@@ -744,13 +744,13 @@ def buildBscallReports(inputs=None,output_dir=None,name=None,threads=1):
     cssBuilder = BasicHtml()
     vector_css = []
     cssBuilder.buildStyleSheet(vector_css)
-    RunBasicStats.saveDocument(file_name="%s/style.css" %(output_dir),vectorContent=vector_css) 
+    RunBasicStats.saveDocument(file_name=os.path.join(output_dir,'style.css'))
     
     #Create Index BSCall Report
-    sphinxIndexBsCall = SphinxIndexBsCall(output_dir="%s/SPHINX/"%(output_dir),name_project=name,samples_stats=dict_samples)
+    sphinxIndexBsCall = SphinxIndexBsCall(output_dir=os.path.join(output_dir,'SPHINX'),name_project=name,samples_stats=dict_samples)
     sphinxIndexBsCall.createPage()
     
     #Config python file
-    cfgFile = ConfigSphinx(path_config_file="%s/SPHINX/conf.py" %(output_dir),path_makefile_file="%s/SPHINX/Makefile" %(output_dir),master_file=name,project_name=name,main_title='BSCALL REPORT')
+    cfgFile = ConfigSphinx(path_config_file=os.path.join(output_dir,'SPHINX','conf.py'),path_makefile_file=os.path.join(output_dir,'SPHINX','Makefile'),master_file=name,project_name=name,main_title='BSCALL REPORT')
     cfgFile.run()
     

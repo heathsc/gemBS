@@ -566,7 +566,7 @@ class SphinxIndexBsCall(SphinxBsCallReport):
              samples_stats -- Dictionary of samples and list of stats objects. [sample][ListStatsObject]
         """
         #Call Parent class constructor
-        SphinxBsCallReport.__init__(self,sphinx_file_name="%s/%s.rst" %(output_dir,name_project),currentName=name_project)
+        SphinxBsCallReport.__init__(self,sphinx_file_name=os.path.join(output_dir,"{}.rst".format(name_project)),currentName=name_project)
         
         self.output_dir = output_dir
         self.samples_stats = samples_stats
@@ -589,7 +589,7 @@ class SphinxIndexBsCall(SphinxBsCallReport):
         #2. Create Sample and lanes Report 
         for sample in self.samples_stats:
             #2.1 Create Mapping and Coverage Statistics
-            mappingCoverageSphinx = "%s/%s_mapping_coverage.rst" %(self.output_dir,sample) 
+            mappingCoverageSphinx = os.path.join(self.output_dir,"{}_mapping_coverage.rst".format(sample))
             sample_mapping_coverage = SphinxMappingCoverage(sphinx_file_name=mappingCoverageSphinx,current_name=sample)
             #2.1.2 Setup mapping coverage report
             sample_mapping_coverage.configureStats(stats_vector=self.samples_stats[sample]["mappingCoverage"])
@@ -597,7 +597,7 @@ class SphinxIndexBsCall(SphinxBsCallReport):
             sample_mapping_coverage.createPage()
 
             #2.2 Create Bs-Genotype Calls Report
-            variantsSphinx = "%s/%s_variants.rst" %(self.output_dir,sample) 
+            variantsSphinx = os.path.join(self.output_dur,"{}_variants.rst".format(sample))
             sample_variants = SphinxBsGenotypeCalls(sphinx_file_name=variantsSphinx,current_name=sample)
             #2.2.1 Setup Variants Report
             sample_variants.configureStats(stats_vector=self.samples_stats[sample]["calls"])
@@ -605,7 +605,7 @@ class SphinxIndexBsCall(SphinxBsCallReport):
             sample_variants.createPage()
 
             #2.3 Create Methylation Statitics
-            methylationSphinx = "%s/%s_methylation.rst" %(self.output_dir,sample)
+            methylationSphinx = os.path.join(self.output_dir,"{}_methylation.rst".format(sample))
             sample_methylation = SphinxMethylation(sphinx_file_name=methylationSphinx,current_name=sample)
             #2.3.1 Setup Methylation Report
             sample_methylation.configureStats(stats_vector=self.samples_stats[sample]["methylation"])

@@ -112,18 +112,18 @@ class execs_dict(dict):
           
         base_dir = os.getenv("GEM_BS_PATH", None)
         if base_dir is not None:
-            file = "%s/%s" % (base_dir, item)
+            file = os.path.join(base_dir, item)
             if os.path.exists(file):
                 logging.debug("Using binary from GEM_BS_PATH : %s" % file)
                 return file
 
-        if pkg_resources.resource_exists("gemBS", "gemBSbinaries/%s" % item):
-            f = pkg_resources.resource_filename("gemBS", "gemBSbinaries/%s" % item)
+        if pkg_resources.resource_exists("gemBS", os.path.join('gemBSbinaries', item)):
+            f = pkg_resources.resource_filename("gemBS", os.path.join('gemBSbinaries', item))
             logging.debug("Using bundled binary : %s" % f)
             return f
             
-        if pkg_resources.resource_exists("gemBS", "bin/%s" % item):
-            f = pkg_resources.resource_filename("gemBS", "bin/%s" % item)
+        if pkg_resources.resource_exists("gemBS", os.path.join('bin', item)):
+            f = pkg_resources.resource_filename("gemBS", os.path.join('bin',item))
             logging.debug("Using bundled binary : %s" % f)
             return f
         
@@ -131,7 +131,7 @@ class execs_dict(dict):
         if len(sys.argv) > 0:
             try:
                 base = os.path.split(os.path.abspath(sys.argv[0]))[0]
-                binary = base + "/" + item
+                binary = os.path.join(base,item)
                 if os.path.exists(binary):
                     logging.debug("Using bundled binary : %s" % binary)
                     return binary
@@ -215,8 +215,8 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None,
             'type': 'type', 'filetype': 'type', 
             'readend': 'end', 'end': 'end',
             'file': 'file', 'location' : 'file',
-            'readend1': 'file1', 'end1': 'file1', 'file1': 'file1', 'location1': 'file1', 'command1': 'file1',
-            'readend2': 'file2', 'end2': 'file2', 'file2': 'file2', 'location2': 'file2', 'command2': 'file2'
+            'read1': 'file1', 'end1': 'file1', 'file1': 'file1', 'location1': 'file1',
+            'read2': 'file2', 'end2': 'file2', 'file2': 'file2', 'location2': 'file2',
             }
         from sets import Set
         data_types = Set(['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM'])
@@ -414,8 +414,8 @@ def makeChromSizes(index_base=None,output=None):
                     chrom_sizes[chr] = new_sz
         f.close()
         f = open(output, "w")
-        for c in chrom_sizes:
-            f.write("{}\t{}\n".format(c,chrom_sizes[c]))
+        for chr, size in sorted(chrom_sizes.iteritems(), reverse=True, key=lambda (k,v): (int(v),k)):
+            f.write("{}\t{}\n".format(chr,size))
         f.close()
         return os.path.abspath(output)
     else:
@@ -446,7 +446,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
     bamToFastq = []  
     mapping = [executables['gem-mapper'], '-I', index]
      
-    nameOutput="%s/%s.bam" %(outputDir,name)
+    nameOutput = os.path.join(outputDir,name)
     
     run_command = force_flag
      
@@ -487,8 +487,8 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
         #Number of threads
         mapping.extend(["-t",threads])
         #Mapping stats
-        report_file = "{}/{}.json".format(outputDir,name)
-        logfile = "{}/{}.err".format(outputDir,name)
+        report_file = os.path.join(outputDir,"{}.json".format(name))
+        logfile = os.path.join(outputDir,"gem_mapper_{}.err".format(name))
         mapping.extend(["--report-file",report_file])
         #Read Groups
         readGroups = "@RG\\tID:%s\\tSM:%s\\tLB:%s\\tPU:%s\\tCN:CNAG\\tPL:Illumina" %(fliInfo.getFli(),fliInfo.sample_barcode,fliInfo.library,fliInfo.getFli())
@@ -502,7 +502,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
         readNameClean = [executables['readNameClean']]
          
         #BAM SORT
-        bamSort = [executables['samtools'],"sort","-T","%s/%s"%(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
+        bamSort = [executables['samtools'],"sort","-T",os.join.path(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
     
         tools = [mapping,readNameClean,bamSort]
     
@@ -531,9 +531,8 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/",force=False):
         if '@SAMPLE' in output_dir:
             output = output_dir.replace('@SAMPLE',sample)
         
-        bam_filename = "%s/%s.bam" %(output,sample)
-        #index bam file
-        index_filename = "%s/%s.bai" %(output,sample)
+        bam_filename = os.path.join(output,"{}.bam".format(sample))
+        index_filename = os.path.join(output,"{}.bai".format(sample))
  
         bammerging = []       
 
@@ -551,7 +550,8 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/",force=False):
                 bammerging.extend([executables['samtools'],"merge","--threads",threads,"-f",bam_filename])        
                 for bamFile in listBams:
                     bammerging.append(bamFile)
-                process = utils.run_tools([bammerging], name="bisulphite-merging",output=bam_filename)
+                logfile = os.path.join(output,"bam_merge_{}.err".format(sample))
+                process = utils.run_tools([bammerging], name="bisulphite-merging",output=bam_filename,logfile=logfile)
             else:
                 bammerging.extend([executables['sln'],listBams[0],bam_filename])
                 process = utils.run_tools([bammerging], name="bisulphite-merging",output=None)
@@ -560,12 +560,13 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/",force=False):
             if process.wait() != 0:
                 raise ValueError("Error while executing the Bisulphite merging")
             
-        return_info[sample] = os.path.abspath("%s" % bam_filename)
+        return_info[sample] = os.path.abspath(bam_filename)
         
         #Samtools index
         if force or made_bam or not (os.path.exists(index_filename) and os.path.getmtime(index_filename) > os.path.getmtime(bam_filename)):
+            logfile = os.path.join(output,"bam_index_{}.err".format(sample))
             indexing = [executables['samtools'],"index","%s"%(bam_filename)]
-            processIndex = utils.run_tools([indexing],name="Indexing")
+            processIndex = utils.run_tools([indexing],name="Indexing",logfile=logfile)
             if processIndex.wait() != 0: raise ValueError("Error while indexing.")
             os.rename('{}.bai'.format(bam_filename),index_filename)
     
@@ -721,10 +722,11 @@ class MethylationCallThread(th.Thread):
                 self.lock.release()
                 break
             if input_bam != None:
-                bcf_file = "%s/%s_%s.bcf" %(self.output_dir,sample,chrom)
-                report_file = "%s/%s_%s.json" %(self.output_dir,sample,chrom)
+                bcf_file = os.path.join(self.output_dir,"{}_{}.bcf".format(sample,chrom))
+                log_file = os.path.join(self.output_dir,"bs_call_{}_{}.err".format(sample,chrom))
+                report_file = os.path.join(self.output_dir,"{}_{}.json".format(sample,chrom))
                 bsCallCommand = self.bsCall.prepare(sample, input_bam, [chrom], bcf_file, report_file)
-                process = utils.run_tools(bsCallCommand, name="bscall")
+                process = utils.run_tools(bsCallCommand, name="bscall", logfile=log_file)
                 if process.wait() != 0:
                     raise ValueError("Error while executing the bscall process.")
                 self.lock.acquire()
@@ -733,7 +735,7 @@ class MethylationCallThread(th.Thread):
             else:
                 list_bcf = []
                 for c in chrom:
-                    list_bcf.append("%s/%s_%s.bcf" %(self.output_dir,sample,c))
+                    list_bcf.append(os.path.join(self.output_dir,"{}_{}.bcf".format(sample,c)))
                 bsConcat(list_bcf, sample, self.output_dir)
                
 def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,left_trim=5,chrom_list=None,output_dir=None,paired_end=True,keep_unmatched=False,
@@ -783,18 +785,18 @@ def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,
         #for each sample, chromosome combination
         for sample,input_bam,chrom in methIter:
             if input_bam != None:
-                bcf_file = "%s/%s_%s.bcf" %(output_dir,sample,chrom)
-                report_file = "%s/%s_%s.json" %(output_dir,sample,chrom)
-                    
+                bcf_file = os.path.dir(output_dir,"{}_{}.bcf".format(sample,chrom))
+                report_file = os.path.dir(output_dir,"{}_{}.json".format(sample,chrom))
+                log_file = os.path.join(output_dir,"bs_call_{}_{}.err".format(sample,chrom))
                 bsCallCommand = bsCall.prepare(sample, input_bam, [chrom], bcf_file, report_file)
-                process = utils.run_tools(bsCallCommand, name="bscall")
+                process = utils.run_tools(bsCallCommand, name="bscall", logfile=log_file)
                 if process.wait() != 0:
                     raise ValueError("Error while executing the bscall process.")
                 methIter.finished(sample, chrom)
             else:
                 list_bcf = []
                 for c in chrom:
-                    list_bcf.append("%s/%s_%s.bcf" %(output_dir,sample,c))
+                    list_bcf.append(os.path.join(self.output_dir,"{}_{}.bcf".format(sample,c)))
                 bsConcat(list_bcf, sample, output_dir)
                     
     return " ".join(sample_bam.keys())
@@ -812,7 +814,7 @@ def methylationFiltering(bcfFile=None,output_dir=None,name=None,strand_specific=
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         
-    output_file = "{}/{}_cpg.txt".format(output_dir,name)
+    output_file = os.path.join(output_dir,"{}_cpg.txt".format(name))
     mextr = [executables['bcftools'],'+mextr',bcfFile,'--','-z','-o',output_file,'--inform',inform,'--threshold',phred]
     if strand_specific:
         mextr.append('--mode')
@@ -821,7 +823,7 @@ def methylationFiltering(bcfFile=None,output_dir=None,name=None,strand_specific=
         mextr.append('--select')
         mextr.append('het')
     if non_cpg:
-        non_cpg_output_file = "{}/{}_non_cpg.txt".format(output_dir,name)
+        non_cpg_output_file = os.path.join(output_dir,"{}_non_cpg.txt".format(name))
         mextr.append('--noncpgfile')
         mextr.append(non_cpg_output_file)
         mextr.append('--min-nc')
@@ -867,12 +869,12 @@ def bsCalling (reference=None,species=None,input_bam=None,right_trim=0,left_trim
                       haploid=haploid,conversion=conversion,ref_bias=ref_bias,sample_conversion=sample_conversion)
     #Definition bcf and report file
     if chrom != None:
-        bcf_file = "%s/%s_%s.bcf" %(output_dir,sample_id,chrom)   
-        report_file = "%s/%s_%s.json" %(output_dir,sample_id,chrom)
+        bcf_file = os.path.join(output_dir,"{}_{}.bcf".format(sample_id,chrom))
+        report_file = os.path.join(output_dir,"{}_{}.json".format(sample_id,chrom))
         #Command bisulphite calling
     else:
-        bcf_file = "%s/%s.bcf" %(output_dir,sample_id)   
-        report_file = "%s/%s.json" %(output_dir,sample_id)
+        bcf_file = os.path.join(output_dir,"{}.bcf".format(sample_id))
+        report_file = os.path.join(output_dir,"{}.json".format(sample_id))
         #Command bisulphite calling
     
     bsCallCommand = bsCall.prepare(sample_id, input_bam, [chrom], bcf_file, report_file)
@@ -896,15 +898,15 @@ def bsConcat(list_bcfs=None,sample=None,output_dir=None):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         
-    bcfSample = "%s/%s.raw.bcf" %(output_dir,sample)
-    bcfSampleMd5 = "%s/%s.raw.md5" %(output_dir,sample)
+    bcfSample = os.path.join(output_dir,"{}.bcf".format(sample))
+    bcfSampleMd5 = os.path.join(output_dir,"{}.bcf.md5".format(sample))
+    logfile = os.path.join(output_dir,"bcf_concat_{}.err".format(sample))
    
     #Concatenation
-    #concat = [executables['bcftools'],'concat','-O','b','-o',bcfSample," ".join(list_bcfs)]
     concat = [executables['bcftools'],'concat','-O','b','-o',bcfSample]
     concat.extend(list_bcfs)
      
-    process = utils.run_tools([concat],name="Concatenation Calls")
+    process = utils.run_tools([concat],name="Concatenation Calls",logfile=logfile)
     if process.wait() != 0:
         raise ValueError("Error while concatenating bcf calls.")
         
@@ -912,7 +914,7 @@ def bsConcat(list_bcfs=None,sample=None,output_dir=None):
     indexing = [executables['bcftools'],'index',bcfSample]
     #md5sum
     md5sum = ['md5sum',bcfSample]
-        
+
     processIndex = utils.run_tools([indexing],name="Index BCF")
     
     if processIndex.wait() != 0:
@@ -923,7 +925,7 @@ def bsConcat(list_bcfs=None,sample=None,output_dir=None):
     if processMD5.wait() != 0:
         raise ValueError("Error while calculating its md5sum when performing bsConcat.")
         
-    return os.path.abspath("%s" %bcfSample)
+    return os.path.abspath(bcfSample)
     
     
 def cpgBigWigConversion(name=None,output_dir=None,cpg_file=None,chr_len=None,quality="20",informative_reads="5"):
@@ -942,15 +944,13 @@ def cpgBigWigConversion(name=None,output_dir=None,cpg_file=None,chr_len=None,qua
         os.makedirs(output_dir)
     
     #1.Output files
-    fileBase = "%s/%s.bs" %(output_dir,name)
-    wigCallFile = "%s/%s.bs_call.wig" %(output_dir,name)
-    wigCovFile = "%s/%s.bs_cov.wig" %(output_dir,name)
+    fileBase = os.path.join(output_dir,"{}.bs".format(name))
+    wigCallFile = os.path.join(output_dir,"{}.bs_call.wig".format(name))
+    wigCovFile = os.path.join(output_dir,"{}.bs_cov.wig".format(name))
     
     #Parsing CpG Files to create BigWig
     
     cpgToWigCommand = ['%s' %(executables["cpgToWig"]),'-q',quality,'-m',informative_reads,'-o',fileBase, cpg_file]
-    print(cpgToWigCommand)
-    print "Yo!"
     process = utils.run_tools([cpgToWigCommand], name="cpgToWig")
     
     if process.wait() != 0:
@@ -959,8 +959,8 @@ def cpgBigWigConversion(name=None,output_dir=None,cpg_file=None,chr_len=None,qua
     #Transform wig files to BigWig using kent Tools wigToBigWig
     
     #1. Definition of BigWig Output Files
-    bigWigCallFile = "%s/%s.bs_call.bw" %(output_dir,name)
-    bigWigCovFile = "%s/%s.bs_cov.bw" %(output_dir,name)
+    bigWigCallFile = os.path.join(output_dir,"{}.bs_call.bw".format(name))
+    bigWigCovFile = os.path.join(output_dir,"{}.bs_cov.bw".format(name))
            
     #Methylation Call             
     bigWigCallJob = ['wigToBigWig',wigCallFile,chr_len,bigWigCallFile]
