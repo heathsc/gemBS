@@ -2,7 +2,7 @@
 #!/usr/bin/env python
 
 import os
-from reportStats import NucleotideStats,LaneStats,SampleStats,RunBasicStats
+from .reportStats import NucleotideStats,LaneStats,SampleStats,RunBasicStats
 
 class BasicSphinx(RunBasicStats):
     """ Class responsable of basic Sphinx functions """
@@ -683,7 +683,7 @@ class LaneSphinx(BasicSphinx):
  
         #2.Contents
         for dictValue in self.mapping_stats.read_length_histogram:
-            for readLength, reads in dictValue.iteritems():
+            for readLength, reads in dictValue.items():
                 self.addRowSimpleValue(ident=ident,lenCell=lenCell,vectorSphinx=vectorSphinx,name_concept=readLength,value=reads)
     
         return vectorSphinx
@@ -1041,9 +1041,9 @@ def buildReport(inputs=None,output_dir=None,name=None):
       
     #Proces list Lane files
     vector_samples = []
-    for sample,fli_json in inputs.iteritems():
+    for sample,fli_json in inputs.items():
         list_stats_lanes = []
-        for fli,json_files in fli_json.iteritems():  
+        for fli,json_files in fli_json.items():  
             for json_file in json_files:
                 lane = LaneStats(name=fli,json_file=json_file)
                 list_stats_lanes.append(lane)

@@ -5,15 +5,15 @@ Created on Fri Dec  1 12:02:40 2017
 @author: marcos
 """
 
-from reportStats import RunBasicStats
-from report import BasicHtml
-from bsCallStats import *
-from bsCallSphinxReports import *
-
 import multiprocess as mp
 import threading as th
 import os
 import json
+
+from .reportStats import RunBasicStats
+from .report import BasicHtml
+from .bsCallStats import *
+from .bsCallSphinxReports import *
 
 class HtmlBsCallReport(object):
     """ Basic Methods for BsCall Reports """
@@ -588,7 +588,7 @@ class HtmlIndexBsCall(HtmlBsCallReport):
                     #NonCpGReadProfile
                     nonCpGReadProfile.add(data["totalStats"]["methylation"]["NonCpGreadProfile"])
                     
-                except ValueError, e:
+                except ValueError as e:
                     pass # invalid json
 
         #Prepare plot for Methylation levels

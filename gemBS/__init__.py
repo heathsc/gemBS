@@ -14,83 +14,11 @@ import csv
 from configparser import ConfigParser
 from configparser import ExtendedInterpolation
 
-from . import utils
+from .utils import terminate_processes
 
 import json
 
 import gzip
-
-LOG_NOTHING = 1
-LOG_STDERR = 2
-LOG_FORMAT = '%(asctime)-15s %(levelname)s: %(message)s'
-# add custom log level
-LOG_GEMBS = logging.WARNING
-logging.addLevelName(LOG_GEMBS, "")
-logging.basicConfig(format=LOG_FORMAT, level=logging.WARNING)
-
-gemBS_logger = logging.getLogger("gemBS")
-gemBS_logger.propagate = 0
-gemBS_logger.setLevel(LOG_GEMBS)
-
-def log_gemBS(message, *args, **kws):
-    gemBS_logger.log(LOG_GEMBS, message, *args, **kws)
-
-gemBS_logger.gt = log_gemBS
-
-logging.gemBS = gemBS_logger
-
-class GemBSFormatter(logging.Formatter):
-    info_fmt = "%(message)s"
-
-    def __init__(self, fmt="%(levelno)s: %(msg)s"):
-        logging.Formatter.__init__(self, fmt)
-        
-    def format(self, record):
-        format_orig = self._fmt
-        if record.levelno == LOG_GEMBS:
-            self._fmt = GemBSFormatter.info_fmt
-        result = logging.Formatter.format(self, record)
-        self._fmt = format_orig
-        return result
-
-gemBS_formatter = GemBSFormatter('%(levelname)s: %(message)s')
-console = logging.StreamHandler()
-console.setLevel(logging.DEBUG)
-console.setFormatter(gemBS_formatter)
-gemBS_logger.addHandler(console)
-logging.gemBS.level = logging.WARNING
-
-# default logger configuration
-log_output = LOG_NOTHING
-
-def loglevel(level):
-    """Simple way to set the current log level globally for the root logger.
-    Accepts either 'debug','info','warning', 'error'
-
-    Log levels debug also ensures executable output is written to stderr
-
-    level -- one of debug, info, warn, error
-    """
-    global log_output
-    numeric_level = level
-    if isinstance(level, basestring):
-        numeric_level = getattr(logging, level.upper(), None)
-
-    if not isinstance(numeric_level, int):
-        raise ValueError('Invalid log level: %s' % loglevel)
-
-    logging.basicConfig(level=numeric_level)
-    logging.getLogger().setLevel(numeric_level)
-    logging.gemBS.level = numeric_level
-
-
-# cleanup functions
-def _cleanup_on_shutdown():
-    utils.terminate_processes()
-
-
-import atexit
-atexit.register(_cleanup_on_shutdown)
 
 
 class execs_dict(dict):
@@ -168,7 +96,7 @@ def _prepare_index_parameter(index):
     """
     if index is None:
         raise ValueError("No valid Bisulphite GEM index specified!")
-    if not isinstance(index, basestring):
+    if not isinstance(index, str):
         raise ValueError("GEM Bisulphite index must be a string")
     file_name = index
 
@@ -192,7 +120,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None,
         config.read(configFile)
         config_dict = {}
         def_dict = {}
-        for key,val in config['DEFAULT'].iteritems():
+        for key,val in config['DEFAULT'].items():
             def_dict[key] = val
         config_dict['DEFAULT'] = def_dict
         sections = ['DEFAULT', 'mapping', 'calling', 'filtering', 'bigwig', 'index']
@@ -200,8 +128,8 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None,
             if sect in sections:
                 if sect != 'DEFAULT':
                     config_dict[sect] = {}
-                    for key,val in config[sect].iteritems():
-                        if not (def_dict.has_key(key) and def_dict[key] == val):
+                    for key,val in config[sect].items():
+                        if not (key in def_dict and def_dict[key] == val):
                             config_dict[sect][key] = val
             else:
                 logging.warning("Config section '{}' not known, skipping".format(sect))
@@ -218,13 +146,12 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None,
             'read1': 'file1', 'end1': 'file1', 'file1': 'file1', 'location1': 'file1',
             'read2': 'file2', 'end2': 'file2', 'file2': 'file2', 'location2': 'file2',
             }
-        from sets import Set
-        data_types = Set(['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM'])
+        data_types = ['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM']
         generalDictionary['sampleData'] = {}
         with open(text_metadata, 'r') as f:
             reader = csv.reader(f)
             try:
-                line = reader.next()
+                line = reader.__next__()
             except StopIteration:
                 raise ValueError('Empty configuration file');
             header_found = {}
@@ -233,11 +160,11 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None,
                 entry = entry.strip().replace("_", "")
                 head = headers.get(entry.lower())
                 if head != None:
-                    if header_found.has_key(head):
+                    if head in header_found:
                         raise ValueError('Header line contains {} and {}'.format(header_found.get(head), entry))
                     header_found[head] = entry
                 col_desc.append(head)
-            if header_found.has_key('sample_barcode') and header_found.has_key('fli'):
+            if 'sample_barcode' in header_found and 'fli' in header_found:
                 for line in reader:
                     sampleDirectory = {}
                     fli = None
@@ -272,10 +199,10 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None,
                         end = "NA"
                     if file1 != None or file2 != None:
                         filename = None
-                    if generalDictionary.has_key(fli):
+                    if fli in generalDictionary:
                         prev = generalDictionary[fli]
-                        for key, val in sampleDirectory.iteritems():
-                            if prev.has_key(key):
+                        for key, val in sampleDirectory.items():
+                            if key in prev:
                                 if(prev[key] != val):
                                     raise ValueError('Inconsistent values for FileID {}'.format(fli))
                             else:
@@ -298,7 +225,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None,
                                 file_dict.update({'2': file2});
                             if len(file_dict) > 0:
                                 sampleDirectory['file'] = file_dict
-                                if len(file_dict) == 2 and not sampleDirectory.has_key('type'):
+                                if len(file_dict) == 2 and not type in sampleDirectory:
                                     sampleDirectory['type'] = "PAIRED"
                         generalDictionary['sampleData'][fli] = sampleDirectory
             elif len(line) == 5:
@@ -407,14 +334,15 @@ def makeChromSizes(index_base=None,output=None):
             if m:
                 chr = m.group(1)
                 new_sz = int(m.group(2))
-                if chrom_sizes.has_key(chr):
+                if chr in chrom_sizes:
                     sz = chrom_sizes[chr]
                     if new_sz > sz: chrom_sizes[chr] = new_sz
                 else:
                     chrom_sizes[chr] = new_sz
         f.close()
         f = open(output, "w")
-        for chr, size in sorted(chrom_sizes.iteritems(), reverse=True, key=lambda (k,v): (int(v),k)):
+#        for chr, size in sorted(chrom_sizes.items(), reverse=True, key=lambda (k,v): (int(v),k)):
+        for chr, size in [(c, chrom_sizes[c]) for c in sorted(chrom_sizes, key=chrom_sizes.get, reverse=True)]:
             f.write("{}\t{}\n".format(chr,size))
         f.close()
         return os.path.abspath(output)
@@ -446,7 +374,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
     bamToFastq = []  
     mapping = [executables['gem-mapper'], '-I', index]
      
-    nameOutput = os.path.join(outputDir,name)
+    nameOutput = os.path.join(outputDir,"{}.bam".format(name))
     
     run_command = force_flag
      
@@ -476,7 +404,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
 
     if not run_command and input_mtime > output_mtime:
         run_command = True
-
+        
     if run_command:
         #Paired End
         if paired:
@@ -502,7 +430,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
         readNameClean = [executables['readNameClean']]
          
         #BAM SORT
-        bamSort = [executables['samtools'],"sort","-T",os.join.path(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
+        bamSort = [executables['samtools'],"sort","-T",os.path.join(tmpDir,name),"-@",threads,"-o",nameOutput,"-"]
     
         tools = [mapping,readNameClean,bamSort]
     
@@ -525,7 +453,7 @@ def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/",force=False):
     """     
     return_info = {}
     
-    for sample,listBams  in inputs.iteritems():
+    for sample,listBams  in inputs.items():
         #bam output file
         output = output_dir
         if '@SAMPLE' in output_dir:
@@ -614,7 +542,7 @@ class BsCaller:
             parameters_bscall.append('-1')
         if self.conversion != None:
             if self.conversion.lower() == "auto":
-                if self.sample_conversion.has_key(sample):
+                if sample in self.sample_conversion:
                     parameters_bscall.append("--conversion")
                     parameters_bscall.append('%s'%(self.sample_conversion[sample]))
                 else:

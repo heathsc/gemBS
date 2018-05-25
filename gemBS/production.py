@@ -10,14 +10,12 @@ from sys import exit
 import subprocess
 import threading as th
 
-from utils import Command, CommandException
-from reportStats import LaneStats,SampleStats
-
-import gemBS
-import report
-import sphinx
-import bsCallReports
-
+from .utils import Command, CommandException
+from .reportStats import LaneStats,SampleStats
+from .report import *
+from .sphinx import *
+from .bsCallReports import *
+from .__init__ import *
 
 class Fli(object):
     
@@ -47,11 +45,11 @@ class JSONdata(object):
                 defaults = conf['DEFAULT']
                 for sect in ['mapping', 'calling', 'filtering', 'bigwig', 'index', 'DEFAULT']:
                     self.config[sect] = {}
-                    if conf.has_key(sect):
-                        for key,val in conf[sect].iteritems():
+                    if sect in conf:
+                        for key,val in conf[sect].items():
                             self.config[sect][key] = val
-                    for key,val in defaults.iteritems():
-                        if not conf[sect].has_key(key):
+                    for key,val in defaults.items():
+                        if not key in conf[sect]:
                             self.config[sect][key] = val
             except KeyError:
                 self.config = {}
@@ -59,7 +57,7 @@ class JSONdata(object):
             for fli in data:
                 fliCommands = Fli()            
                 fliCommands.fli = fli
-                for key, value in data[fli].iteritems():
+                for key, value in data[fli].items():
                     if key == "sample_barcode":
                         fliCommands.sample_barcode = value    
                     elif key == "library_barcode":
@@ -72,7 +70,7 @@ class JSONdata(object):
                     self.sampleData[fli] = fliCommands
 
     def check(self, section, key, arg, default=None, boolean=False, dir_type=False):
-        if not arg and self.config[section].has_key(key):
+        if not arg and key in self.config[section]:
             ret = self.config[section][key]
         else:
             ret = default
@@ -148,12 +146,12 @@ class PrepareConfiguration(Command):
         #Try text metadata file
         if args.text_metadata is not None:
             if os.path.isfile(args.text_metadata):
-                gemBS.prepareConfiguration(text_metadata=args.text_metadata,jsonOutput=args.json,configFile=args.config)
+                prepareConfiguration(text_metadata=args.text_metadata,jsonOutput=args.json,configFile=args.config)
             else:
                 raise CommandException("Sorry!! File %s not found!" %(args.text_metadata))
         elif args.lims_cnag_json is not None:
             if os.path.isfile(args.lims_cnag_json):
-                gemBS.prepareConfiguration(lims_cnag_json=args.lims_cnag_json,jsonOutput=args.json,configFile=args.config)
+                prepareConfiguration(lims_cnag_json=args.lims_cnag_json,jsonOutput=args.json,configFile=args.config)
             else:
                 raise CommandException("Sorry!! File %s not found!" %(args.lims_cnag_json))
         else:
@@ -225,7 +223,7 @@ class Index(BasicPipeline):
             logging.warning("Bisulphite Index {}.gem already exists, skipping indexing".format(self.index_base))
         else:
             logging.gemBS.gt("Creating index")
-            ret = gemBS.index(self.input, self.index_base, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=args.output_dir,list_dbSNP_files=self.list_dbSNP_files,dbsnp_index=self.dbsnp_index)
+            ret = index(self.input, self.index_base, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=args.output_dir,list_dbSNP_files=self.list_dbSNP_files,dbsnp_index=self.dbsnp_index)
             if ret:
                 logging.gemBS.gt("Index done: %s.gem" %(ret))
 
@@ -234,7 +232,7 @@ class Index(BasicPipeline):
         if os.path.exists(self.chrom_sizes):
             logging.warning("Chromosome sizes file {} already exists, skipping indexing".format(self.chrom_sizes))
         else:
-            ret = gemBS.makeChromSizes(self.index_base, self.chrom_sizes)
+            ret = makeChromSizes(self.index_base, self.chrom_sizes)
             if ret:
                 logging.gemBS.gt("Chromosome sizes file done: {}".format(ret))
        
@@ -276,7 +274,7 @@ class MappingCommands(BasicPipeline):
         args.output_dir = jsonData.check(section='mapping',key='bam_dir',arg=args.output_dir,default='.',dir_type=True)
         output_sample = '@SAMPLE' in args.output_dir
         input_sample = '@SAMPLE' in args.input_dir
-        for k,v in jsonData.sampleData.iteritems():
+        for k,v in jsonData.sampleData.items():
             ##Non Stranded
             non_stranded = ""
             if args.read_non_stranded:
@@ -386,7 +384,7 @@ class Mapping(BasicPipeline):
         if args.fli:
             self.do_mapping(args.fli)
         else:
-            for fli,v in self.jsonData.sampleData.iteritems():
+            for fli,v in self.jsonData.sampleData.items():
                 if self.name and v.sample_barcode != self.name: continue
                 self.do_mapping(fli)
                     
@@ -420,9 +418,9 @@ class Mapping(BasicPipeline):
             if files:            
                 # If filenames were specified in configuration file then use them
                 if(ftype == 'PAIRED'):
-                    inputFiles = [os.path.join(input_dir,files['1']), makeFileName(input_dir,files['2'])]
+                    inputFiles = [os.path.join(input_dir,files['1']), os.path.join(input_dir,files['2'])]
                 else:
-                    for k,v in files.iteritems():
+                    for k,v in files.items():
                         if ftype is None:
                             if 'bam' in v: 
                                 ftype = 'BAM'
@@ -482,7 +480,7 @@ class Mapping(BasicPipeline):
         self.log_parameter()
 
         logging.gemBS.gt("Bisulfite Mapping...")
-        ret = gemBS.mapping(name=fli,index=self.index,fliInfo=fliInfo,inputFiles=inputFiles,ftype=ftype,
+        ret = mapping(name=fli,index=self.index,fliInfo=fliInfo,inputFiles=inputFiles,ftype=ftype,
                             read_non_stranded=self.read_non_stranded,force_flag=self.force_flag,
                             outputDir=output_dir,paired=self.paired,tmpDir=self.tmp_dir,threads=self.threads,
                             under_conversion=self.underconversion_sequence,over_conversion=self.overconversion_sequence) 
@@ -495,7 +493,7 @@ class Mapping(BasicPipeline):
         #Virtual methods, to be define in child class
         printer = logging.gemBS.gt
         
-        printer("------------ Mappings Parameter ------------")
+        printer("------------ Mapping Parameters ------------")
         printer("Name             : %s", self.curr_fli)
         printer("Index            : %s", self.index)
         printer("Paired           : %s", self.paired)
@@ -535,7 +533,7 @@ class Merging(BasicPipeline):
         #Create Dictionary of samples and bam file        
         self.samplesBams = {}  
         self.records = 0
-        for k,v in JSONdata(args.json_file).sampleData.iteritems():
+        for k,v in JSONdata(args.json_file).sampleData.items():
             fli = v.getFli()
             sample = v.sample_barcode
             if args.sample_id and sample != args.sample_id: continue
@@ -552,7 +550,7 @@ class Merging(BasicPipeline):
                     
         #Check list of files
         self.totalFiles = 0
-        for sample,listBams in self.samplesBams.iteritems():
+        for sample,listBams in self.samplesBams.items():
             self.totalFiles += len(listBams)
               
         if self.totalFiles < 1:
@@ -562,11 +560,11 @@ class Merging(BasicPipeline):
             
         self.log_parameter()
         logging.gemBS.gt("Merging process started...")
-        ret = gemBS.merging(inputs=self.samplesBams,threads=self.threads,output_dir=self.output_dir,tmpDir=self.tmp_dir,force=args.force)
+        ret = merging(inputs=self.samplesBams,threads=self.threads,output_dir=self.output_dir,tmpDir=self.tmp_dir,force=args.force)
          
         if ret:
             logging.gemBS.gt("Merging process done!! Output files generated:")
-            for sample,outputBam  in ret.iteritems():
+            for sample,outputBam  in ret.items():
                 logging.gemBS.gt("%s: %s" %(sample, outputBam))
 
 class MethylationCall(BasicPipeline):
@@ -638,7 +636,7 @@ class MethylationCall(BasicPipeline):
                 self.conversion = None
             else:
                 sample_lane_files = {}
-                for k,v in JSONdata(args.json_file).sampleData.iteritems():
+                for k,v in JSONdata(args.json_file).sampleData.items():
                     fileJson = os.path.join(args.mapping_json,"{}.json".format(v.getFli()))
                     if os.path.isfile(fileJson):
                         if v.sample_barcode not in sample_lane_files: 
@@ -655,9 +653,9 @@ class MethylationCall(BasicPipeline):
                 if len(sample_lane_files) < 1:
                     self.conversion = None
                 else:
-                    for sample,fli_json in sample_lane_files.iteritems():
+                    for sample,fli_json in sample_lane_files.items():
                         list_stats_lanes = []
-                        for fli,json_files in fli_json.iteritems():  
+                        for fli,json_files in fli_json.items():  
                             for json_file in json_files:
                                 lane = LaneStats(name=fli,json_file=json_file)
                                 list_stats_lanes.append(lane)
@@ -691,7 +689,7 @@ class MethylationCall(BasicPipeline):
         
         #Check input bam existance
         self.sampleBam = {}
-        for k,v in JSONdata(args.json_file).sampleData.iteritems():
+        for k,v in JSONdata(args.json_file).sampleData.items():
             fileBam = "%s/%s.bam" %(self.input_dir,v.sample_barcode)
 
             if not os.path.isfile(fileBam):
@@ -704,7 +702,7 @@ class MethylationCall(BasicPipeline):
         self.log_parameter()
         logging.gemBS.gt("Methylation Calling...")
         if len(args.list_chroms) > 0:
-            ret = gemBS.methylationCalling(reference=self.fasta_reference,species=self.species,
+            ret = methylationCalling(reference=self.fasta_reference,species=self.species,
                                          right_trim=self.right_trim, left_trim=self.left_trim,
                                          sample_bam=self.sampleBam,chrom_list=self.list_chroms,
                                          output_dir=self.output_dir,paired_end=self.paired,keep_unmatched=self.keep_unmatched,
@@ -731,7 +729,7 @@ class MethylationCall(BasicPipeline):
         printer("Threads         : %s", self.threads)
         if self.dbSNP_index_file != "":
             printer("dbSNP File      : %s", self.dbSNP_index_file)
-        for sample,input_bam in self.sampleBam.iteritems():
+        for sample,input_bam in self.sampleBam.items():
             printer("Sample: %s    Bam: %s" %(sample,input_bam))
         printer("")
 
@@ -789,7 +787,7 @@ class MethylationFiltering(BasicPipeline):
         
         if args.bcf_file == None:
             if args.path_bcf != None and args.json_file != None:
-                for k,v in JSONdata(args.json_file).sampleData.iteritems():
+                for k,v in JSONdata(args.json_file).sampleData.items():
                     bcf = os.path.join(self.path_bcf,"{}.raw.bcf".format(v.sample_barcode))
                     if v.sample_barcode not in self.bcf_list:
                         if os.path.isfile(bcf):
@@ -822,7 +820,7 @@ class MethylationFiltering(BasicPipeline):
         bcf = os.path.join(self.path_bcf,"{}.raw.bcf".format(sample))
         self.bcf_file = bcf
         #Call methylation filtering
-        ret = gemBS.methylationFiltering(bcfFile=bcf,output_dir=self.output_dir,name=sample,strand_specific=self.strand_specific,non_cpg=self.non_cpg,
+        ret = methylationFiltering(bcfFile=bcf,output_dir=self.output_dir,name=sample,strand_specific=self.strand_specific,non_cpg=self.non_cpg,
                                          select_het=self.select_het,inform=self.inform,phred=self.phred,min_nc=self.min_nc)
         if ret:
             logging.gemBS.gt("Methylation filtering of {} done, results located at: {}".format(bcf, ret))
@@ -888,7 +886,7 @@ class BsCall(BasicPipeline):
                 self.conversion = None
             else:
                 lane_stats_list = []
-                for k,v in JSONdata(args.json_file).sampleData.iteritems():
+                for k,v in JSONdata(args.json_file).sampleData.items():
                     if v.sample_barcode == self.sample_id:
                         fileJson = "%s/%s.json" %(args.mapping_json,v.getFli())
                         if os.path.isfile(fileJson):
@@ -918,7 +916,7 @@ class BsCall(BasicPipeline):
         self.log_parameter()
         logging.gemBS.gt("BsCall per sample and chromosome...")
         
-        ret = gemBS.bsCalling (reference=self.reference,species=self.species,input_bam=self.input,chrom=self.chrom,
+        ret = bsCalling (reference=self.reference,species=self.species,input_bam=self.input,chrom=self.chrom,
                              right_trim=self.right_trim, left_trim=self.left_trim,
                              sample_id=self.sample_id,output_dir=self.output_dir,
                              paired_end=self.paired,keep_unmatched=self.keep_unmatched,
@@ -978,7 +976,7 @@ class BsCallConcatenate(BasicPipeline):
         self.log_parameter()
         logging.gemBS.gt("BCF concatenate files...")
         args.list_bcfs.sort(key=lambda x: '{0:0>8}'.format(x).lower())        
-        ret = gemBS.bsConcat(list_bcfs=self.list_bcf,sample=self.sample_id,output_dir=self.output_dir)
+        ret = bsConcat(list_bcfs=self.list_bcf,sample=self.sample_id,output_dir=self.output_dir)
         if ret:
             logging.gemBS.gt("BCF Concatenation Done: %s" %(ret))
             
@@ -1015,7 +1013,7 @@ class MappingReports(BasicPipeline):
         self.sample_lane_files = {}   
       
         self.records = 0
-        for k,v in JSONdata(args.json_file).sampleData.iteritems():
+        for k,v in JSONdata(args.json_file).sampleData.items():
             self.records = self.records + 1
             fileJson = os.path.join(args.input_dir,"{}.json".format(v.getFli()))
             if os.path.isfile(fileJson):
@@ -1076,10 +1074,10 @@ class VariantsReports(BasicPipeline):
         self.sample_chr_files = {}
         self.sample_list = {}
         
-        for k,v in JSONdata(args.json_file).sampleData.iteritems():
+        for k,v in JSONdata(args.json_file).sampleData.items():
             self.sample_list[v.sample_barcode] = 0
 
-        for sample,num in self.sample_list.iteritems():
+        for sample,num in self.sample_list.items():
             for fileJson in self.json_files:
                 if fileJson.startswith(sample):
                     self.sample_chr_files[sample] = []
@@ -1159,7 +1157,7 @@ class CpgBigwig(BasicPipeline):
         
         if args.cpg_file == None:
             if args.path_cpg != None and args.json_file != None:
-                for k,v in JSONdata(args.json_file).sampleData.iteritems():
+                for k,v in JSONdata(args.json_file).sampleData.items():
                     cpg = os.path.join(args.path_cpg,"{}_cpg.txt.gz".format(v.sample_barcode))
                     tup = (v.sample_barcode, cpg)
                     if tup not in self.cpg_list:
@@ -1199,7 +1197,7 @@ class CpgBigwig(BasicPipeline):
         
         #Cpg BigWig Conversion
         (name, cpg_file) = tup
-        ret = gemBS.cpgBigWigConversion(name=name,output_dir=self.output_dir,cpg_file=cpg_file,
+        ret = cpgBigWigConversion(name=name,output_dir=self.output_dir,cpg_file=cpg_file,
                                       chr_len=self.chrom_length,quality=self.quality,informative_reads=self.informative_reads)
         if ret:
             logging.gemBS.gt("CpG Bigwig Conversion Done: %s" %(ret))

@@ -4,7 +4,7 @@
 import os
 import json
 
-from reportStats import NucleotideStats,LaneStats,SampleStats,RunBasicStats
+from .reportStats import NucleotideStats,LaneStats,SampleStats,RunBasicStats
 
 """gemBS parsers JSON files to build an HTML report"""
 class BasicHtml(RunBasicStats):
@@ -697,7 +697,7 @@ class LaneHtml(BasicHtml):
         isOdd = False
         
         for dictValue in self.mapping_stats.read_length_histogram:
-            for readLength, reads in dictValue.iteritems():
+            for readLength, reads in dictValue.items():
                 self.addRowSimpleValue(vectorHtml=vTableHtml,value=reads,name_concept=readLength,isOdd=isOdd)
                 isOdd = not isOdd
                 
@@ -921,9 +921,9 @@ def buildReport(inputs=None,output_dir=None,name=None):
       
     #Proces list Lane files
     vector_samples = []
-    for sample,fli_json in inputs.iteritems():
+    for sample,fli_json in inputs.items():
         list_stats_lanes = []
-        for fli,json_files in fli_json.iteritems():  
+        for fli,json_files in fli_json.items():  
             for json_file in json_files:
                 lane = LaneStats(name=fli,json_file=json_file)
                 list_stats_lanes.append(lane)

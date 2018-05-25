@@ -1,5 +1,4 @@
-from distribute_setup import use_setuptools
-use_setuptools()
+from __future__ import print_function
 
 import os
 import sys
@@ -16,15 +15,15 @@ from distutils.command.clean import clean as _clean
 import subprocess
 import shutil
 
-__VERSION_MAJOR = "2"
-__VERSION_MINOR = "1"
+__VERSION_MAJOR = "3"
+__VERSION_MINOR = "0"
 __VERSION_SUBMINOR = "0"
 __VERSION__ = "%s.%s.%s" % (__VERSION_MAJOR, __VERSION_MINOR,__VERSION_SUBMINOR)
 
 def compile_gemBS_tools():
     process = subprocess.Popen(['make'], shell=True, cwd='tools')
     if process.wait() != 0:
-        print >> sys.stderr, """
+        print ("""
 Error while compiling gemBS. That is very unfortunate.
 A possible reason might be a missing dependency. Please take a look at the lines
 before this one. You need the following programs and libraries installed to compile
@@ -37,14 +36,14 @@ Libraris needed:
     * libbz2-dev (for bz compression support)
 On a Debian/Ubuntu system you should be able to get all needed dependencies with:
 sudo apt-get install make gcc python-dev libbz2-dev
-"""
+""", file=sys.stderr)
         exit(1)
 
 
 def clean_gemBS_tools():
     process = subprocess.Popen(['make clean'],shell=True,cwd='tools')
     if process.wait() != 0:
-        print >> sys.stderr, """ Error Running cleaning. """
+        print (""" Error Running cleaning. """,file=sys.stderr)
         exit(1)
 
 
@@ -52,7 +51,7 @@ def clean_gemBS_tools():
 def _install_bundle(install_dir):
     """Install compiled files to the GemBS installation Directory"""
     if install_dir is None:
-        print "Unable to determine installation directory !"
+        print("Unable to determine installation directory !")
         exit(1)
    
     gemBSbin_dir = os.path.join(install_dir, "gemBSbinaries")
@@ -63,32 +62,32 @@ def _install_bundle(install_dir):
     bins = [x for x in os.listdir("tools/bin")]
     for file in bins:
         if not file.endswith("gz"):
-            print "Copy binary: %s to %s" % (file, gemBSbin_dir)
+            print ("Copy binary: %s to %s" % (file, gemBSbin_dir))
             result_file = os.path.join(gemBSbin_dir, file)
             if os.path.exists(result_file):
                 os.remove(result_file)
             shutil.copy(os.path.join("tools/bin", file), gemBSbin_dir)
-            os.chmod(result_file, 0755)
+            os.chmod(result_file, 0o755)
 
     # copy compiled bs_call tools
     bins = [x for x in os.listdir("tools/bs_call/bin")]
     for file in bins:
-        print "Copy binary: %s to %s" % (file, gemBSbin_dir)
+        print ("Copy binary: %s to %s" % (file, gemBSbin_dir))
         result_file = os.path.join(gemBSbin_dir, file)
         if os.path.exists(result_file):
             os.remove(result_file)
         shutil.copy(os.path.join("tools/bs_call/bin", file), gemBSbin_dir)
-        os.chmod(result_file, 0755)
+        os.chmod(result_file, 0o755)
 
     # copy compiled gem3 tools
     bins = [x for x in os.listdir("tools/gem3-mapper/bin")]
     for file in bins:
-        print "Copy binary: %s to %s" % (file, gemBSbin_dir)
+        print ("Copy binary: %s to %s" % (file, gemBSbin_dir))
         result_file = os.path.join(install_dir, file)
         if os.path.exists(result_file):
             os.remove(result_file)
         shutil.copy(os.path.join("tools/gem3-mapper/bin", file), gemBSbin_dir)
-        os.chmod(gemBSbin_dir, 0755)
+        os.chmod(gemBSbin_dir, 0o755)
 
     # copy samtools and bcftools
     bin_dir = os.path.join(install_dir, "bin")
@@ -98,26 +97,26 @@ def _install_bundle(install_dir):
         if not os.path.exists(dir):
             os.makedirs(dir)
     if os.path.exists("tools/samtools/samtools"):
-        print "Copy binary: samtools to {}".format(bin_dir)
+        print ("Copy binary: samtools to {}".format(bin_dir))
         shutil.copy("tools/samtools/samtools", bin_dir)
     for htslib in glob.glob("tools/samtools/htslib*"):
         if os.path.isdir(htslib):
             for file in ["htsfile", "tabix", "bgzip"]:
                 if os.path.exists(os.path.join(htslib,file)):
-                    print "Copy binary: {} to {}".format(file, bin_dir)
+                    print ("Copy binary: {} to {}".format(file, bin_dir))
                     shutil.copy(os.path.join(htslib,file), bin_dir)
             for file in ["libhts.a", "libhts.so"]:
                 if os.path.exists(os.path.join(htslib,file)):
-                    print "Copy library: {} to {}".format(file, lib_dir)
+                    print ("Copy library: {} to {}".format(file, lib_dir))
                     shutil.copy(os.path.join(htslib,file), lib_dir)
                     
             
     if os.path.exists("tools/bcftools/bcftools"):
-        print "Copy binary: bcftools to {}".format(bin_dir)
+        print ("Copy binary: bcftools to {}".format(bin_dir))
         shutil.copy("tools/bcftools/bcftools", bin_dir)
     plugins = [x for x in glob.glob("tools/bcftools/plugins/*.so")]
     for file in plugins:
-        print "Copy plugin: {} to {}".format(file, plugins_dir)
+        print ("Copy plugin: {} to {}".format(file, plugins_dir))
         shutil.copy(file, plugins_dir)
 
 # hack the setup tools installation

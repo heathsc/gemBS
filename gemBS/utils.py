@@ -14,7 +14,7 @@ import logging
 import json
 import signal
 import tempfile
-
+from io import IOBase
 
 # Global process registry
 # which is used to save multiprocessing.Process instances
@@ -196,14 +196,14 @@ class Process(object):
 
         # check the logfile
         if self.logfile is not None:
-            if isinstance(self.logfile, basestring):
+            if isinstance(self.logfile, str):
                 logging.debug("Setting process log file to %s", self.logfile)
                 stderr = open(self.logfile, 'wb')
             else:
                 stderr = self.logfile
 
         #check outout
-        if stdout is not None and isinstance(stdout, basestring):
+        if stdout is not None and isinstance(stdout, str):
             logging.debug("File output detected, opening output stream to %s", stdout)
             stdout = open(stdout, "wb")
         elif stdout is None:
@@ -252,7 +252,7 @@ class Process(object):
         logging.debug("Process '%s' finished with %d", str(self), exit_value)
         if exit_value is not 0:
             logging.error("Process '%s' finished with %d", str(self), exit_value)
-            if self.logfile is not None and isinstance(self.logfile, basestring):
+            if self.logfile is not None and isinstance(self.logfile, str):
                 with open(self.logfile) as f:
                     for line in f:
                         logging.error("%s" % (line.strip()))
@@ -362,7 +362,7 @@ class ProcessWrapper(object):
                     exit_value = ev
             self.exit_value = exit_value
             return ev
-        except Exception, e:
+        except Exception as e:
             if isinstance(e, OSError) and e.errno == 10:
                 pass
             else:
@@ -371,7 +371,7 @@ class ProcessWrapper(object):
         finally:
             if not self.keep_logfiles:
                 for p in self.processes:
-                    if p.logfile is not None and isinstance(p.logfile, basestring) and os.path.exists(p.logfile):
+                    if p.logfile is not None and isinstance(p.logfile, str) and os.path.exists(p.logfile):
                         logging.debug("Removing log file: %s" % (p.logfile))
                         os.remove(p.logfile)
 
@@ -379,17 +379,17 @@ class ProcessWrapper(object):
         return " | ".join([p.to_bash() for p in self.processes])
 
 def _prepare_input(input):
-    if isinstance(input, basestring):
+    if isinstance(input, str):
         return open(input, 'rb')
-    if isinstance(input, file):
+    if isinstance(input, IOBase):
         return input
     return None
 
 
 def _prepare_output(output):
-    if isinstance(output, basestring):
+    if isinstance(output, str):
         return output
-    if isinstance(output, file):
+    if isinstance(output, IOBase):
         if output.name is not None and output.name is not "<fdopen>":
             output.close()
             return output.name

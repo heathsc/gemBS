@@ -666,7 +666,7 @@ class RunBasicStats(object):
         #1. PLOT BUILDING
         histogram_template_len = self.mapping_stats.read_insert_size_histogram
         
-        for insert_size_length,reads in histogram_template_len.iteritems():
+        for insert_size_length,reads in histogram_template_len.items():
             iSizeList.append(int(insert_size_length))
             readsList.append(int(reads))
             
@@ -699,7 +699,7 @@ class RunBasicStats(object):
             histogram_template_len = laneStats.read_insert_size_histogram
             sizeList  = []
             readList = []
-            for insert_size_length,reads in histogram_template_len.iteritems():
+            for insert_size_length,reads in histogram_template_len.items():
                 sizeList.append(int(insert_size_length))
                 readList.append(int(reads))
                 

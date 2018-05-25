@@ -1,16 +1,87 @@
 #!/usr/bin/env python
 """gemBS commands"""
 import argparse
-import utils
-import production
 import pkg_resources
 import os
 import sys
-from sys import exit
 
-import gemBS
+from .utils import CommandException
+from .production import *
 
-__VERSION__ = "2.1.0"
+__VERSION__ = "3.0.0"
+
+LOG_NOTHING = 1
+LOG_STDERR = 2
+LOG_FORMAT = '%(asctime)-15s %(levelname)s: %(message)s'
+# add custom log level
+LOG_GEMBS = logging.WARNING
+logging.addLevelName(LOG_GEMBS, "")
+logging.basicConfig(format=LOG_FORMAT, level=logging.WARNING)
+
+gemBS_logger = logging.getLogger("gemBS")
+gemBS_logger.propagate = 0
+gemBS_logger.setLevel(LOG_GEMBS)
+
+def log_gemBS(message, *args, **kws):
+    gemBS_logger.log(LOG_GEMBS, message, *args, **kws)
+
+
+gemBS_logger.gt = log_gemBS
+logging.gemBS = gemBS_logger
+
+class GemBSFormatter(logging.Formatter):
+    info_fmt = "%(message)s"
+
+    def __init__(self, fmt="%(levelno)s: %(msg)s"):
+        logging.Formatter.__init__(self, fmt)
+        
+    def format(self, record):
+        format_orig = self._fmt
+        if record.levelno == LOG_GEMBS:
+            self._fmt = GemBSFormatter.info_fmt
+        result = logging.Formatter.format(self, record)
+        self._fmt = format_orig
+        return result
+
+gemBS_formatter = GemBSFormatter('%(levelname)s: %(message)s')
+
+console = logging.StreamHandler()
+console.setLevel(logging.DEBUG)
+console.setFormatter(gemBS_formatter)
+gemBS_logger.addHandler(console)
+logging.gemBS.level = logging.WARNING
+
+# default logger configuration
+log_output = LOG_NOTHING
+
+def loglevel(level):
+    """Simple way to set the current log level globally for the root logger.
+    Accepts either 'debug','info','warning', 'error'
+
+    Log levels debug also ensures executable output is written to stderr
+
+    level -- one of debug, info, warn, error
+    """
+    global log_output
+    numeric_level = level
+    if isinstance(level, str):
+        numeric_level = getattr(logging, level.upper(), None)
+
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: %s' % loglevel)
+
+    logging.basicConfig(level=numeric_level)
+    logging.getLogger().setLevel(numeric_level)
+    logging.gemBS.level = numeric_level
+
+
+# cleanup functions
+def _cleanup_on_shutdown():
+    terminate_processes()
+
+
+import atexit
+atexit.register(_cleanup_on_shutdown)
 
 def gemBS_main():
     try:
@@ -32,18 +103,18 @@ def gemBS_main():
             os.environ["PATH"] = path
 
         commands = {
-            "prepare-config" : production.PrepareConfiguration,            
-            "index" : production.Index,
-            "mapping-commands" : production.MappingCommands,
-            "mapping" : production.Mapping,
-            "merging" : production.Merging,
-            "methylation-call" : production.MethylationCall,
-            "methylation-filtering": production.MethylationFiltering,
-            "bscall" : production.BsCall,
-            "bscall-concatenate" : production.BsCallConcatenate,
-            "bsMap-report" : production.MappingReports,
-            "variants-report" : production.VariantsReports,
-            "cpg-bigwig" : production.CpgBigwig
+            "prepare-config" : PrepareConfiguration,            
+            "index" : Index,
+            "mapping-commands" : MappingCommands,
+            "mapping" : Mapping,
+            "merging" : Merging,
+            "methylation-call" : MethylationCall,
+            "methylation-filtering": MethylationFiltering,
+            "bscall" : BsCall,
+            "bscall-concatenate" : BsCallConcatenate,
+            "bsMap-report" : MappingReports,
+            "variants-report" : VariantsReports,
+            "cpg-bigwig" : CpgBigwig
         }
         instances = {}
 
@@ -56,12 +127,12 @@ def gemBS_main():
 
         args = parser.parse_args()
         if args.loglevel is not None:
-            gemBS.loglevel(args.loglevel)
+            loglevel(args.loglevel)
         else:
         		sys.tracebacklimit = 0
         try:
             instances[args.command].run(args)
-        except utils.CommandException, e:
+        except CommandException as e:
             sys.stderr.write("%s\n" % (str(e)))
             exit(1)
     except KeyboardInterrupt:
@@ -70,4 +141,4 @@ def gemBS_main():
         pass
 
 if __name__ == "__main__":
-    gemBS()
+    gemBS_main()

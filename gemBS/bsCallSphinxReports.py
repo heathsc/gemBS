@@ -5,7 +5,7 @@ Created on Tue Dec 19 12:11:17 2017
 @author: marcos
 """
 
-from sphinx import ConfigSphinx
+from .sphinx import ConfigSphinx
 
 class SphinxBsCallReport(object):
     """ Basic Methods for BsCall Reports """
