@@ -16,7 +16,7 @@ From: ubuntu:bionic   # This is a comment
     (cd /usr/local/bin; \
     wget http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/wigToBigWig \
     && chmod 755 wigToBigWig)
-    pip install numpy matplotlib configparser multiprocess
+    pip install numpy matplotlib configparser multiprocess threading
     mkdir /usr/local/build; cd /usr/local/build
 	 git clone --recursive https://github.com/heathsc/gemBS.git -b development
     (cd gemBS; python setup.py install)
