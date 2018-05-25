@@ -783,9 +783,10 @@ class SampleHtml(BasicHtml):
         #2. Lane Stats and links per lane
         vLaneLinksVector = []
         for laneStats in self.mapping_stats.list_lane_stats:
-            htmlLane = "%s/%s.html" %(os.path.dirname(self.html_parent_path),laneStats.name)
-            mapqHistogram = "%s/%s.mapq.png" %(os.path.dirname(self.html_parent_path),laneStats.name)
-            isizeHistogram = "%s/%s.isize.png" %(os.path.dirname(self.html_parent_path),laneStats.name)
+            cdir = os.path.dirname(self.html_parent_path)
+            htmlLane = os.path.join(cdir,"{}.html".format(laneStats.name))
+            mapqHistogram = os.path.join(cdir,"{}.mapq.png".format(laneStats.name))
+            isizeHistogram = os.path.join(cdir,"{}.isize.png".format(laneStats.name))
             vLaneHtml = []
             laneHtml = LaneHtml(project_name=self.project_name,sample_name=self.mapping_stats.name,lane_stats=laneStats,png_mapq_histogram=mapqHistogram,png_insert_size_histogram=isizeHistogram,html_parent_path=self.html_sample)
             laneHtml.run(vLaneHtml)
@@ -872,9 +873,8 @@ class IndexHtml(BasicHtml):
         
         self.output_dir = output_dir
         self.name_project = name_project
-        self.project_html_document = "%s/%s.html" %(self.output_dir,self.name_project)
+        self.project_html_document = os.path.join(self.output_dir,"{}.html".format(self.name_project))
         self.vector_samples = vector_samples
-        
         
     def run(self,vectorHtml=None):
         """ Run Lane HTML Documentation Building
@@ -889,9 +889,9 @@ class IndexHtml(BasicHtml):
         vector_sample_links = []
         
         for sampleStats in self.vector_samples:
-            sampleHtml = "%s/%s.html" %(self.output_dir,sampleStats.name)
-            isizeHistogram = "%s/%s.isize.png" %(self.output_dir,sampleStats.name)
-            png_mapq_histogram = "%s/%s.mapq.png" %(self.output_dir,sampleStats.name)
+            sampleHtml = os.path.join(self.output_dir,"{}.html",format(sampleStats.name))
+            isizeHistogram = os.path.join(self.output_dir,"{}.isize.png",format(sampleStats.name))
+            png_mapq_histogram = os.path.join(self.output_dir,"{}.mapq.png",format(sampleStats.name))
             sampleReport = SampleHtml(project_name=self.name_project,sample_stats=sampleStats,html_parent_path=self.project_html_document,\
                                       html_sample=sampleHtml,png_insert_size_histogram=isizeHistogram,png_mapq_histogram=png_mapq_histogram)
             vSampleHtml = []
@@ -940,4 +940,4 @@ def buildReport(inputs=None,output_dir=None,name=None):
     cssBuilder = BasicHtml()
     vector_css = []
     cssBuilder.buildStyleSheet(vector_css)
-    RunBasicStats.saveDocument(file_name="%s/style.css" %(output_dir),vectorContent=vector_css)
+    RunBasicStats.saveDocument(file_name=os.path.join(output_dir,"style.css"))

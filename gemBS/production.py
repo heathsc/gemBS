@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Production pipelines"""
+from __future__ import print_function
 import os
 import re
 import logging
@@ -9,7 +10,7 @@ from sys import exit
 import subprocess
 import threading as th
 
-from utils import Command, CommandException, makeFileName
+from utils import Command, CommandException
 from reportStats import LaneStats,SampleStats
 
 import gemBS
@@ -216,7 +217,7 @@ class Index(BasicPipeline):
                 self.name = m.group(1)
 
         if self.name.endswith('.gem'): self.name = self.name[:-4]
-        if args.output_dir: self.name = makeFileName(args.output_dir,self.name)
+        if args.output_dir: self.name = os.path.join(args.output_dir,self.name)
         self.index_base = self.name if self.name.endswith('.BS') else self.name + '.BS'
         self.log_parameter()
         
@@ -299,11 +300,11 @@ class MappingCommands(BasicPipeline):
                 if v.type in paired_types:
                     paired = True
             if paired:
-                print "gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s -p %s %s"\
-                       %(args.index,k,args.json_file,input_dir,output,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters)
+                print ("gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s -p %s %s"\
+                       %(args.index,k,args.json_file,input_dir,output,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters))
             else:
-                print "gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s %s %s"\
-                      %(args.index,k,args.json_file,input_dir,output,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters)
+                print ("gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s %s %s"\
+                      %(args.index,k,args.json_file,input_dir,output,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters))
             
         
 class Mapping(BasicPipeline):
@@ -419,7 +420,7 @@ class Mapping(BasicPipeline):
             if files:            
                 # If filenames were specified in configuration file then use them
                 if(ftype == 'PAIRED'):
-                    inputFiles = [makeFileName(input_dir,files['1']), makeFileName(input_dir,files['2'])]
+                    inputFiles = [os.path.join(input_dir,files['1']), makeFileName(input_dir,files['2'])]
                 else:
                     for k,v in files.iteritems():
                         if ftype is None:
@@ -429,7 +430,7 @@ class Mapping(BasicPipeline):
                                 ftype = 'SAM'
                             else:
                                 ftype = 'INTERLEAVED' if self.paired else 'SINGLE'
-                        inputFiles.append(makeFileName(input_dir,v))
+                        inputFiles.append(os.path.join(input_dir,v))
                         break
             else:
                 # Otherwise search in input directory for possible data files
@@ -465,9 +466,9 @@ class Mapping(BasicPipeline):
                     else:
                         if (ftype == None or ftype == 'PAIRED') and m1.group(4) in ['fastq', 'fq', 'fasta', 'fa']:
                             if m1.group(3) == '1' and m2.group(3) == '2':
-                                inputFiles = [makeFileName(input_dir,file1), makeFileName(input_dir,file2)]
+                                inputFiles = [os.path.join(input_dir,file1), os.path.join(input_dir,file2)]
                             elif m1.group(3) == '2' and m2.group(3) == '1':
-                                inputFiles = [makeFileName(input_dir,file2), makeFileName(input_dir,file1)]
+                                inputFiles = [os.path.join(input_dir,file2), os.path.join(input_dir,file1)]
                             self.ftype = 'PAIRED'
                             self.paired = True
 
@@ -541,7 +542,7 @@ class Merging(BasicPipeline):
             input_dir = self.input_dir
             if '@SAMPLE' in input_dir:
                 input_dir = input_dir.replace('@SAMPLE',sample)
-            fileBam = '{}/{}.bam'.format(input_dir,fli)
+            fileBam = os.path.join(input_dir,'{}.bam'.format(fli))
             self.records = self.records + 1
             if os.path.isfile(fileBam):
                 if sample not in self.samplesBams:
@@ -567,7 +568,7 @@ class Merging(BasicPipeline):
             logging.gemBS.gt("Merging process done!! Output files generated:")
             for sample,outputBam  in ret.iteritems():
                 logging.gemBS.gt("%s: %s" %(sample, outputBam))
-                            
+
 class MethylationCall(BasicPipeline):
     title = "Methylation Calling"
     description = """Performs a methylation calling from a bam aligned file.
@@ -576,8 +577,8 @@ class MethylationCall(BasicPipeline):
                      command.
                   """
     def membersInitiation(self):
-        self.species = "HomoSapiens"
-        self.chroms = "chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22 chrX chrY chrM"
+        self.species = None
+        self.chroms = None
 
                                    
     def register(self, parser):
@@ -616,24 +617,19 @@ class MethylationCall(BasicPipeline):
         self.qual_threshold = self.jsonData.check(section='calling',key='qual_threshold',arg=args.qual_threshold)
         self.left_trim = self.jsonData.check(section='calling',key='left_trim',arg=args.left_trim,default='5')
         self.right_trim = self.jsonData.check(section='calling',key='right_trim',arg=args.right_trim,default='0')
-
-        self.fasta_reference = args.fasta_reference 
-        self.species = args.species
-        self.input_dir = args.path_bam
-        self.right_trim = args.right_trim
-        self.left_trim = args.left_trim
-        self.json_file = args.json_file
-        self.output_dir = args.output_dir  
+        self.ref_bias = self.jsonData.check(section='calling',key='reference_bias',arg=args.reference_bias)
+        self.keep_unmatched = self.jsonData.check(section='calling',key='keep_improper_pairs',arg=args.keep_unmatched,boolean=True)
+        self.keep_duplicates = self.jsonData.check(section='calling',key='keep_duplicates',arg=args.keep_duplicates,boolean=True)
+        self.haploid = self.jsonData.check(section='calling',key='haploid',arg=args.haploid,boolean=True)
+        self.species = self.jsonData.check(section='calling',key='species',arg=args.species)
+        self.conversion = self.jsonData.check(section='calling',key='conversion',arg=args.conversion)
+        self.input_dir = self.jsonData.check(section='calling',key='merged_bam_dir',arg=args.input_dir,dir_type=True)
+        self.output_dir = self.jsonData.check(section='calling',key='cpg_dir',arg=args.output_dir,dir_type=True)
+        self.fasta_reference = self.jsonData.check(section='calling',key='reference',arg=args.reference)
+        args.mapping_json = self.jsonData.check(section='calling',key='bam_dir',arg=args.mapping_json,dir_type=True)
         self.paired = args.paired_end
-        self.keep_unmatched = args.keep_unmatched
-        self.keep_duplicates = args.keep_duplicates
+
         self.dbSNP_index_file = args.dbSNP_index_file
-        self.mapq_threshold = args.mapq_threshold
-        self.bq_threshold = args.mapq_threshold
-        self.haploid = args.haploid
-        self.conversion = args.conversion
-        self.ref_bias = args.ref_bias
-        self.jobs = args.jobs
         self.list_chroms = []
         self.sample_conversion = {}
 
@@ -643,7 +639,7 @@ class MethylationCall(BasicPipeline):
             else:
                 sample_lane_files = {}
                 for k,v in JSONdata(args.json_file).sampleData.iteritems():
-                    fileJson = "%s/%s.json" %(args.mapping_json,v.getFli())
+                    fileJson = os.path.join(args.mapping_json,"{}.json".format(v.getFli()))
                     if os.path.isfile(fileJson):
                         if v.sample_barcode not in sample_lane_files: 
                             newFli = {}
@@ -690,8 +686,8 @@ class MethylationCall(BasicPipeline):
             self.list_chroms = args.list_chroms          
         
         #Check fasta existance
-        if not os.path.isfile(args.fasta_reference):
-            raise CommandException("Sorry path %s was not found!!" %(args.fasta_reference))
+        if not os.path.isfile(self.fasta_reference):
+            raise CommandException("Sorry path %s was not found!!" %(self.fasta_reference))
         
         #Check input bam existance
         self.sampleBam = {}
@@ -794,7 +790,7 @@ class MethylationFiltering(BasicPipeline):
         if args.bcf_file == None:
             if args.path_bcf != None and args.json_file != None:
                 for k,v in JSONdata(args.json_file).sampleData.iteritems():
-                    bcf = "{}/{}.raw.bcf".format(self.path_bcf,v.sample_barcode)
+                    bcf = os.path.join(self.path_bcf,"{}.raw.bcf".format(v.sample_barcode))
                     if v.sample_barcode not in self.bcf_list:
                         if os.path.isfile(bcf):
                             self.bcf_list.append(v.sample_barcode)
@@ -823,7 +819,7 @@ class MethylationFiltering(BasicPipeline):
                 self.do_filter(sample)
 
     def do_filter(self, sample):
-        bcf = "{}/{}.raw.bcf".format(self.path_bcf, sample)
+        bcf = os.path.join(self.path_bcf,"{}.raw.bcf".format(sample))
         self.bcf_file = bcf
         #Call methylation filtering
         ret = gemBS.methylationFiltering(bcfFile=bcf,output_dir=self.output_dir,name=sample,strand_specific=self.strand_specific,non_cpg=self.non_cpg,
@@ -1021,7 +1017,7 @@ class MappingReports(BasicPipeline):
         self.records = 0
         for k,v in JSONdata(args.json_file).sampleData.iteritems():
             self.records = self.records + 1
-            fileJson = "%s/%s.json" %(args.input_dir,v.getFli())
+            fileJson = os.path.join(args.input_dir,"{}.json".format(v.getFli()))
             if os.path.isfile(fileJson):
                 if v.sample_barcode not in self.sample_lane_files: 
                    newFli = {}
@@ -1164,7 +1160,7 @@ class CpgBigwig(BasicPipeline):
         if args.cpg_file == None:
             if args.path_cpg != None and args.json_file != None:
                 for k,v in JSONdata(args.json_file).sampleData.iteritems():
-                    cpg = "{}/{}_cpg.txt.gz".format(args.path_cpg,v.sample_barcode)
+                    cpg = os.path.join(args.path_cpg,"{}_cpg.txt.gz".format(v.sample_barcode))
                     tup = (v.sample_barcode, cpg)
                     if tup not in self.cpg_list:
                         if os.path.isfile(cpg):

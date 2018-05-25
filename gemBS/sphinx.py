@@ -785,8 +785,9 @@ class SampleSphinx(BasicSphinx):
                
         #9. Lane Stats and links per lane
         for laneStats in self.mapping_stats.list_lane_stats:
-            mapqHistogram = "%s/%s_mapq.png" %(os.path.dirname(self.sphinx_sample),laneStats.name)
-            isizeHistogram = "%s/%s_isize.png" %(os.path.dirname(self.sphinx_sample),laneStats.name)
+            cdir = os.path.dirname(self.sphinx_sample)
+            mapqHistogram = os.path.join(cdir,"{}_mapq.png".format(laneStats.name))
+            isizeHistogram = os.path.join(cdir,"{}_isize.png".format(laneStats.name))
             laneSphinx = LaneSphinx(project_name=self.project_name,sample_name=self.mapping_stats.name,lane_stats=laneStats,png_mapq_histogram=mapqHistogram,png_insert_size_histogram=isizeHistogram)
             laneSphinx.run(vectorSphinx,ident=0,lenCell=45)
             
@@ -840,7 +841,7 @@ class SumupSphinx(BasicSphinx):
         
         self.output_dir = output_dir
         self.name_project = name_project
-        self.project_sphinx_document = "%s/%s.rst" %(self.output_dir,self.name_project)
+        self.project_sphinx_document = os.path.join(self.output_dir,self.name_project)
         self.vector_samples = vector_samples
                 
     def run(self,vectorSphinx=None):
@@ -856,10 +857,11 @@ class SumupSphinx(BasicSphinx):
           
         #2. Create Sample and lanes Report 
         for sampleStats in self.vector_samples:
-            sampleSphinx = "%s/%s.rst" %(self.output_dir,sampleStats.name)
+            sampleSphinx = os.path.join(self.output_dir,sampleStats.name)
             vectorDocuments.append("%s" %(sampleStats.name))
-            isizeHistogram = "%s/%s_isize.png" %(os.path.dirname(self.output_dir),sampleStats.name)
-            png_mapq_histogram = "%s/%s_mapq.png" %(os.path.dirname(self.output_dir),sampleStats.name)
+            cdir = os.path.dirname(self.output_dir)
+            isizeHistogram = os.path.join(cdir, "{}_isize.png".format(sampleStats.name))
+            png_mapq_histogram = os.path.join(cdir, "{}_mapq.png".format(sampleStats.name))
             sampleReport = SampleSphinx(project_name=self.name_project,sample_stats=sampleStats,sphinx_sample=sampleSphinx,\
                                         png_insert_size_histogram=isizeHistogram,png_mapq_histogram=png_mapq_histogram)
             vSampleSphinx = []
@@ -867,7 +869,7 @@ class SumupSphinx(BasicSphinx):
             RunBasicStats.saveDocument(file_name=sampleSphinx,vectorContent=vSampleSphinx)
 
         #3. Sumup Table  
-        sumupTable = "%s/SUMUP.rst" %(self.output_dir)  
+        sumupTable = os.path.join(self.output_dir, "SUMUP.rst")
         vectorSummary = []
         #2.1 Create Summary Table 
         self.addTopSection(ident=0,vectorSphinx=vectorSummary,title="Sample Sumup")
@@ -1055,6 +1057,6 @@ def buildReport(inputs=None,output_dir=None,name=None):
     RunBasicStats.saveDocument(file_name=sumupSphinx.project_sphinx_document,vectorContent=vector_sumup_sphinx)
     
     #Config python file
-    cfgFile = ConfigSphinx(path_config_file="%s/conf.py" %(output_dir),path_makefile_file="%s/Makefile" %(output_dir),master_file=name,project_name=name)
+    cfgFile = ConfigSphinx(path_config_file=os.path.join(output_dir,"conf.py"),path_makefile_file=os.path.join(output_dir,"Makefile"),master_file=name,project_name=name)
     cfgFile.run()
     

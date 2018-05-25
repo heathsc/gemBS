@@ -6,7 +6,7 @@ to start external processes
 In addition, the utilities class currently hosts
 the command environment. 
 """
-
+from __future__ import print_function
 import os
 
 import subprocess
@@ -216,7 +216,7 @@ class Process(object):
 
         logging.debug("Starting subprocess")
 
-        print " ".join(self.commands)
+        print (" ".join(self.commands))
 
         self.process = subprocess.Popen(self.commands, stdin=stdin, stdout=stdout, stderr=stderr, env=self.env, close_fds=False)
 
@@ -366,7 +366,7 @@ class ProcessWrapper(object):
             if isinstance(e, OSError) and e.errno == 10:
                 pass
             else:
-                print "An error occured while waiting for one the child processes:", e
+                print ("An error occured while waiting for one the child processes:", e)
                 self.exit_value = 1
         finally:
             if not self.keep_logfiles:
@@ -448,10 +448,3 @@ def uniqueList(seq):
     seen_add = seen.add
     return [ x for x in seq if not (x in seen or seen_add(x))]
 
-def makeFileName(dirname, filename):
-    """
-    Makes a filename by forming dirname + '/' + filename 
-    except when filename starts with a '/', in which case
-    it is not modified
-    """
-    return dirname.rstrip('/') + '/' + filename if filename[0] != '/' else filename
