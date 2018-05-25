@@ -109,14 +109,64 @@ def _prepare_index_parameter(index):
             raise IOError("Bisulphite Index file not found : %s" % file_name)
 
     return index
-    
+
+class ReadIter():
+    def __init__(self, filename = None, parent = None):
+        self.fp = open(filename, "r")
+        self.daughter = None
+        self.parent = parent
+        self.filename = filename
+        self.reg = re.compile("[^#]*include\s+(.*)")
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.daughter:
+            try:
+                line = self.daughter.__next__()
+                return line
+            except StopIteration:
+                self.daughter = None
+
+        while True:
+            line = self.fp.__next__()
+            m = self.reg.match(line)
+            if m:
+                name = m.group(1).rstrip('\n').strip('\"')
+                self.check_file_not_visited(name)
+                self.daughter = ReadIter(name, self)
+                try:
+                    line = self.daughter.__next__()
+                    return line
+                except StopIteration:
+                    self.daughter = None
+            else:
+                break
+        return line
+
+    def check_file_not_visited(self, name):
+        if self.parent:
+            self.parent.check_file_not_visited(name)
+        if os.path.samefile(name, self.filename):
+            raise ValueError("Include file loop - file {} visited twice".format(name))
+
+class ConfigExtParser(ConfigParser):
+
+    def __init__(self):
+        ConfigParser.__init__(self, interpolation=ExtendedInterpolation(), strict=False)
+
+    def read(self, filename):
+        iter = ReadIter(filename)
+        ConfigParser.read_file(self, iter, filename)
+
 def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None,configFile=None):
     """ Creates a configuration JSON file.
         From a metadata text file or a json coming from lims
     """
     generalDictionary = {}
     if configFile is not None:
-        config = ConfigParser(interpolation=ExtendedInterpolation())
+        config = ConfigExtParser()
         config.read(configFile)
         config_dict = {}
         def_dict = {}
@@ -582,7 +632,7 @@ class MethylationCallIter:
     def __iter__(self):
         return  self
 
-    def next(self):
+    def __next__(self):
         sample_list = self.sample_bam.keys()
         if self.sample_ix >= len(sample_list):
             s = self.check()
@@ -644,7 +694,7 @@ class MethylationCallThread(th.Thread):
         while True:
             self.lock.acquire()
             try:
-                (sample, input_bam, chrom) = self.methIter.next()
+                (sample, input_bam, chrom) = self.methIter.__next__()
                 self.lock.release()
             except StopIteration:
                 self.lock.release()
