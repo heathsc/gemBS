@@ -11,11 +11,11 @@ import pkg_resources
 import threading as th
 import tempfile
 import csv
-from configparser import ConfigParser
-from configparser import ExtendedInterpolation
+# from configparser import ConfigParser
+# from configparser import ExtendedInterpolation
 
 from .utils import terminate_processes
-
+from .parser import gembsConfigParse
 import json
 
 import gzip
@@ -110,79 +110,25 @@ def _prepare_index_parameter(index):
 
     return index
 
-class ReadIter():
-    def __init__(self, filename = None, parent = None):
-        self.fp = open(filename, "r")
-        self.daughter = None
-        self.parent = parent
-        self.filename = filename
-        self.reg = re.compile("[^#]*include\s+(.*)")
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        if self.daughter:
-            try:
-                line = self.daughter.__next__()
-                return line
-            except StopIteration:
-                self.daughter = None
-
-        while True:
-            line = self.fp.__next__()
-            m = self.reg.match(line)
-            if m:
-                name = m.group(1).rstrip('\n').strip('\"')
-                self.check_file_not_visited(name)
-                self.daughter = ReadIter(name, self)
-                try:
-                    line = self.daughter.__next__()
-                    return line
-                except StopIteration:
-                    self.daughter = None
-            else:
-                break
-        return line
-
-    def check_file_not_visited(self, name):
-        if self.parent:
-            self.parent.check_file_not_visited(name)
-        if os.path.samefile(name, self.filename):
-            raise ValueError("Include file loop - file {} visited twice".format(name))
-
-class ConfigExtParser(ConfigParser):
-
-    def __init__(self):
-        ConfigParser.__init__(self, interpolation=ExtendedInterpolation(), strict=False)
-
-    def read(self, filename):
-        iter = ReadIter(filename)
-        ConfigParser.read_file(self, iter, filename)
-
 def prepareConfiguration(text_metadata=None,lims_cnag_json=None,jsonOutput=None,configFile=None):
     """ Creates a configuration JSON file.
         From a metadata text file or a json coming from lims
     """
     generalDictionary = {}
     if configFile is not None:
-        config = ConfigExtParser()
+        config = gembsConfigParse()
         config.read(configFile)
         config_dict = {}
         def_dict = {}
-        for key,val in config['DEFAULT'].items():
+        for key,val in config['default'].items():
             def_dict[key] = val
         config_dict['DEFAULT'] = def_dict
-        sections = ['DEFAULT', 'mapping', 'calling', 'filtering', 'bigwig', 'index']
-        for sect in config:
-            if sect in sections:
-                if sect != 'DEFAULT':
-                    config_dict[sect] = {}
-                    for key,val in config[sect].items():
-                        if not (key in def_dict and def_dict[key] == val):
-                            config_dict[sect][key] = val
-            else:
-                logging.warning("Config section '{}' not known, skipping".format(sect))
+        sections = ['mapping', 'calling', 'filtering', 'bigwig', 'index']
+        for sect in sections:
+            config_dict[sect] = {}
+            if sect in config:
+                for key,val in config[sect].items():
+                    config_dict[sect][key] = val
         generalDictionary['config'] = config_dict        
     if text_metadata is not None:
         #Parses Metadata coming from text file
