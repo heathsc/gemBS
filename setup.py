@@ -89,36 +89,48 @@ def _install_bundle(install_dir):
         shutil.copy(os.path.join("tools/gem3-mapper/bin", file), gemBSbin_dir)
         os.chmod(gemBSbin_dir, 0o755)
 
-    # copy samtools and bcftools
+
+    # copy samtools, bcftools and config files
     bin_dir = os.path.join(install_dir, "bin")
     lib_dir = os.path.join(install_dir, "lib")
-    plugins_dir = os.path.join(install_dir, "libexec/bcftools")
-    for dir in [bin_dir, lib_dir, plugins_dir]:
+    plugins_dir = os.path.join(install_dir, "libexec","bcftools")
+    config_dir = os.path.join(install_dir, "etc","gemBS_configs")
+    for dir in [bin_dir, lib_dir, plugins_dir, config_dir]:
         if not os.path.exists(dir):
             os.makedirs(dir)
     if os.path.exists("tools/samtools/samtools"):
         print ("Copy binary: samtools to {}".format(bin_dir))
         shutil.copy("tools/samtools/samtools", bin_dir)
+        os.chmod(os.path.join(bin_dir, "samtools"), 0o755)
     for htslib in glob.glob("tools/samtools/htslib*"):
         if os.path.isdir(htslib):
             for file in ["htsfile", "tabix", "bgzip"]:
                 if os.path.exists(os.path.join(htslib,file)):
                     print ("Copy binary: {} to {}".format(file, bin_dir))
                     shutil.copy(os.path.join(htslib,file), bin_dir)
+                    os.chmod(os.path.join(bin_dir, file), 0o755)
             for file in ["libhts.a", "libhts.so"]:
                 if os.path.exists(os.path.join(htslib,file)):
                     print ("Copy library: {} to {}".format(file, lib_dir))
                     shutil.copy(os.path.join(htslib,file), lib_dir)
-                    
-            
+                    os.chmod(os.path.join(lib_dir, file), 0o755)
+                                
     if os.path.exists("tools/bcftools/bcftools"):
         print ("Copy binary: bcftools to {}".format(bin_dir))
         shutil.copy("tools/bcftools/bcftools", bin_dir)
+        os.chmod(os.path.join(bin_dir, "bcftools"), 0o755)
     plugins = [x for x in glob.glob("tools/bcftools/plugins/*.so")]
     for file in plugins:
         print ("Copy plugin: {} to {}".format(file, plugins_dir))
         shutil.copy(file, plugins_dir)
+        os.chmod(os.path.join(plugins_dir,os.path.basename(file)), 0o755)
 
+    files = [x for x in os.listdir("gemBS/etc/gemBS_configs")]
+    for file in files:
+        print ("Copy {} to {}".format(file, config_dir))
+        shutil.copy(os.path.join("gemBS/etc/gemBS_configs",file), config_dir)
+        os.chmod(os.path.join(config_dir, file), 0o644)
+        
 # hack the setup tools installation
 class install(_install):
 
@@ -135,9 +147,6 @@ class build_py(_build_py):
     
     def run(self):
         compile_gemBS_tools()
-        parent_dir = os.path.split(os.path.abspath(__file__))[0]
-        target_dir = os.path.join(parent_dir, "gemBS")
-        _install_bundle(target_dir)
         _build_py.run(self)
 
 class install_lib(_install_lib):

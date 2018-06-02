@@ -103,7 +103,7 @@ def gemBS_main():
             os.environ["PATH"] = path
 
         commands = {
-            "prepare-config" : PrepareConfiguration,            
+            "prepare" : PrepareConfiguration,            
             "index" : Index,
             "mapping-commands" : MappingCommands,
             "mapping" : Mapping,

@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """Production pipelines"""
-from __future__ import print_function
 import os
 import re
+import fnmatch
 import logging
 import json
 import sys
@@ -16,69 +16,6 @@ from .report import *
 from .sphinx import *
 from .bsCallReports import *
 from .__init__ import *
-
-class Fli(object):
-    
-    def __init__(self):
-        #fli Members
-        self.fli = None
-        self.sample_barcode = None
-        self.library = None
-        self.type = None
-        self.file = None
-    def getFli(self):
-        #Get FLI (flowcell lane index)
-        return self.fli
-
-
-class JSONdata(object):
-    #Class to manage the flowcell lane index information of the project
-    def __init__(self,json_file=None):
-        self.json_file = json_file
-        self.sampleData = {}
-        self.config = {}
-
-        with open(self.json_file, 'r') as fileJson:
-            jsconfig = json.load(fileJson)
-            try:
-                conf = jsconfig['config']
-                defaults = conf['DEFAULT']
-                for sect in ['mapping', 'calling', 'filtering', 'bigwig', 'index', 'DEFAULT']:
-                    self.config[sect] = {}
-                    if sect in conf:
-                        for key,val in conf[sect].items():
-                            self.config[sect][key] = val
-                    for key,val in defaults.items():
-                        if not key in conf[sect]:
-                            self.config[sect][key] = val
-            except KeyError:
-                self.config = {}
-            data=jsconfig['sampleData']
-            for fli in data:
-                fliCommands = Fli()            
-                fliCommands.fli = fli
-                for key, value in data[fli].items():
-                    if key == "sample_barcode":
-                        fliCommands.sample_barcode = value    
-                    elif key == "library_barcode":
-                        fliCommands.library = value    
-                    elif key == "type":
-                        fliCommands.type = value
-                    elif key == "file":
-                        fliCommands.file = value
-
-                    self.sampleData[fli] = fliCommands
-
-    def check(self, section, key, arg, default=None, boolean=False, dir_type=False):
-        if not arg and key in self.config[section]:
-            ret = self.config[section][key]
-        else:
-            ret = default
-        if boolean:
-            ret = json.loads(ret.lower())
-        elif dir_type:
-            ret = ret.rstrip('/')
-        return ret
 
 class BasicPipeline(Command):
     """General mapping pipeline class."""
@@ -118,10 +55,14 @@ class BasicPipeline(Command):
 
 
 class PrepareConfiguration(Command):
-    title = "Prepare Configuration"
-    description = """ Creates a json configuration file to perform the different steps of the Bisulfite pipeline.
+    title = "Prepare"
+    description = """ Sets up pipeline directories and controls files.
                       
                       Input Files:
+
+                          Two files are required, one describing the data files and a configuration file with
+                          the analysis parameters.
+
                           Option 1: Simple text file, comma separated with 5 columns.
                           FORMAT: sample_id,library,flowcell,lane,index
                           
@@ -135,27 +76,24 @@ class PrepareConfiguration(Command):
                 
     def register(self, parser):
         ## required parameters
-        parser.add_argument('-t', '--text-metadata', dest="text_metadata", help="""Metadata configured in 5 columns text file. Comma separated values (CSV) file.
-                                                                                   FORMAT:  sample_id,library,flowcell,lane,index                                                                           
-                                                                                """,default=None)
-        parser.add_argument('-l', '--lims-cnag-json', dest="lims_cnag_json", help="""Lims Cnag subproject json file.""",default=None)
-        parser.add_argument('-c', '--config', dest="config", help="""Text config file with gemBS parameters.""",default=None)
-        parser.add_argument('-j', '--json', dest="json", help='JSON ouput file',required=True)
+        parser.add_argument('-t', '--text-metadata', dest="text_metadata", help="Sample metadata in csv file.  See documentation for description of file format.")
+        parser.add_argument('-l', '--lims-cnag-json', dest="lims_cnag_json", help="Lims Cnag subproject json file.")
+        parser.add_argument('-c', '--config', dest="config", help="""Text config file with gemBS parameters.""",required=True)
         
     def run(self,args):        
         #Try text metadata file
         if args.text_metadata is not None:
             if os.path.isfile(args.text_metadata):
-                prepareConfiguration(text_metadata=args.text_metadata,jsonOutput=args.json,configFile=args.config)
+                prepareConfiguration(text_metadata=args.text_metadata,configFile=args.config)
             else:
-                raise CommandException("Sorry!! File %s not found!" %(args.text_metadata))
+                raise CommandException("File %s not found" %(args.text_metadata))
         elif args.lims_cnag_json is not None:
             if os.path.isfile(args.lims_cnag_json):
-                prepareConfiguration(lims_cnag_json=args.lims_cnag_json,jsonOutput=args.json,configFile=args.config)
+                prepareConfiguration(lims_cnag_json=args.lims_cnag_json,configFile=args.config)
             else:
-                raise CommandException("Sorry!! File %s not found!" %(args.lims_cnag_json))
+                raise CommandException("File %s not found" %(args.lims_cnag_json))
         else:
-            raise CommandException("No input file inserted!!")
+            raise CommandException("No input file provided")
                     
      
 class Index(BasicPipeline):
@@ -168,73 +106,54 @@ class Index(BasicPipeline):
 
     def register(self, parser):
         ## required parameters
-        parser.add_argument('-i', '--input', dest="input", help='Path to a single fasta reference genome file.')
-        parser.add_argument('-o', '--output_dir', dest="output_dir", help='Directory for output files')
-        parser.add_argument('-n', '--name', dest="name", help='Base name for index files')
-        parser.add_argument('-j', '--json', dest="json_file", metavar="JSON_FILE", help='JSON file configuration.')
-        parser.add_argument('-c', '--chrom-sizes', dest="chrom_sizes", help='Name for chrom sizes file')
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads. By default GEM indexer will use the maximum available on the system.',default=None)
         parser.add_argument('-s', '--sampling-rate', dest="sampling_rate", help='Text sampling rate.  Increasing will decrease index size at the expense of slower mapping performance.',default=None)
-        parser.add_argument('-d', '--list-dbSNP-files',dest="list_db_snp_files",nargs="+",metavar="FILES",
-                            help="List of dbSNP files (can be compressed) to create an index to later use it at the bscall step. The bed files should have the name of the SNP in column 4.",default=[],required=False)
-        parser.add_argument('-x', '--dbsnp-index', dest="dbsnp_index", help='dbSNP output index file name.',default="",required=False)
+        parser.add_argument('-d', '--list-dbSNP-files',dest="list_dbSNP_files",nargs="+",metavar="FILES",
+                            help="List of dbSNP files (can be compressed) to create an index to later use it at the bscall step. The bed files should have the name of the SNP in column 4.",default=[])
+        parser.add_argument('-x', '--dbsnp-index', dest="dbsnp_index", help='dbSNP output index file name.')
 
     def run(self, args):
-        if args.json_file:
-            jsonData = JSONdata(args.json_file)
-            args.input = jsonData.check(section='index',key='reference',arg=args.input)
-            args.output_dir = jsonData.check(section='index',key='reference_dir',arg=args.output_dir,dir_type=True)
-            args.name = jsonData.check(section='index',key='reference_base',arg=args.name)
-            args.chrom_sizes = jsonData.check(section='index',key='chrom_sizes_file',arg=args.chrom_sizes)
-            args.threads = jsonData.check(section='index',key='threads',arg=args.threads)
-            args.sampling_rate = jsonData.check(section='index',key='sampling_rate',arg=args.threads)
+        json_file = '.gemBS/gemBS.json'
+        jsonData = JSONdata(json_file)
+        db_name = '.gemBS/gemBS.db'
+        db = sqlite3.connect(db_name)
+        c = db.cursor()
+        db_data = {}
+        for fname, ftype, status in c.execute("SELECT * FROM indexing"):
+            db_data[ftype] = (fname, status)
+            print(ftype, fname, status)
 
-        if not args.input: raise ValueError('No input reference file specified for Index command')
+        fasta_input, fasta_input_ok = db_data['reference']
+        index_name, index_ok = db_data['index']
+        csizes, csizes_ok = db_data['contig_sizes']
+        self.threads = jsonData.check(section='index',key='threads',arg=args.threads)
+        args.sampling_rate = jsonData.check(section='index',key='sampling_rate',arg=args.sampling_rate)
+        args.list_dbSNP_files = jsonData.check(section='index',key='dbsnp_files',arg=args.list_dbSNP_files,default=[])
+        args.dbsnp_index = jsonData.check(section='index',key='dbsnp_index',arg=args.dbsnp_index,default=None)
+        if not fasta_input: raise ValueError('No input reference file specified for Index command')
 
-        self.input = args.input
-        self.threads = args.threads
-        self.list_dbSNP_files = args.list_db_snp_files
-        self.dbsnp_index = args.dbsnp_index
-        if len(self.list_dbSNP_files)>0:     
-            if self.dbsnp_index == "":
+        if len(args.list_dbSNP_files) > 0:     
+            if args.dbsnp_index == None:
                 raise CommandException("dbSNP Index file must be specified through --dbsnp-index parameter.")
         
-        if not os.path.exists(self.input):
-            raise CommandException("Input file not found : %s" % self.input)
-
-        self.name = args.name
-        if not self.name:
-            # No base name supplied so we derive it from input file
-            reg = re.compile("(.*)([.][^.]+)$")
-            self.name = os.path.basename(self.input)
-            m = reg.match(self.name)
-            if m and m.group(2).lower() in ['.gz','.xz','.bz2','.z']:
-                self.name = m.group(1)
-                m = reg.match(self.name)
-            if m and m.group(2).lower() in ['.fasta','.fa','.fna','.fn']:
-                self.name = m.group(1)
-
-        if self.name.endswith('.gem'): self.name = self.name[:-4]
-        if args.output_dir: self.name = os.path.join(args.output_dir,self.name)
-        self.index_base = self.name if self.name.endswith('.BS') else self.name + '.BS'
         self.log_parameter()
         
-        if os.path.exists(self.index_base + '.gem'):
-            logging.warning("Bisulphite Index {}.gem already exists, skipping indexing".format(self.index_base))
+        if index_ok == "OK":
+            logging.warning("Bisulphite Index {} already exists, skipping indexing".format(index_name))
         else:
             logging.gemBS.gt("Creating index")
-            ret = index(self.input, self.index_base, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=args.output_dir,list_dbSNP_files=self.list_dbSNP_files,dbsnp_index=self.dbsnp_index)
+            ret = index(fasta_input, index_name, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=os.path.dirname(index_name),list_dbSNP_files=args.list_dbSNP_files,dbsnp_index=args.dbsnp_index)
             if ret:
-                logging.gemBS.gt("Index done: %s.gem" %(ret))
+                logging.gemBS.gt("Index done: {}".format(index))
 
-        if args.chrom_sizes: self.chrom_sizes = args.chrom_sizes
-        else: self.chrom_sizes = self.name + '.chrom.sizes'
-        if os.path.exists(self.chrom_sizes):
-            logging.warning("Chromosome sizes file {} already exists, skipping indexing".format(self.chrom_sizes))
+        if csizes_ok == "OK":
+            logging.warning("Contig sizes file {} already exists, skipping indexing".format(csizes))
         else:
-            ret = makeChromSizes(self.index_base, self.chrom_sizes)
+            ret = makeChromSizes(index_name, csizes)
             if ret:
-                logging.gemBS.gt("Chromosome sizes file done: {}".format(ret))
+                logging.gemBS.gt("Contig sizes file done: {}".format(ret))
+                db_check_index(db, jsonData)
+                db_check_contigs(db, jsonData)
        
 class MappingCommands(BasicPipeline):
     title = "Show Mapping commands"
@@ -251,11 +170,8 @@ class MappingCommands(BasicPipeline):
         parser.add_argument('-p', '--paired-end', dest="paired_end", action="store_true", help="Input data is Paired End")
         parser.add_argument('-s', '--read-non-stranded', dest="read_non_stranded", action="store_true", 
                             help='Automatically selects the proper C->T and G->A read conversions based on the level of Cs and Gs on the read.') 
-        parser.add_argument('-n', '--underconversion-sequence', dest="underconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control unmethylated cytosines which fails to be\
-                             deaminated and thus appears to be Methylated.', default=None, required=False)
-        parser.add_argument('-v', '--overconversion-sequence', dest="overconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control methylated cytosines which are\
-                             deaminated and thus appears to be Unmethylated.', default=None, required=False)
-        
+        parser.add_argument('-n', '--underconversion-sequence', dest="underconversion_sequence", metavar="SEQUENCE", help='Name of negative control sequence for bisulfite conversion.', required=False)
+        parser.add_argument('-v', '--overconversion-sequence', dest="overconversion_sequence", metavar="SEQUENCE", help='Name of positive control sequence for bisulfite conversion.', required=False)        
         
     def run(self,args):
         from sets import Set
@@ -324,17 +240,16 @@ class Mapping(BasicPipeline):
  
     def register(self,parser):
         ## required parameters
-        parser.add_argument('-j', '--json', dest="json_file", metavar="JSON_FILE", help='JSON file configuration.', required=True)
-        parser.add_argument('-I', '--index', dest="index", metavar="index_file.BS.gem", help='Path to the Bisulfite Index Reference file.', required=False)
-        parser.add_argument('-f', '--fli', dest="fli", metavar="DATA_FILE", help='Data file/file pair to be mapped.', required=False)
-        parser.add_argument('-n', '--sample', dest="sample", metavar="DATA_FILE", help='Sample to be mapped.', required=False)
+#        parser.add_argument('-j', '--json', dest="json_file", metavar="JSON_FILE", help='JSON file configuration.', required=True)
+#        parser.add_argument('-I', '--index', dest="index", metavar="index_file.BS.gem", help='Path to the Bisulfite Index Reference file.', required=False)
+        parser.add_argument('-f', '--fli', dest="fli", metavar="DATA_FILE", help='Data file ID to be mapped.', required=False)
+        parser.add_argument('-n', '--sample', dest="sample", metavar="SAMPLE", help='Sample to be mapped.', required=False)
         parser.add_argument('-i', '--input-dir', dest="input_dir", metavar="PATH", help='Directory where is located input data. FASTQ, FASTA, SAM or BAM format.', required=False)
         parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH", help='Directory to store Bisulfite mapping results. Default: .')
         parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", help='Temporary folder to perform sorting operations. Default: /tmp')      
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads to perform sorting operations. Default %s' %self.threads)
         parser.add_argument('-T', '--type', dest="ftype", help='Type of data file (PAIRED, SINGLE, INTERLEAVED, STREAM, BAM)')
         parser.add_argument('-p', '--paired-end', dest="paired_end", action="store_true", help="Input data is Paired End")
-        parser.add_argument('-F', '--force', dest="force", action="store_true", help="Force command even if output file exists")
         parser.add_argument('-s', '--read-non-stranded', dest="read_non_stranded", action="store_true", 
                               help='Automatically selects the proper C->T and G->A read conversions based on the level of Cs and Gs on the read.')     
         parser.add_argument('-u', '--underconversion-sequence', dest="underconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control unmethylated cytosines which fails to be\
@@ -361,12 +276,21 @@ class Mapping(BasicPipeline):
         self.ftype = args.ftype
 
         # JSON data
-        self.jsonData = JSONdata(args.json_file)
+        json_file = '.gemBS/gemBS.json'
+        self.jsonData = JSONdata(json_file)
+        db_name = '.gemBS/gemBS.db'
+        self.db = sqlite3.connect(db_name)
+        db_check_index(self.db, self.jsonData)
+        c = self.db.cursor()
+        c.execute("SELECT file, status FROM indexing WHERE type = 'index'")
+        index_name, status = c.fetchone()
+        if status != 'OK':
+            raise CommandException("GEM Index {} not found.  Run 'gemBS index' or correct configuration file and rerun".format(index_name)) 
+        db_check_mapping(self.db, self.jsonData)
 
         self.paired_end = args.paired_end
         self.name = args.sample
-        self.index = self.jsonData.check(section='mapping',key='gem_index',arg=args.index)
-        if not self.index: raise ValueError("No GEM Index file supplied for mapping operation")
+        self.index = index_name
         self.input_dir = self.jsonData.check(section='mapping',key='sequence_dir',arg=args.input_dir,dir_type=True,default='.')
         self.tmp_dir = self.jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,default='/tmp',dir_type=True)
         self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
@@ -374,26 +298,43 @@ class Mapping(BasicPipeline):
         self.output_dir = self.jsonData.check(section='mapping',key='bam_dir',arg=args.output_dir,default='.',dir_type=True)
         self.underconversion_sequence = self.jsonData.check(section='mapping',key='underconversion_sequence',arg=args.underconversion_sequence)
         self.overconversion_sequence = self.jsonData.check(section='mapping',key='overconversion_sequence',arg=args.overconversion_sequence)
-        #Force flag
-        self.force_flag = args.force
 
         #Check Temp Directory
         if not os.path.isdir(self.tmp_dir):
             raise CommandException("Temporary directory %s does not exists or is not a directory." %(self.tmp_dir))
 
         if args.fli:
-            self.do_mapping(args.fli)
+            for fname, fl, smp, ftype, status in c.execute("SELECT * FROM mapping WHERE fileid = ? AND status = 0", (args.fli,)):
+                self.do_mapping(fl, fname)
+            
         else:
-            for fli,v in self.jsonData.sampleData.items():
-                if self.name and v.sample_barcode != self.name: continue
-                self.do_mapping(fli)
+            if args.sample:
+                ret = c.execute("SELECT * from mapping WHERE sample = ? AND status = 0", (args.sample,))
+            else:
+                ret = c.execute("SELECT * from mapping WHERE status = 0")
+            work_list = {}
+            for fname, fl, smp, ftype, status in ret:
+                if not smp in work_list:
+                    work_list[smp] = [None, []]
+                if ftype == 'MRG_BAM':
+                    work_list[smp][0] = fname
+                else:
+                    work_list[smp][1].append((fl, fname))
+                    print('AA',fl, fname, )
+            for smp, v in work_list.items():
+                for fl, fname in v[1]:
+                    print(fl, fname)
+                    self.do_mapping(fl, fname)
                     
-    def do_mapping(self, fli):
+    def do_mapping(self, fli, outfile):
         
         try:
             fliInfo = self.jsonData.sampleData[fli] 
         except KeyError:
             raise ValueError('Data file {} not found in config file'.format(fli))
+
+        sample = fliInfo.sample_barcode
+        input_dir = self.input_dir.replace('@SAMPLE',sample)
 
         #Paired
         self.paired = self.paired_end
@@ -402,12 +343,6 @@ class Mapping(BasicPipeline):
             if ftype == None: ftype = fliInfo.type 
             if ftype in self.paired_types: self.paired = True
 
-        input_dir = self.input_dir
-        if '@SAMPLE' in input_dir:
-            input_dir = input_dir.replace('@SAMPLE',fliInfo.sample_barcode)
-        output_dir = self.output_dir
-        if '@SAMPLE' in output_dir:
-            output_dir = output_dir.replace('@SAMPLE',fliInfo.sample_barcode)
         inputFiles = []
         
         # Find input files
@@ -476,16 +411,20 @@ class Mapping(BasicPipeline):
         self.curr_fli = fli
         self.curr_ftype = ftype
         self.inputFiles = inputFiles
-        self.curr_output_dir = output_dir
+        self.curr_output_dir = os.path.dirname(outfile)
         self.log_parameter()
 
         logging.gemBS.gt("Bisulfite Mapping...")
         ret = mapping(name=fli,index=self.index,fliInfo=fliInfo,inputFiles=inputFiles,ftype=ftype,
-                            read_non_stranded=self.read_non_stranded,force_flag=self.force_flag,
-                            outputDir=output_dir,paired=self.paired,tmpDir=self.tmp_dir,threads=self.threads,
+                            read_non_stranded=self.read_non_stranded,
+                            outfile=outfile,paired=self.paired,tmpDir=self.tmp_dir,threads=self.threads,
                             under_conversion=self.underconversion_sequence,over_conversion=self.overconversion_sequence) 
         
         if ret:
+            c = self.db.cursor()
+            c.execute("UPDATE mapping SET status = 1 WHERE fileid = ?", (fli,))
+            self.db.commit()
+            
             logging.gemBS.gt("Bisulfite Mapping done. Output File: %s" %(ret))
             
     def extra_log(self):
@@ -527,7 +466,7 @@ class Merging(BasicPipeline):
         config = self.jsonData.config['mapping']
 
         self.input_dir = self.jsonData.check(section='mapping',key='bam_dir',arg=args.input_dir,dir_type=True,default='.')
-        self.output_dir = self.jsonData.check(section='mapping',key='merged_bam_dir',arg=args.output_dir,default='.',dir_type=True)
+        self.output_dir = self.jsonData.check(section='mapping',key='bam_dir',arg=args.output_dir,default='.',dir_type=True)
         self.tmp_dir = self.jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,default='/tmp',dir_type=True)
 
         #Create Dictionary of samples and bam file        
@@ -537,9 +476,7 @@ class Merging(BasicPipeline):
             fli = v.getFli()
             sample = v.sample_barcode
             if args.sample_id and sample != args.sample_id: continue
-            input_dir = self.input_dir
-            if '@SAMPLE' in input_dir:
-                input_dir = input_dir.replace('@SAMPLE',sample)
+            input_dir = self.input_dir.replace('@SAMPLE',sample)
             fileBam = os.path.join(input_dir,'{}.bam'.format(fli))
             self.records = self.records + 1
             if os.path.isfile(fileBam):
@@ -584,23 +521,26 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.',required=True)
         parser.add_argument('-r','--fasta-reference',dest="fasta_reference",metavar="PATH",help="Path to the fasta reference file.")
         parser.add_argument('-e','--species',dest="species",metavar="SPECIES",default="HomoSapiens",help="Sample species name. Default: %s" %self.species)
-        parser.add_argument('-l','--list-chroms',dest="list_chroms",nargs="+",metavar="CHROMS",help="List of chromosomes to perform the methylation pipeline.")
+        parser.add_argument('-l','--contig-list',dest="contig_list",nargs="+",metavar="CONTIGS",help="List of contigs to perform the methylation pipeline.")
+        parser.add_argument('-L','--contig-sizes', dest="contig_sizes", help="""Contig Sizes Text File.
+                                                                                 Format: Two Columns: <contig name> <size in bases>""")
+        parser.add_argument('-O','--omit-contigs',dest="omit_contigs",nargs="+",metavar="CHROMS",help="List of contigs (or patterns) to omit.")
         parser.add_argument('-s','--sample-id',dest="sample_id",metavar="SAMPLE",help="Sample unique identificator")  
-        parser.add_argument('-p','--path-bam',dest="path_bam",metavar="PATH_BAM",help='Path where are stored sample BAM files.',default=None)
-        parser.add_argument('-q','--mapq-threshold', dest="mapq_threshold", type=int, default=None, help="Threshold for MAPQ scores")
-        parser.add_argument('-Q','--qual-threshold', dest="qual_threshold", type=int, default=None, help="Threshold for base quality scores")
+        parser.add_argument('-m','--contig-pool-limit',dest="contig_pool_limit",metavar="PATH_BAM",help='Contigs smaller than this will be cooled together.')
+        parser.add_argument('-p','--path-bam',dest="path_bam",metavar="PATH_BAM",help='Path where are stored sample BAM files.')
+        parser.add_argument('-q','--mapq-threshold', dest="mapq_threshold", type=int, help="Threshold for MAPQ scores")
+        parser.add_argument('-Q','--qual-threshold', dest="qual_threshold", type=int, help="Threshold for base quality scores")
         parser.add_argument('-g','--right-trim', dest="right_trim", metavar="BASES",type=int, help='Bases to trim from right of read pair, Default: 0')
         parser.add_argument('-f','--left-trim', dest="left_trim", metavar="BASES",type=int, help='Bases to trim from left of read pair, Default: 5')        
-        parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',default=None)
-        parser.add_argument('-d','--paired-end', dest="paired_end", action="store_true", default=False, help="Input data is Paired End")
+        parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.')
         parser.add_argument('-t','--threads', dest="threads", metavar="THREADS", help='Number of threads, Default: %s' %self.threads)
-        parser.add_argument('-P','--jobs', dest="jobs", default=1, type=int, help='Number of parallel jobs')
-        parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", default=False, help="Do not merge duplicate reads.")    
-        parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", default=False, help="Do not discard reads that do not form proper pairs.")
-        parser.add_argument('-1','--haploid', dest="haploid", action="store", default=False, help="Force genotype calls to be homozygous")
-        parser.add_argument('-C','--conversion', dest="conversion", default=None, help="Set under and over conversion rates (under,over)")
-        parser.add_argument('-J','--mapping-json',dest="mapping_json",help='Input mapping statistics JSON files',default=None)
-        parser.add_argument('-B','--reference_bias', dest="ref_bias", default=None, help="Set bias to reference homozygote")
+        parser.add_argument('-P','--jobs', dest="jobs", type=int, help='Number of parallel jobs')
+        parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", help="Do not merge duplicate reads.")    
+        parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", help="Do not discard reads that do not form proper pairs.")
+        parser.add_argument('-1','--haploid', dest="haploid", action="store", help="Force genotype calls to be homozygous")
+        parser.add_argument('-C','--conversion', dest="conversion", help="Set under and over conversion rates (under,over)")
+        parser.add_argument('-J','--mapping-json',dest="mapping_json",help='Input mapping statistics JSON files')
+        parser.add_argument('-B','--reference_bias', dest="ref_bias", help="Set bias to reference homozygote")
         parser.add_argument('-b','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.")
 
     def run(self,args):
@@ -609,26 +549,69 @@ class MethylationCall(BasicPipeline):
         # configuration data
         config = self.jsonData.config['calling']
 
+        self.json_file = args.json_file
         self.threads = self.jsonData.check(section='calling',key='threads',arg=args.threads,default='1')
-        self.jobs = self.jsonData.check(section='calling',key='jobs',arg=args.jobs,default='1')
+        self.jobs = self.jsonData.check(section='calling',key='jobs',arg=args.jobs,default=1,int_type=True)
         self.mapq_threshold = self.jsonData.check(section='calling',key='mapq_threshold',arg=args.mapq_threshold)
         self.qual_threshold = self.jsonData.check(section='calling',key='qual_threshold',arg=args.qual_threshold)
-        self.left_trim = self.jsonData.check(section='calling',key='left_trim',arg=args.left_trim,default='5')
-        self.right_trim = self.jsonData.check(section='calling',key='right_trim',arg=args.right_trim,default='0')
-        self.ref_bias = self.jsonData.check(section='calling',key='reference_bias',arg=args.reference_bias)
+        self.left_trim = self.jsonData.check(section='calling',key='left_trim',arg=args.left_trim,default='5',int_type=True)
+        self.right_trim = self.jsonData.check(section='calling',key='right_trim',arg=args.right_trim,default='0',int_type=True)
+        self.ref_bias = self.jsonData.check(section='calling',key='reference_bias',arg=args.ref_bias)
         self.keep_unmatched = self.jsonData.check(section='calling',key='keep_improper_pairs',arg=args.keep_unmatched,boolean=True)
         self.keep_duplicates = self.jsonData.check(section='calling',key='keep_duplicates',arg=args.keep_duplicates,boolean=True)
         self.haploid = self.jsonData.check(section='calling',key='haploid',arg=args.haploid,boolean=True)
         self.species = self.jsonData.check(section='calling',key='species',arg=args.species)
+        self.contig_pool_limit = self.jsonData.check(section='calling',key='contig_pool_limit',default=25000000,int_type=True, arg=args.contig_pool_limit)
+        self.contig_sizes = self.jsonData.check(section='bigwig',key='contig_sizes',arg=args.contig_sizes)
+        self.contig_list = self.jsonData.check(section='calling',key='contig_list',arg=args.contig_list,list_type=True)
+        self.omit_contigs = self.jsonData.check(section='calling',key='omit_contigs',arg=args.omit_contigs,list_type=True)
         self.conversion = self.jsonData.check(section='calling',key='conversion',arg=args.conversion)
-        self.input_dir = self.jsonData.check(section='calling',key='merged_bam_dir',arg=args.input_dir,dir_type=True)
-        self.output_dir = self.jsonData.check(section='calling',key='cpg_dir',arg=args.output_dir,dir_type=True)
-        self.fasta_reference = self.jsonData.check(section='calling',key='reference',arg=args.reference)
+        self.path_bam = self.jsonData.check(section='calling',key='bam_dir',arg=args.path_bam,dir_type=True)
+        self.output_dir = self.jsonData.check(section='calling',key='bcf_dir',arg=args.output_dir,dir_type=True,default='.')
+        self.fasta_reference = self.jsonData.check(section='calling',key='reference',arg=args.fasta_reference)
         args.mapping_json = self.jsonData.check(section='calling',key='bam_dir',arg=args.mapping_json,dir_type=True)
-        self.paired = args.paired_end
+
+        if self.contig_sizes:
+            self.contig_size_dict = {}
+            with open(self.contig_sizes, "r") as f:
+                for line in f:
+                    fd = line.split()
+                    if len(fd) > 1:
+                        self.contig_size_dict[fd[0]] = int(fd[1])
+        else: 
+            raise ValueError("A contig sizes file must be specified in the configuration file or on the command like")
+
+        if self.contig_list != None:
+            if len(self.contig_list) == 1:
+                if os.path.isfile(self.contig_list[0]):
+                    #Check if contig_list is a file or just a list of chromosomes
+                    #Parse file to extract chromosme list 
+                    tmp_list = []
+                    with open(self.contig_list[0] , 'r') as chromFile:
+                        for line in chromFile:
+                            tmp_list.append(line.split()[0])
+                        self.contig_list = tmp_list
+            for ctg in self.contig_list:
+                if not ctg in self.contig_size_dict:
+                    raise ValueError("Contig '{}' not found in contig sizes files '{}'.".format(ctg, self.contig_sizes))
+        else:
+            self.contig_list = list(self.contig_size_dict.keys())
+        if self.omit_contigs:
+            for pattern in self.omit_contigs:
+                if pattern != "":
+                    r = re.compile(fnmatch.translate(pattern))
+                    tmp_list = []
+                    for ctg in self.contig_list:
+                        if not r.search(ctg): 
+                            tmp_list.append(ctg)
+                        else:
+                            print("Omitting {} due to match with {}".format(ctg, pattern))
+                            del self.contig_size_dict[ctg]
+                        self.contig_list = tmp_list
+                    
+        print (self.contig_list)
 
         self.dbSNP_index_file = args.dbSNP_index_file
-        self.list_chroms = []
         self.sample_conversion = {}
 
         if self.conversion != None and self.conversion.lower() == "auto":
@@ -672,17 +655,6 @@ class MethylationCall(BasicPipeline):
                         oc = 0.2
                     self.sample_conversion[sample] = "{:.4f},{:.4f}".format(1-uc,oc)
 
-        if len(args.list_chroms) > 1:
-            self.list_chroms = args.list_chroms
-        elif os.path.isfile(args.list_chroms[0]):
-            #Check if List_chroms is a file or just a list of chromosomes
-            #Parse file to extract chromosme list 
-            with open(args.list_chroms[0] , 'r') as chromFile:
-                for line in chromFile:
-                    self.list_chroms.append(line.rstrip())
-        else:
-            self.list_chroms = args.list_chroms          
-        
         #Check fasta existance
         if not os.path.isfile(self.fasta_reference):
             raise CommandException("Sorry path %s was not found!!" %(self.fasta_reference))
@@ -690,25 +662,28 @@ class MethylationCall(BasicPipeline):
         #Check input bam existance
         self.sampleBam = {}
         for k,v in JSONdata(args.json_file).sampleData.items():
-            fileBam = "%s/%s.bam" %(self.input_dir,v.sample_barcode)
+            if not args.sample_id or v.sample_barcode == args.sample_id:
+                path = self.path_bam.replace('@SAMPLE',v.sample_barcode)
+                fileBam = os.path.join(self.path_bam, "{}.bam".format(v.sample_barcode))
 
-            if not os.path.isfile(fileBam):
-                raise CommandException("Sorry path %s was not found!!" %(fileBam))
+                if not os.path.isfile(fileBam):
+                    raise CommandException("Sorry path %s was not found!!" %(fileBam))
 
-            if v.sample_barcode not in self.sampleBam:
-                self.sampleBam[v.sample_barcode] = fileBam
+                if v.sample_barcode not in self.sampleBam:
+                    self.sampleBam[v.sample_barcode] = fileBam
         
         #Call for everything
         self.log_parameter()
         logging.gemBS.gt("Methylation Calling...")
-        if len(args.list_chroms) > 0:
+        if len(self.contig_list) > 0:
             ret = methylationCalling(reference=self.fasta_reference,species=self.species,
-                                         right_trim=self.right_trim, left_trim=self.left_trim,
-                                         sample_bam=self.sampleBam,chrom_list=self.list_chroms,
-                                         output_dir=self.output_dir,paired_end=self.paired,keep_unmatched=self.keep_unmatched,
-                                         keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads,jobs=self.jobs,
-                                         mapq_threshold=self.mapq_threshold,bq_threshold=self.bq_threshold,
-                                         haploid=self.haploid,conversion=self.conversion,ref_bias=self.ref_bias,sample_conversion=self.sample_conversion)
+                                     right_trim=self.right_trim, left_trim=self.left_trim,
+                                     sample_bam=self.sampleBam,contig_list=self.contig_list,
+                                     contig_size_dict=self.contig_size_dict,contig_pool_limit=self.contig_pool_limit,
+                                     output_dir=self.output_dir,keep_unmatched=self.keep_unmatched,
+                                     keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads,jobs=self.jobs,
+                                     mapq_threshold=self.mapq_threshold,bq_threshold=self.qual_threshold,
+                                     haploid=self.haploid,conversion=self.conversion,ref_bias=self.ref_bias,sample_conversion=self.sample_conversion)
 
             if ret:
                 logging.gemBS.gt("Methylation call done, samples performed: %s" %(ret))
@@ -724,7 +699,7 @@ class MethylationCall(BasicPipeline):
         printer("Species         : %s", self.species)
         printer("Right Trim      : %i", self.right_trim)
         printer("Left Trim       : %i", self.left_trim)
-        printer("Chromosomes     : %s", self.list_chroms)
+        printer("Chromosomes     : %s", self.contig_list)
         printer("json File       : %s", self.json_file)
         printer("Threads         : %s", self.threads)
         if self.dbSNP_index_file != "":
