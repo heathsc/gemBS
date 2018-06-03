@@ -79,7 +79,6 @@ executables = execs_dict({
     "bs_call":"bs_call",
     "dbSNP_idx":"dbSNP_idx",
     "filter_vcf": "filter_vcf",
-    "sln": "sln",
     "cpgToWig": "cpgToWig",
     "samtools": "samtools",
     "bcftools": "bcftools",
@@ -516,7 +515,7 @@ def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/"):
     if not os.path.exists(output): os.makedirs(output)
 
     return_info = []
-    if inputs != None:
+    if inputs:
         bammerging.extend([executables['samtools'],"merge","--threads",threads,"-f",bam_filename])        
         for bamFile in inputs:
             bammerging.append(bamFile)

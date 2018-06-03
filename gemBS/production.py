@@ -248,6 +248,7 @@ class Mapping(BasicPipeline):
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads to perform sorting operations. Default %s' %self.threads)
         parser.add_argument('-T', '--type', dest="ftype", help='Type of data file (PAIRED, SINGLE, INTERLEAVED, STREAM, BAM)')
         parser.add_argument('-p', '--paired-end', dest="paired_end", action="store_true", help="Input data is Paired End")
+        parser.add_argument('-r', '--remove', dest="remove", help='Remove individual BAM files after merging.', required=False)
         parser.add_argument('-s', '--read-non-stranded', dest="read_non_stranded", action="store_true", 
                               help='Automatically selects the proper C->T and G->A read conversions based on the level of Cs and Gs on the read.')     
         parser.add_argument('-u', '--underconversion-sequence', dest="underconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control unmethylated cytosines which fails to be\
@@ -293,6 +294,7 @@ class Mapping(BasicPipeline):
         self.tmp_dir = self.jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,default='/tmp',dir_type=True)
         self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
         self.read_non_stranded = self.jsonData.check(section='mapping',key='non_stranded',arg=args.read_non_stranded, boolean=True)
+        self.remove = self.jsonData.check(section='mapping',key='remove_individual_bams',arg=args.remove, boolean=True)
         self.output_dir = self.jsonData.check(section='mapping',key='bam_dir',arg=args.output_dir,default='.',dir_type=True)
         self.underconversion_sequence = self.jsonData.check(section='mapping',key='underconversion_sequence',arg=args.underconversion_sequence)
         self.overconversion_sequence = self.jsonData.check(section='mapping',key='overconversion_sequence',arg=args.overconversion_sequence)
@@ -326,7 +328,7 @@ class Mapping(BasicPipeline):
                         self.do_mapping(fl, fname)
                     if ftype == 'SINGLE_BAM':
                         if status == 0:
-                            self.do_merge(smp, None, fname)
+                            self.do_merge(smp, [], fname)
                     else:
                         bamlist.append(fname)
                 if v[0] != None:
@@ -430,15 +432,17 @@ class Mapping(BasicPipeline):
             c = self.db.cursor()
             c.execute("UPDATE mapping SET status = 1 WHERE fileid = ?", (fli,))
             self.db.commit()
-            
             logging.gemBS.gt("Bisulfite Mapping done. Output File: %s" %(ret))
 
     def do_merge(self, sample, inputs, fname):
         ret = merging(inputs = inputs, sample = sample, threads = self.threads, outname = fname)
         if ret:
             logging.gemBS.gt("Merging process done for {}. Output files generated: {}".format(sample, ','.join(ret)))
-            
             c = self.db.cursor()
+            if self.remove:
+                for f in inputs:
+                    os.remove(f)
+                    c.execute("UPDATE mapping SET status = 2 WHERE filepath = ?", (f,))
             c.execute("UPDATE mapping SET status = 1 WHERE filepath = ?", (fname,))
             self.db.commit()
 
@@ -471,6 +475,7 @@ class Merging(BasicPipeline):
         parser.add_argument('-t', '--threads', dest="threads", metavar="THREADS", help='Number of threads, Default: %s' %self.threads)
         parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",help='Output directory to store merged results.',required=False)
         parser.add_argument('-n', '--sample',dest="sample",metavar="SAMPLE",help="Sample to be merged",required=False) 
+        parser.add_argument('-r', '--remove', dest="remove", help='Remove individual BAM files after merging.', required=False)
         
     def run(self, args):
         # JSON data
@@ -483,6 +488,7 @@ class Merging(BasicPipeline):
         self.input_dir = self.jsonData.check(section='mapping',key='bam_dir',arg=args.input_dir,dir_type=True,default='.')
         self.output_dir = self.jsonData.check(section='mapping',key='bam_dir',arg=args.output_dir,default='.',dir_type=True)
         self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
+        self.remove = self.jsonData.check(section='mapping',key='remove_individual_bams',arg=args.remove, boolean=True)
 
         #Create Dictionary of samples and bam files, checking everything required has already been made        
         c = self.db.cursor()
@@ -494,10 +500,12 @@ class Merging(BasicPipeline):
         work_list = {}
         for fname, fl, smp, ftype, status in ret:
             if not smp in work_list:
-                work_list[smp] = [None, [], True]
+                work_list[smp] = [None, [], True, False]
             if ftype == 'MRG_BAM':
                 if status == 0:
                     work_list[smp][0] = fname
+                else:
+                    work_list[smp][3] = True
             elif ftype == 'MULTI_BAM':
                 if status == 1:
                     work_list[smp][1].append(fname)
@@ -506,9 +514,12 @@ class Merging(BasicPipeline):
             else:
                 if status == 0:
                     work_list[smp][2] = False
+                else:
+                    work_list[smp][3] = True
+                    
         for smp, v in work_list.items():
             bamlist = []
-            if not v[2]:
+            if not (v[2] or v[3]):
                 logging.gemBS.gt("Not all BAM files for sample {} have been generated".format(smp))
             elif not v[0]:
                 logging.gemBS.gt("Nothing to be done for sample {}".format(smp))
@@ -517,6 +528,10 @@ class Merging(BasicPipeline):
                 if ret:
                     logging.gemBS.gt("Merging process done for {}. Output files generated: {}".format(smp, ','.join(ret)))
                     c = self.db.cursor()
+                    if self.remove:
+                        for f in v[1]:
+                            os.remove(f)
+                            c.execute("UPDATE mapping SET status = 2 WHERE filepath = ?", (f,))
                     c.execute("UPDATE mapping SET status = 1 WHERE filepath = ?", (v[0],))
                     self.db.commit()
 

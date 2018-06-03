@@ -31,7 +31,6 @@ static:	setup gem3-static $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_D
 	$(MAKE) --directory=readNameClean static
 	$(MAKE) --directory=gen static
 	$(MAKE) --directory=cpgToWig static
-	$(MAKE) --directory=sln static
 	$(MAKE) --directory=bs_call static
 
 release: setup	gem3 $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
@@ -40,7 +39,6 @@ release: setup	gem3 $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(
 	$(MAKE) --directory=readNameClean
 	$(MAKE) --directory=gen
 	$(MAKE) --directory=cpgToWig
-	$(MAKE) --directory=sln
 	$(MAKE) --directory=bs_call
 
 debug: setup gem3-debug $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
@@ -49,7 +47,6 @@ debug: setup gem3-debug $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR
 	$(MAKE) --directory=readNameClean debug
 	$(MAKE) --directory=gen debug
 	$(MAKE) --directory=cpgToWig debug
-	$(MAKE) --directory=sln debug
 	$(MAKE) --directory=bs_call debug
 	cd gem3-mapper; ./configure;
 
