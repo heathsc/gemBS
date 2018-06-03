@@ -309,22 +309,27 @@ class Mapping(BasicPipeline):
             
         else:
             if args.sample:
-                ret = c.execute("SELECT * from mapping WHERE sample = ? AND status = 0", (args.sample,))
+                ret = c.execute("SELECT * from mapping WHERE sample = ?", (args.sample,))
             else:
-                ret = c.execute("SELECT * from mapping WHERE status = 0")
+                ret = c.execute("SELECT * from mapping")
             work_list = {}
             for fname, fl, smp, ftype, status in ret:
                 if not smp in work_list:
                     work_list[smp] = [None, []]
                 if ftype == 'MRG_BAM':
-                    work_list[smp][0] = fname
+                    if status == 0:
+                        work_list[smp][0] = fname
                 else:
-                    work_list[smp][1].append((fl, fname))
-                    print('AA',fl, fname, )
+                    work_list[smp][1].append((fl, fname, status))
             for smp, v in work_list.items():
-                for fl, fname in v[1]:
-                    print(fl, fname)
-                    self.do_mapping(fl, fname)
+                bamlist = []
+                for fl, fname, status in v[1]:
+                    if status == 0:
+                        self.do_mapping(fl, fname)
+                    bamlist.append(fname)
+                if v[0] != None:
+                    fname = v[0]
+                    self.do_merge(smp, bamlist, fname)
                     
     def do_mapping(self, fli, outfile):
         
@@ -426,7 +431,16 @@ class Mapping(BasicPipeline):
             self.db.commit()
             
             logging.gemBS.gt("Bisulfite Mapping done. Output File: %s" %(ret))
+
+    def do_merge(self, sample, inputs, fname):
+        ret = merging(inputs = inputs, sample = sample, threads = self.threads, outname = fname)
+        if ret:
+            logging.gemBS.gt("Merging process done for {}. Output file {}  generated".format(sample, ret))
             
+        c = self.db.cursor()
+        c.execute("UPDATE mapping SET status = 1 WHERE filepath = ?", (fname,))
+        self.db.commit()
+
     def extra_log(self):
         """Extra Parameters to be printed"""
         #Virtual methods, to be define in child class

@@ -494,58 +494,40 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
 
     return os.path.abspath("%s" % outfile)
 
-def merging(inputs=None,threads="1",output_dir=None,tmpDir="/tmp/",force=False):
+def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/"):
     """ Merge bam alignment files 
     
         inputs -- Dictionary of samples and bam list files inputs(Key=sample, Value = [bam1,...,bamN])
         threads -- Number of threads to perform the merging process
-        output_dir -- Directory to output the results
+        outname -- output file for the result
         tmpDir -- Temporary directory to perform sorting operations
     """     
     return_info = {}
     
-    for sample,listBams  in inputs.items():
-        #bam output file
-        output = output_dir.replace('@SAMPLE',sample)
+    #bam output file
+    output = os.path.dirname(outname)
         
-        bam_filename = os.path.join(output,"{}.bam".format(sample))
-        index_filename = os.path.join(output,"{}.bai".format(sample))
+    bam_filename = outname
+    index_filename = outname[:-3] + 'bai'
  
-        bammerging = []       
+    bammerging = []       
 
-        #Check output directory
-        if not os.path.exists(output): os.makedirs(output)
+    #Check output directory
+    if not os.path.exists(output): os.makedirs(output)
 
-        input_mtime = 0
-        made_bam = False;
-        for bamFile in listBams:
-            mt = os.path.getmtime(bamFile)
-            if mt > input_mtime: input_mtime = mt
-        if force or not (os.path.exists(bam_filename) and os.path.getmtime(bam_filename) > input_mtime):
-            logging.debug("Merging sample: %s" % sample)
-            if len(listBams) > 1 :
-                bammerging.extend([executables['samtools'],"merge","--threads",threads,"-f",bam_filename])        
-                for bamFile in listBams:
-                    bammerging.append(bamFile)
-                logfile = os.path.join(output,"bam_merge_{}.err".format(sample))
-                process = run_tools([bammerging], name="bisulphite-merging",output=bam_filename,logfile=logfile)
-            else:
-                bammerging.extend([executables['sln'],listBams[0],bam_filename])
-                process = run_tools([bammerging], name="bisulphite-merging",output=None)
-            made_bam = True
-        
-            if process.wait() != 0:
-                raise ValueError("Error while executing the Bisulphite merging")
-            
-        return_info[sample] = os.path.abspath(bam_filename)
-        
-        #Samtools index
-        if force or made_bam or not (os.path.exists(index_filename) and os.path.getmtime(index_filename) > os.path.getmtime(bam_filename)):
-            logfile = os.path.join(output,"bam_index_{}.err".format(sample))
-            indexing = [executables['samtools'],"index","%s"%(bam_filename)]
-            processIndex = run_tools([indexing],name="Indexing",logfile=logfile)
-            if processIndex.wait() != 0: raise ValueError("Error while indexing.")
-            os.rename('{}.bai'.format(bam_filename),index_filename)
+    bammerging.extend([executables['samtools'],"merge","--threads",threads,"-f",bam_filename])        
+    for bamFile in inputs:
+        bammerging.append(bamFile)
+    logfile = os.path.join(output,"bam_merge_{}.err".format(sample))
+    process = run_tools([bammerging], name="bisulphite-merging",output=bam_filename,logfile=logfile)
+    if process.wait() != 0: raise ValueError("Error while merging.")
+    return_info = os.path.abspath(bam_filename)
+    
+    #Samtools index
+    logfile = os.path.join(output,"bam_index_{}.err".format(sample))
+    indexing = [executables['samtools'], "index", bam_filename, index_filename]
+    processIndex = run_tools([indexing],name="Indexing",logfile=logfile)
+    if processIndex.wait() != 0: raise ValueError("Error while indexing.")
     
     return return_info 
 

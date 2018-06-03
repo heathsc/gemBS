@@ -346,7 +346,7 @@ class ProcessWrapper(object):
         finish. If a process is exiting with non 0, the process
         log file is printed to logger error.
 
-        All log files are delete if keep_logfiles is False
+        All log files are deleted if keep_logfiles is False
         """
         if self.exit_value is not None:
             return self.exit_value
@@ -426,7 +426,7 @@ def run_tools(tools, input=None, output=None, name=None, keep_logfiles=True,
         if i == len(tools) - 1:
             # prepare last process output
             process_out = _prepare_output(output)
-                    
+
         p.submit(commands, input=process_in, output=process_out, env=env, logfile=logfile)
 
     # start the run
