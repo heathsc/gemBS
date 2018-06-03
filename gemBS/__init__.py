@@ -515,19 +515,22 @@ def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/"):
     #Check output directory
     if not os.path.exists(output): os.makedirs(output)
 
-    bammerging.extend([executables['samtools'],"merge","--threads",threads,"-f",bam_filename])        
-    for bamFile in inputs:
-        bammerging.append(bamFile)
-    logfile = os.path.join(output,"bam_merge_{}.err".format(sample))
-    process = run_tools([bammerging], name="bisulphite-merging",output=bam_filename,logfile=logfile)
-    if process.wait() != 0: raise ValueError("Error while merging.")
-    return_info = os.path.abspath(bam_filename)
+    return_info = []
+    if inputs != None:
+        bammerging.extend([executables['samtools'],"merge","--threads",threads,"-f",bam_filename])        
+        for bamFile in inputs:
+            bammerging.append(bamFile)
+        logfile = os.path.join(output,"bam_merge_{}.err".format(sample))
+        process = run_tools([bammerging], name="bisulphite-merging",output=bam_filename,logfile=logfile)
+        if process.wait() != 0: raise ValueError("Error while merging.")
+        return_info.append(os.path.abspath(bam_filename))
     
     #Samtools index
     logfile = os.path.join(output,"bam_index_{}.err".format(sample))
     indexing = [executables['samtools'], "index", bam_filename, index_filename]
     processIndex = run_tools([indexing],name="Indexing",logfile=logfile)
     if processIndex.wait() != 0: raise ValueError("Error while indexing.")
+    return_info.append(os.path.abspath(index_filename))
     
     return return_info 
 
