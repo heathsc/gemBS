@@ -4,6 +4,35 @@ import re
 import fnmatch
 import logging
 
+## Global register for db commands that must be performed if
+## processes are aborted
+
+_db_com_register = {}
+
+def reg_db_com(key, com, db_name, rm_list):
+    if key in _db_com_register:
+        raise CommandError("Can not register duplicate key")
+    _db_com_register[key] = (db_name, com, rm_list)
+
+def del_db_com(key):
+    del _db_com_register[key]
+
+def cleanup_db_com():
+    db = None
+    for key, v in _db_com_register.items():
+        if db == None:
+            db = sqlite3.connect(v[0])
+            db.isolation_level = None
+            c = db.cursor()
+        c.execute("BEGIN EXCLUSIVE")
+        c.execute(v[1])
+        c.execute("COMMIT")
+        if v[2]:
+            for f in v[2]:
+                os.remove(f)
+    if db != None:
+        db.close()
+            
 def conf_get(cfg, key, default = None, section = 'DEFAULT'):
     return cfg[section][key] if key in cfg[section] else default
 
@@ -18,8 +47,8 @@ def db_create_tables(db):
 
 def db_check(db, js):
     db_check_index(db, js)
-#    db_check_mapping(db, js)
-#    db_check_contigs(db, js)
+    db_check_mapping(db, js)
+    db_check_contigs(db, js)
 
 def db_check_index(db, js):
     config = js.config
@@ -159,6 +188,7 @@ def db_check_contigs(db, js):
     for ctg in contig_size:
         ctg_flag[ctg] = [0, None]
 
+        
     # Make list of contig pools already described in db
     rebuild = 0;
     for ctg, pool in c.execute("SELECT * FROM contigs"):
@@ -221,8 +251,6 @@ def db_check_contigs(db, js):
             pools_used[ctg] = True
             ctg_flag[ctg] = [3, ctg]
             req_list1.append(ctg)
-    config['mapping']['contig_list'] = req_list1
-    
     for ctg, sz in contig_size.items():
         if (ctg_flag[ctg][0] & 2) == 0:
             if sz < pool_size:

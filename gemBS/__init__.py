@@ -19,7 +19,7 @@ import gzip
 # from configparser import ConfigParser
 # from configparser import ExtendedInterpolation
 
-from .utils import terminate_processes,run_tools
+from .utils import run_tools
 from .parser import gembsConfigParse
 from .database import *
 
@@ -607,29 +607,48 @@ class MethylationCallIter:
         self.db_name = db_name
         self.sample_ix = 0
         self.pool_ix = 0
+        self.output_list = []
+        self.plist = {}
+        for smp in self.sample_list:
+            self.plist[smp] = {}
+        for smp, pl in output_bcf.items():
+            for v in pl:
+                self.output_list.append(v[0])
+                self.plist[smp][v[1]] = v
+        
 
     def __iter__(self):
         return  self
 
     def __next__(self):
-        if self.sample_ix >= len(self.sample_list):
+        db = sqlite3.connect(self.db_name)
+        db.isolation_level = None
+        c = db.cursor()
+        c.execute("BEGIN EXCLUSIVE")
+        ret = None
+        for fname, pool, smp, ftype, status in c.execute("SELECT * FROM calling"):
+            if fname in self.output_list and smp in self.sample_list and status == 0:
+                ret = (smp, self.sample_bam[smp], self.plist[smp][pool])
+                c.execute("UPDATE calling SET status = 3 WHERE filepath = ?", (fname,))
+                base, ext = os.path.splitext(fname)
+                jfile = base + '.json'
+                reg_db_com(fname, "UPDATE calling SET status = 0 WHERE filepath = '{}'".format(fname), self.db_name, [fname, jfile])
+                break
+        c.execute("COMMIT")
+        db.close()
+        if ret == None:
             raise StopIteration
         else:
-            sample = self.sample_list[self.sample_ix]
-            bam = self.sample_bam[sample]
-            poolList = self.output_bcf[sample]
-            pl = poolList[self.pool_ix]
-            ret = (sample, bam, pl)
-            self.pool_ix += 1
-            if self.pool_ix >= len(poolList):
-                self.sample_ix += 1
-                self.pool_ix = 0
-        return ret
+            return ret
 
     def finished(self, sample, fname):
         db = sqlite3.connect(self.db_name)
-        db.execute("UPDATE calling SET status = 1 WHERE filepath = ?",(fname,))
-        db.commit()
+        db.isolation_level = None
+        c = db.cursor()
+        c.execute("BEGIN EXCLUSIVE")
+        c.execute("UPDATE calling SET status = 1 WHERE filepath = ?", (fname,))
+        c.execute("COMMIT")
+        del_db_com(fname)
         db.close()
           
 class MethylationCallThread(th.Thread):
@@ -690,6 +709,13 @@ def methylationCalling(reference=None,db_name=None,species=None,sample_bam=None,
                       dbSNP_index_file=dbSNP_index_file,threads=threads,mapq_threshold=mapq_threshold,bq_threshold=bq_threshold,
                       haploid=haploid,conversion=conversion,ref_bias=ref_bias,sample_conversion=sample_conversion)
 
+    for snp, pl in output_bcf.items():
+        for v in pl:
+            odir = os.path.dirname(v[0])
+            #Check output directory
+            if not os.path.exists(odir):
+                os.makedirs(odir)
+            
     methIter = MethylationCallIter(sample_bam, output_bcf, db_name, jobs)
     lock = th.Lock()
     if jobs < 1: jobs = 1
@@ -700,7 +726,7 @@ def methylationCalling(reference=None,db_name=None,species=None,sample_bam=None,
         thread_list.append(thread)
     for thread in thread_list:
         thread.join()
-    return " ".join(sample_bam.keys())
+    return " ".join(list(sample_bam.keys()))
 
             
 def methylationFiltering(bcfFile=None,output_dir=None,name=None,strand_specific=False,non_cpg=False,select_het=False,

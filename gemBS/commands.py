@@ -7,6 +7,7 @@ import sys
 
 from .utils import CommandException
 from .production import *
+from .database import cleanup_db_com
 
 __VERSION__ = "3.0.0"
 
@@ -77,8 +78,8 @@ def loglevel(level):
 
 # cleanup functions
 def _cleanup_on_shutdown():
-    terminate_processes()
-
+#    terminate_processes()
+    cleanup_db_com()
 
 import atexit
 atexit.register(_cleanup_on_shutdown)
@@ -129,7 +130,7 @@ def gemBS_main():
         if args.loglevel is not None:
             loglevel(args.loglevel)
         else:
-        		sys.tracebacklimit = 0
+            sys.tracebacklimit = 0
         try:
             instances[args.command].run(args)
         except CommandException as e:

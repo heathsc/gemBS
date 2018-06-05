@@ -544,7 +544,6 @@ class MethylationCall(BasicPipeline):
     def register(self, parser):
         ## required parameters
         parser.add_argument('-l','--contig-list',dest="contig_list",nargs="+",metavar="CONTIGS",help="List of contigs to perform the methylation pipeline.")
-        parser.add_argument('-O','--omit-contigs',dest="omit_contigs",nargs="+",metavar="CHROMS",help="List of contigs (or patterns) to omit.")
         parser.add_argument('-n','--sample',dest="sample",metavar="SAMPLE",help="Sample to be called")  
         parser.add_argument('-q','--mapq-threshold', dest="mapq_threshold", type=int, help="Threshold for MAPQ scores")
         parser.add_argument('-Q','--qual-threshold', dest="qual_threshold", type=int, help="Threshold for base quality scores")
@@ -579,8 +578,8 @@ class MethylationCall(BasicPipeline):
         self.species = self.jsonData.check(section='calling',key='species',arg=args.species)
         self.contig_pool_limit = self.jsonData.check(section='calling',key='contig_pool_limit',default=25000000,int_type=True, arg=args.contig_pool_limit)
         self.contig_list = self.jsonData.check(section='calling',key='contig_list',arg=args.contig_list,list_type=True, default = [])
-        self.omit_contigs = self.jsonData.check(section='calling',key='omit_contigs',arg=args.omit_contigs,list_type=True)
         self.conversion = self.jsonData.check(section='calling',key='conversion',arg=args.conversion)
+        self.omit_contigs = self.jsonData.check(section='calling',key='omit_contigs',arg=None,list_type=True)
         if self.contig_list != None:
             if len(self.contig_list) == 1:
                 if os.path.isfile(self.contig_list[0]):
@@ -591,13 +590,10 @@ class MethylationCall(BasicPipeline):
                         for line in chromFile:
                             tmp_list.append(line.split()[0])
                         self.contig_list = tmp_list
-                        jsonData['calling']['contig_list'] = tmp_list
+                        self.jsonData.config['calling']['contig_list'] = tmp_list
                         
         db_name = '.gemBS/gemBS.db'
         self.db = sqlite3.connect(db_name)
-        db_check_index(self.db, self.jsonData)
-        db_check_mapping(self.db, self.jsonData)
-        db_check_contigs(self.db, self.jsonData)
         c = self.db.cursor()
 
         self.dbSNP_index_file = args.dbSNP_index_file
@@ -675,7 +671,21 @@ class MethylationCall(BasicPipeline):
                 pools[pool] = [ctg]
             else:
                 pools[pool].append(ctg)
-                
+
+        if self.contig_list:
+            tmp_list = []
+            ctg_pool = {}
+            for pl, v in pools.items():
+                for ctg in v:
+                    ctg_pool[ctg] = pl
+            for ctg in self.contig_list:
+                pl = ctg_pool[ctg]
+                if not pl in tmp_list:
+                    tmp_list.append(pl)
+            self.contig_list = tmp_list
+        else:
+            self.contig_list = list(pools.keys())
+            
         # Get output files
         ind_bcf = {}
         mrg_bcf = {}
@@ -684,7 +694,8 @@ class MethylationCall(BasicPipeline):
         for fname, pool, smp, ftype, status in c.execute("SELECT * from calling"):
             if smp in sampleBam:
                 if ftype == 'POOL_BCF':
-                    ind_bcf[smp].append((fname, status, pool, pools[pool]))
+                    if pool in self.contig_list:
+                        ind_bcf[smp].append((fname, status, pool, pools[pool]))
                 else:
                     mrg_bcf[smp] = (fname, status)
 
@@ -705,8 +716,9 @@ class MethylationCall(BasicPipeline):
                 
         self.input = list(self.sampleBam.values())
         self.output = []
-        for smp, v in self.outputBcf.items():
-            self.output.append(v[0])
+        for smp, pl in self.outputBcf.items():
+            for v in pl:
+                self.output.append(v[0])
         
         # Call for requested list
 

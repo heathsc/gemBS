@@ -16,31 +16,9 @@ import signal
 import tempfile
 from io import IOBase
 
-# Global process registry
-# which is used to save multiprocessing.Process instances
-# to be able to terminate them in case
-# an error occured somewhere
-_process_registry = set([])
-
-def register_process(process):
-    """Register a Process with the registry"""
-    _process_registry.add(process)
-
-def terminate_processes():
-    """Do a hard cleanup and terminata all registered
-    processes.
-    """
-    for p in _process_registry:
-        if p.is_alive() and p._popen is not None:
-            p.terminate()
-            if p.is_alive():  # terminate send a SIGTERM, now kill it properly
-                os.kill(p._popen.pid, signal.SIGKILL)
-                
-                
 class CommandException(Exception):
     """Exception thrown by gemtools commands"""
     pass
-
 
 class Command(object):
     """Command base class to be registered
