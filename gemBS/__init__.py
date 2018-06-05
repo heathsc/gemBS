@@ -140,7 +140,9 @@ class JSONdata(object):
                 self.sampleData[fli] = fliCommands
 
     def check(self, section, key, arg=None, default=None, boolean=False, dir_type=False, list_type=False, int_type = False):
-        if not arg and key in self.config[section]:
+        if arg:
+            ret = arg
+        elif key in self.config[section]:
             ret = self.config[section][key]
         else:
             ret = default
@@ -154,6 +156,7 @@ class JSONdata(object):
             elif list_type:
                 if not isinstance(ret, list):
                     ret = [ret]
+        self.config[section][key] = ret
         return ret
 
 def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None):
@@ -534,14 +537,13 @@ def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/"):
     return return_info 
 
 class BsCaller:
-    def __init__(self,reference,species,right_trim=0,left_trim=5,output_dir=None,keep_unmatched=False,
+    def __init__(self,reference,species,right_trim=0,left_trim=5,keep_unmatched=False,
                  keep_duplicates=False,dbSNP_index_file="",threads="1",mapq_threshold=None,bq_threshold=None,
                  haploid=False,conversion=None,ref_bias=None,sample_conversion=None):
         self.reference = reference
         self.species = species
         self.right_trim = right_trim
         self.left_trim = left_trim
-        self.output_dir = output_dir
         self.keep_unmatched = keep_unmatched
         self.keep_duplicates = keep_duplicates
         self.dbSNP_index_file = dbSNP_index_file
@@ -598,151 +600,45 @@ class BsCaller:
         return bsCall
 
 class MethylationCallIter:
-    def __init__(self, sample_bam, contig_list, contig_size, contig_pool, output_dir, jobs):
+    def __init__(self, sample_bam, output_bcf, db_name, jobs):
         self.sample_bam = sample_bam
-        self.contig_list = contig_list
-        self.output_dir = output_dir
+        self.sample_list = list(sample_bam.keys())
+        self.output_bcf = output_bcf
+        self.db_name = db_name
         self.sample_ix = 0
         self.pool_ix = 0
-        self.poolList = {}
-        self.sampleList = []
-        self.contigsLeft = {}
-        for sample in sample_bam:
 
-            self.poolList[sample] = []
-            self.contigsLeft[sample] = list(contig_size.keys())
-            self.output = self.output_dir.replace('@SAMPLE',sample)
-            #Check output directory
-            if not os.path.exists(self.output):
-                os.makedirs(self.output)
-            db_name = os.path.join(self.output,"{}_contigs.db".format(sample))
-            db = sqlite3.connect(db_name)
-            dbcurs = db.cursor()
-            actual_contig_list = []
-
-            # Try to read contig and pools from database
-            try:
-                pools = {}
-                ctgs={}
-                for row in dbcurs.execute("SELECT * FROM files"):
-                    pools[row[0]] = row[1]
-                for row in dbcurs.execute("SELECT * FROM contigs"):
-                    ctgs[row[0]] = row[1]
-
-                # Make list of contigs excluding those in completed pools
-                for c in self.contig_list:
-                    if c in ctgs:
-                        p = ctgs[c]
-                        if pools[p] == 0:
-                            actual_contig_list.append(c)
-                    else:
-                        actual_contig_list.append(c)
-
-                # Delete incompleted pools and contigs from database
-                deleted = False
-                for p in pools:
-                    if pools[p] == 0:
-                        dbcurs.execute("DELETE FROM contigs where filename = ?", (p,))
-                        dbcurs.execute("DELETE FROM files where filename = ?", (p,))
-                        deleted = True
-                if deleted: 
-                    db.commit()
-
-                for c, p in ctgs.items():
-                    if pools[p] != 0:
-                        self.contigsLeft[sample].remove(c)
-
-            # If tables don't exist then create them
-            except sqlite3.OperationalError:
-                print ("Creating tables")
-                dbcurs.execute("CREATE TABLE files (filename text, status int)")
-                dbcurs.execute("CREATE TABLE contigs (contig text, filename text)")
-                db.commit()
-                actual_contig_list = self.contig_list
-
-            # Make pools
-            # First assign individual contigs >= than contig_pool
-            # and make list of contigs < contig_pool
-
-            if actual_contig_list:
-                self.sampleList.append(sample)
-                smallContigList = []
-                total_small = 0
-                for contig in actual_contig_list:
-                    sz = contig_size[contig]
-                    if sz < contig_pool:
-                        smallContigList.append(contig)
-                        total_small += sz
-                    else:
-                        self.poolList[sample].append((contig, [contig]))
-                if smallContigList:
-                    k = (total_small // contig_pool) + 1
-                    pools = []
-                    for x in range(k):
-                        pools.append(["Pool_{}".format(x + 1), [], 0])
-                    for c in sorted(smallContigList, key = lambda c: -contig_size[c]):
-                        pl = sorted(pools, key = lambda x: x[2])[0]
-                        sz = contig_size[c]
-                        pl[1].append(c)
-                        pl[2] = pl[2] + sz
-                    for pl in pools:
-                        self.poolList[sample].append((pl[0], pl[1]))
-                for pl in self.poolList[sample]:
-                    dbcurs.execute("INSERT INTO files VALUES (?,0)", (pl[0],))
-                    for c in pl[1]:
-                        dbcurs.execute("INSERT INTO contigs VALUES (?,?)", (c, pl[0]))
-                db.commit()
-                db.close()
-                
     def __iter__(self):
         return  self
 
     def __next__(self):
-        if self.sample_ix >= len(self.sampleList):
-            s = self.check()
-            if s != None:
-                return (s, None, None)
-            else:
-                raise StopIteration
+        if self.sample_ix >= len(self.sample_list):
+            raise StopIteration
         else:
-            sample = self.sampleList[self.sample_ix]
-            s = self.check(sample)
-            if s != None:
-                return (s, None, None)
-            else:
-                bam = self.sample_bam[sample]
-                poolList = self.poolList[sample]
-                pl = poolList[self.pool_ix]
-                ret = (sample, bam, pl)
-                self.pool_ix += 1
-                if self.pool_ix >= len(poolList):
-                    self.sample_ix += 1
-                    self.pool_ix = 0
+            sample = self.sample_list[self.sample_ix]
+            bam = self.sample_bam[sample]
+            poolList = self.output_bcf[sample]
+            pl = poolList[self.pool_ix]
+            ret = (sample, bam, pl)
+            self.pool_ix += 1
+            if self.pool_ix >= len(poolList):
+                self.sample_ix += 1
+                self.pool_ix = 0
         return ret
 
-    def check(self, sample = None):
-        for s in self.contigsLeft:
-            if s != sample and not self.contigsLeft[s]:
-                return s
-        return None
-                         
-    def finished(self, sample, pool):
-        db_name = os.path.join(self.output,"{}_contigs.db".format(sample))
-        db = sqlite3.connect(db_name)
-        db.execute("UPDATE files SET status = 1 WHERE filename = ?",(pool[0],))
+    def finished(self, sample, fname):
+        db = sqlite3.connect(self.db_name)
+        db.execute("UPDATE calling SET status = 1 WHERE filepath = ?",(fname,))
         db.commit()
         db.close()
-        for ctg in pool[1]:
-            del self.contigsLeft[sample][ctg]
           
 class MethylationCallThread(th.Thread):
-    def __init__(self, threadID, methIter, bsCall, lock, output_dir):
+    def __init__(self, threadID, methIter, bsCall, lock):
         th.Thread.__init__(self)
         self.threadID = threadID
         self.methIter = methIter
         self.bsCall = bsCall
         self.lock = lock
-        self.output_dir = output_dir
 
     def run(self):
         while True:
@@ -753,41 +649,31 @@ class MethylationCallThread(th.Thread):
             except StopIteration:
                 self.lock.release()
                 break
-            output = self.output_dir.replace('@SAMPLE',sample)
-            if input_bam != None:
-                (name, chrom_list) = pool
-                bcf_file = os.path.join(output,"{}_{}.bcf".format(sample,name))
-                log_file = os.path.join(output,"bs_call_{}_{}.err".format(sample,name))
-                report_file = os.path.join(output,"{}_{}.json".format(sample,name))
-                bsCallCommand = self.bsCall.prepare(sample, input_bam, chrom_list, bcf_file, report_file)
-                process = run_tools(bsCallCommand, name="bscall", logfile=log_file)
-                if process.wait() != 0:
-                    raise ValueError("Error while executing the bscall process.")
-                self.lock.acquire()
-                self.methIter.finished(sample, pool)
-                self.lock.release()
-            else:
-                list_bcf = []
-                db_name = os.path.join(output,"{}_contigs.db".format(sample))
-                db = sqlite3.connect(db_name)
-                for row in db.execute("SELECT * FROM files"):
-                    list_bcf.append(os.path.join(output,"{}_{}.bcf".format(sample, row[0])))
-                db.close()
-                bsConcat(list_bcf, sample, output)
+            bcf_file, pool, chrom_list = pool
+            output = os.path.dirname(bcf_file)
+            log_file = os.path.join(output,"bs_call_{}_{}.err".format(sample, pool))
+            report_file = os.path.join(output,"{}_{}.json".format(sample, pool))
+            bsCallCommand = self.bsCall.prepare(sample, input_bam, chrom_list, bcf_file, report_file)
+            process = run_tools(bsCallCommand, name="bscall", logfile=log_file)
+            if process.wait() != 0:
+                raise ValueError("Error while executing the bscall process.")
+            self.lock.acquire()
+            self.methIter.finished(sample, bcf_file)
+            self.lock.release()
                
-def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,left_trim=5,contig_list=None,contig_size_dict=None,
-                       contig_pool_limit=25000000,output_dir=None,keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1",jobs=1,
+def methylationCalling(reference=None,db_name=None,species=None,sample_bam=None,output_bcf=None,right_trim=0,left_trim=5,
+                       keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1",jobs=1,
                        mapq_threshold=None,bq_threshold=None,haploid=False,conversion=None,ref_bias=None,sample_conversion=None):
 
     """ Performs the process to make met5Bhylation calls.
     
     reference -- fasta reference file
+    db_name -- path to db file
     species -- species name
-    sample_bam -- sample dictionary where key is sample and value its bam aligned file 
+    sample_bam -- sample dictionary where key is sample and value is bam aligned file 
+    output_bcf -- sample dictionary where key is sample and value is list of tuples (output file, pool, list of contigs in pool)
     right_trim --  Bases to trim from right of read pair 
     left_trim -- Bases to trim from left of read pair
-    chrom_list -- Chromosome list to perform the methylation analysis
-    output_dir -- Directory output to store the call results
     keep_unmatched -- Do not discard reads that do not form proper pairs
     keep_duplicates -- Do not merge duplicate reads  
     dbSNP_index_file -- dbSNP Index File            
@@ -799,17 +685,17 @@ def methylationCalling(reference=None,species=None,sample_bam=None,right_trim=0,
     ref_bias -- bias to reference homozygote
     sample_conversion - per sample conversion rates (calculated if conversion == 'auto')
     """
-    bsCall = BsCaller(reference=reference,species=species,right_trim=right_trim,left_trim=left_trim,output_dir=output_dir,
+    bsCall = BsCaller(reference=reference,species=species,right_trim=right_trim,left_trim=left_trim,
                       keep_unmatched=keep_unmatched,keep_duplicates=keep_duplicates,
                       dbSNP_index_file=dbSNP_index_file,threads=threads,mapq_threshold=mapq_threshold,bq_threshold=bq_threshold,
                       haploid=haploid,conversion=conversion,ref_bias=ref_bias,sample_conversion=sample_conversion)
 
-    methIter = MethylationCallIter(sample_bam, contig_list, contig_size_dict, contig_pool_limit, output_dir, jobs)
+    methIter = MethylationCallIter(sample_bam, output_bcf, db_name, jobs)
     lock = th.Lock()
     if jobs < 1: jobs = 1
     thread_list = []
     for ix in range(jobs):
-        thread = MethylationCallThread(ix, methIter, bsCall, lock, output_dir)
+        thread = MethylationCallThread(ix, methIter, bsCall, lock)
         thread.start()
         thread_list.append(thread)
     for thread in thread_list:

@@ -38,7 +38,7 @@ class BasicPipeline(Command):
         """Print selected parameters"""
         printer = logging.gemBS.gt
       
-        printer("------------ Input Parameter ------------")
+        printer("------------ Input Parameters ------------")
         printer("Input File(s)    : %s", self.input)
         printer("Output File(s)   : %s", self.output)
         printer("Output Directory : %s", self.output_dir)
@@ -242,8 +242,6 @@ class Mapping(BasicPipeline):
         ## required parameters
         parser.add_argument('-f', '--fli', dest="fli", metavar="DATA_FILE", help='Data file ID to be mapped.', required=False)
         parser.add_argument('-n', '--sample', dest="sample", metavar="SAMPLE", help='Sample to be mapped.', required=False)
-        parser.add_argument('-i', '--input-dir', dest="input_dir", metavar="PATH", help='Directory where is located input data. FASTQ, FASTA, SAM or BAM format.', required=False)
-        parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH", help='Directory to store Bisulfite mapping results. Default: .')
         parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", help='Temporary folder to perform sorting operations. Default: /tmp')      
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads to perform sorting operations. Default %s' %self.threads)
         parser.add_argument('-T', '--type', dest="ftype", help='Type of data file (PAIRED, SINGLE, INTERLEAVED, STREAM, BAM)')
@@ -277,6 +275,16 @@ class Mapping(BasicPipeline):
         # JSON data
         json_file = '.gemBS/gemBS.json'
         self.jsonData = JSONdata(json_file)
+
+        self.paired_end = args.paired_end
+        self.name = args.sample
+        self.tmp_dir = self.jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,default='/tmp',dir_type=True)
+        self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
+        self.read_non_stranded = self.jsonData.check(section='mapping',key='non_stranded',arg=args.read_non_stranded, boolean=True)
+        self.remove = self.jsonData.check(section='mapping',key='remove_individual_bams',arg=args.remove, boolean=True)
+        self.underconversion_sequence = self.jsonData.check(section='mapping',key='underconversion_sequence',arg=args.underconversion_sequence)
+        self.overconversion_sequence = self.jsonData.check(section='mapping',key='overconversion_sequence',arg=args.overconversion_sequence)
+
         db_name = '.gemBS/gemBS.db'
         self.db = sqlite3.connect(db_name)
         db_check_index(self.db, self.jsonData)
@@ -287,17 +295,7 @@ class Mapping(BasicPipeline):
             raise CommandException("GEM Index {} not found.  Run 'gemBS index' or correct configuration file and rerun".format(index_name)) 
         db_check_mapping(self.db, self.jsonData)
 
-        self.paired_end = args.paired_end
-        self.name = args.sample
         self.index = index_name
-        self.input_dir = self.jsonData.check(section='mapping',key='sequence_dir',arg=args.input_dir,dir_type=True,default='.')
-        self.tmp_dir = self.jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,default='/tmp',dir_type=True)
-        self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
-        self.read_non_stranded = self.jsonData.check(section='mapping',key='non_stranded',arg=args.read_non_stranded, boolean=True)
-        self.remove = self.jsonData.check(section='mapping',key='remove_individual_bams',arg=args.remove, boolean=True)
-        self.output_dir = self.jsonData.check(section='mapping',key='bam_dir',arg=args.output_dir,default='.',dir_type=True)
-        self.underconversion_sequence = self.jsonData.check(section='mapping',key='underconversion_sequence',arg=args.underconversion_sequence)
-        self.overconversion_sequence = self.jsonData.check(section='mapping',key='overconversion_sequence',arg=args.overconversion_sequence)
 
         #Check Temp Directory
         if not os.path.isdir(self.tmp_dir):
@@ -471,9 +469,7 @@ class Merging(BasicPipeline):
                      
     def register(self,parser):
         ## required parameters                     
-        parser.add_argument('-i', '--input-dir', dest="input_dir",metavar="PATH", help='Path where are located the BAM aligned files.', required=False)
         parser.add_argument('-t', '--threads', dest="threads", metavar="THREADS", help='Number of threads, Default: %s' %self.threads)
-        parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",help='Output directory to store merged results.',required=False)
         parser.add_argument('-n', '--sample',dest="sample",metavar="SAMPLE",help="Sample to be merged",required=False) 
         parser.add_argument('-r', '--remove', dest="remove", help='Remove individual BAM files after merging.', required=False)
         
@@ -485,8 +481,6 @@ class Merging(BasicPipeline):
         self.db = sqlite3.connect(db_name)
         db_check_mapping(self.db, self.jsonData)
 
-        self.input_dir = self.jsonData.check(section='mapping',key='bam_dir',arg=args.input_dir,dir_type=True,default='.')
-        self.output_dir = self.jsonData.check(section='mapping',key='bam_dir',arg=args.output_dir,default='.',dir_type=True)
         self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
         self.remove = self.jsonData.check(section='mapping',key='remove_individual_bams',arg=args.remove, boolean=True)
 
@@ -549,38 +543,29 @@ class MethylationCall(BasicPipeline):
                                    
     def register(self, parser):
         ## required parameters
-        parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.',required=True)
-        parser.add_argument('-r','--fasta-reference',dest="fasta_reference",metavar="PATH",help="Path to the fasta reference file.")
-        parser.add_argument('-e','--species',dest="species",metavar="SPECIES",default="HomoSapiens",help="Sample species name. Default: %s" %self.species)
         parser.add_argument('-l','--contig-list',dest="contig_list",nargs="+",metavar="CONTIGS",help="List of contigs to perform the methylation pipeline.")
-        parser.add_argument('-L','--contig-sizes', dest="contig_sizes", help="""Contig Sizes Text File.
-                                                                                 Format: Two Columns: <contig name> <size in bases>""")
         parser.add_argument('-O','--omit-contigs',dest="omit_contigs",nargs="+",metavar="CHROMS",help="List of contigs (or patterns) to omit.")
-        parser.add_argument('-s','--sample-id',dest="sample_id",metavar="SAMPLE",help="Sample unique identificator")  
-        parser.add_argument('-m','--contig-pool-limit',dest="contig_pool_limit",metavar="PATH_BAM",help='Contigs smaller than this will be cooled together.')
-        parser.add_argument('-p','--path-bam',dest="path_bam",metavar="PATH_BAM",help='Path where are stored sample BAM files.')
+        parser.add_argument('-n','--sample',dest="sample",metavar="SAMPLE",help="Sample to be called")  
         parser.add_argument('-q','--mapq-threshold', dest="mapq_threshold", type=int, help="Threshold for MAPQ scores")
         parser.add_argument('-Q','--qual-threshold', dest="qual_threshold", type=int, help="Threshold for base quality scores")
         parser.add_argument('-g','--right-trim', dest="right_trim", metavar="BASES",type=int, help='Bases to trim from right of read pair, Default: 0')
         parser.add_argument('-f','--left-trim', dest="left_trim", metavar="BASES",type=int, help='Bases to trim from left of read pair, Default: 5')        
-        parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.')
         parser.add_argument('-t','--threads', dest="threads", metavar="THREADS", help='Number of threads, Default: %s' %self.threads)
         parser.add_argument('-P','--jobs', dest="jobs", type=int, help='Number of parallel jobs')
         parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", help="Do not merge duplicate reads.")    
         parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", help="Do not discard reads that do not form proper pairs.")
+        parser.add_argument('-e','--species',dest="species",metavar="SPECIES",default="HomoSapiens",help="Sample species name. Default: %s" %self.species)
         parser.add_argument('-1','--haploid', dest="haploid", action="store", help="Force genotype calls to be homozygous")
         parser.add_argument('-C','--conversion', dest="conversion", help="Set under and over conversion rates (under,over)")
-        parser.add_argument('-J','--mapping-json',dest="mapping_json",help='Input mapping statistics JSON files')
         parser.add_argument('-B','--reference_bias', dest="ref_bias", help="Set bias to reference homozygote")
+        parser.add_argument('-m','--contig-pool-limit',dest="contig_pool_limit",metavar="PATH_BAM",help='Contigs smaller than this will be cooled together.')
         parser.add_argument('-b','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.")
 
     def run(self,args):
         # JSON data
-        self.jsonData = JSONdata(args.json_file)
-        # configuration data
-        config = self.jsonData.config['calling']
+        json_file = '.gemBS/gemBS.json'
+        self.jsonData = JSONdata(json_file)
 
-        self.json_file = args.json_file
         self.threads = self.jsonData.check(section='calling',key='threads',arg=args.threads,default='1')
         self.jobs = self.jsonData.check(section='calling',key='jobs',arg=args.jobs,default=1,int_type=True)
         self.mapq_threshold = self.jsonData.check(section='calling',key='mapq_threshold',arg=args.mapq_threshold)
@@ -593,25 +578,9 @@ class MethylationCall(BasicPipeline):
         self.haploid = self.jsonData.check(section='calling',key='haploid',arg=args.haploid,boolean=True)
         self.species = self.jsonData.check(section='calling',key='species',arg=args.species)
         self.contig_pool_limit = self.jsonData.check(section='calling',key='contig_pool_limit',default=25000000,int_type=True, arg=args.contig_pool_limit)
-        self.contig_sizes = self.jsonData.check(section='bigwig',key='contig_sizes',arg=args.contig_sizes)
-        self.contig_list = self.jsonData.check(section='calling',key='contig_list',arg=args.contig_list,list_type=True)
+        self.contig_list = self.jsonData.check(section='calling',key='contig_list',arg=args.contig_list,list_type=True, default = [])
         self.omit_contigs = self.jsonData.check(section='calling',key='omit_contigs',arg=args.omit_contigs,list_type=True)
         self.conversion = self.jsonData.check(section='calling',key='conversion',arg=args.conversion)
-        self.path_bam = self.jsonData.check(section='calling',key='bam_dir',arg=args.path_bam,dir_type=True)
-        self.output_dir = self.jsonData.check(section='calling',key='bcf_dir',arg=args.output_dir,dir_type=True,default='.')
-        self.fasta_reference = self.jsonData.check(section='calling',key='reference',arg=args.fasta_reference)
-        args.mapping_json = self.jsonData.check(section='calling',key='bam_dir',arg=args.mapping_json,dir_type=True)
-
-        if self.contig_sizes:
-            self.contig_size_dict = {}
-            with open(self.contig_sizes, "r") as f:
-                for line in f:
-                    fd = line.split()
-                    if len(fd) > 1:
-                        self.contig_size_dict[fd[0]] = int(fd[1])
-        else: 
-            raise ValueError("A contig sizes file must be specified in the configuration file or on the command like")
-
         if self.contig_list != None:
             if len(self.contig_list) == 1:
                 if os.path.isfile(self.contig_list[0]):
@@ -622,57 +591,46 @@ class MethylationCall(BasicPipeline):
                         for line in chromFile:
                             tmp_list.append(line.split()[0])
                         self.contig_list = tmp_list
-            for ctg in self.contig_list:
-                if not ctg in self.contig_size_dict:
-                    raise ValueError("Contig '{}' not found in contig sizes files '{}'.".format(ctg, self.contig_sizes))
-        else:
-            self.contig_list = list(self.contig_size_dict.keys())
-        if self.omit_contigs:
-            for pattern in self.omit_contigs:
-                if pattern != "":
-                    r = re.compile(fnmatch.translate(pattern))
-                    tmp_list = []
-                    for ctg in self.contig_list:
-                        if not r.search(ctg): 
-                            tmp_list.append(ctg)
-                        else:
-                            print("Omitting {} due to match with {}".format(ctg, pattern))
-                            del self.contig_size_dict[ctg]
-                        self.contig_list = tmp_list
-                    
-        print (self.contig_list)
+                        jsonData['calling']['contig_list'] = tmp_list
+                        
+        db_name = '.gemBS/gemBS.db'
+        self.db = sqlite3.connect(db_name)
+        db_check_index(self.db, self.jsonData)
+        db_check_mapping(self.db, self.jsonData)
+        db_check_contigs(self.db, self.jsonData)
+        c = self.db.cursor()
 
         self.dbSNP_index_file = args.dbSNP_index_file
         self.sample_conversion = {}
 
         if self.conversion != None and self.conversion.lower() == "auto":
-            if args.mapping_json == None or args.json_file == None:
+            sample_lane_files = {}
+            if args.sample:
+                ret = c.execute("SELECT * FROM mapping WHERE sample = ? AND type != 'MRG_BAM'", (args.sample,))
+            else:
+                ret = c.execute("SELECT * FROM mapping WHERE type != 'MRG_BAM'")
+                
+            for fname, fli, smp, ftype, status in ret:
+                bam_dir = os.path.dirname(fname)
+                fileJson = os.path.join(bam_dir,"{}.json".format(fli))
+                if os.path.isfile(fileJson):
+                    if smp not in sample_lane_files: 
+                        sample_lane_files[smp] = {}
+                        sample_lane_files[smp][fli] = [fileJson]
+                    elif fli not in sample_lane_files[smp]:
+                        sample_lane_files[smp][fli] = [fileJson]
+                    else:
+                        sample_lane_files[smp][fli].append(fileJson)
+                
+            if len(sample_lane_files) < 1:
                 self.conversion = None
             else:
-                sample_lane_files = {}
-                for k,v in JSONdata(args.json_file).sampleData.items():
-                    fileJson = os.path.join(args.mapping_json,"{}.json".format(v.getFli()))
-                    if os.path.isfile(fileJson):
-                        if v.sample_barcode not in sample_lane_files: 
-                            newFli = {}
-                            newFli[v.getFli()] = [fileJson]
-                            sample_lane_files[v.sample_barcode] = newFli
-                        elif v.getFli() not in sample_lane_files[v.sample_barcode]:
-                            newFli = {}
-                            newFli[v.getFli()] = [fileJson]
-                            sample_lane_files[v.sample_barcode].update(newFli)
-                        elif v.getFli() in sample_lane_files[v.sample_barcode]:
-                            sample_lane_files[v.sample_barcode][v.getFli()].append(fileJson)
-                
-                if len(sample_lane_files) < 1:
-                    self.conversion = None
-                else:
-                    for sample,fli_json in sample_lane_files.items():
-                        list_stats_lanes = []
-                        for fli,json_files in fli_json.items():  
-                            for json_file in json_files:
-                                lane = LaneStats(name=fli,json_file=json_file)
-                                list_stats_lanes.append(lane)
+                for sample,fli_json in sample_lane_files.items():
+                    list_stats_lanes = []
+                    for fli,json_files in fli_json.items():  
+                        for json_file in json_files:
+                            lane = LaneStats(name=fli,json_file=json_file)
+                            list_stats_lanes.append(lane)
                     stats = SampleStats(name=sample,list_lane_stats=list_stats_lanes)
                     uc = stats.getUnderConversionRate()
                     oc = stats.getOverConversionRate()
@@ -686,39 +644,89 @@ class MethylationCall(BasicPipeline):
                         oc = 0.2
                     self.sample_conversion[sample] = "{:.4f},{:.4f}".format(1-uc,oc)
 
-        #Check fasta existance
-        if not os.path.isfile(self.fasta_reference):
-            raise CommandException("Sorry path %s was not found!!" %(self.fasta_reference))
-        
+        # Get fasta reference
+        c.execute("SELECT file, status FROM indexing WHERE type = 'reference'")
+        self.fasta_reference, status = c.fetchone()
+        if status != 'OK':
+            raise CommandException("Fasta reference {} not found.  Run 'gemBS index' or correct configuration file and rerun".format(fasta_reference)) 
+
         #Check input bam existance
-        self.sampleBam = {}
-        for k,v in JSONdata(args.json_file).sampleData.items():
-            if not args.sample_id or v.sample_barcode == args.sample_id:
-                path = self.path_bam.replace('@SAMPLE',v.sample_barcode)
-                fileBam = os.path.join(self.path_bam, "{}.bam".format(v.sample_barcode))
-
-                if not os.path.isfile(fileBam):
-                    raise CommandException("Sorry path %s was not found!!" %(fileBam))
-
-                if v.sample_barcode not in self.sampleBam:
-                    self.sampleBam[v.sample_barcode] = fileBam
         
-        #Call for everything
-        self.log_parameter()
-        logging.gemBS.gt("Methylation Calling...")
-        if len(self.contig_list) > 0:
-            ret = methylationCalling(reference=self.fasta_reference,species=self.species,
+        sampleBam = {}
+        if args.sample:
+            ret = c.execute("SELECT * from mapping WHERE (sample = ?) AND (type != 'MULTI_BAM')", (args.sample,))
+        else:            
+            ret = c.execute("SELECT * from mapping WHERE type != 'MULTI_BAM'")
+        for fname, fli, smp, ftype, status in ret:
+            if status == 1:
+                if not os.path.isfile(fname):
+                    raise CommandException("Sorry file %s was not found!!" %(fileBam))
+                sampleBam[smp] = fname
+            else:
+                logging.gemBS.gt("Sample BAM file '{}' not ready".format(fname))
+
+        if not sampleBam:
+            raise CommandException("No available BAM files for calling")
+
+        # Get contig pools
+        pools = {}
+        for ctg, pool in c.execute("SELECT * from contigs"):
+            if not pool in pools:
+                pools[pool] = [ctg]
+            else:
+                pools[pool].append(ctg)
+                
+        # Get output files
+        ind_bcf = {}
+        mrg_bcf = {}
+        for smp in sampleBam:
+            ind_bcf[smp] = []
+        for fname, pool, smp, ftype, status in c.execute("SELECT * from calling"):
+            if smp in sampleBam:
+                if ftype == 'POOL_BCF':
+                    ind_bcf[smp].append((fname, status, pool, pools[pool]))
+                else:
+                    mrg_bcf[smp] = (fname, status)
+
+        self.sampleBam = {}
+        self.outputBcf = {}
+        for smp, fname in sampleBam.items():
+            if mrg_bcf[smp][1] == 0:
+                call = False
+                for v in ind_bcf[smp]:
+                    if v[1] == 0:
+                        if not smp in self.outputBcf:
+                            self.outputBcf[smp] = [(v[0], v[2], v[3])]
+                        else:
+                            self.outputBcf[smp].append((v[0], v[2], v[3]))
+                        call = True
+                if call:
+                    self.sampleBam[smp] = fname
+                
+        self.input = list(self.sampleBam.values())
+        self.output = []
+        for smp, v in self.outputBcf.items():
+            self.output.append(v[0])
+        
+        # Call for requested list
+
+        if not self.output:
+            logging.gemBS.gt("No calling to be performed")
+        else:
+            self.log_parameter()
+            self.db.close()
+            self.db = None
+            logging.gemBS.gt("Methylation Calling...")
+            ret = methylationCalling(reference=self.fasta_reference,db_name=db_name,species=self.species,
                                      right_trim=self.right_trim, left_trim=self.left_trim,
-                                     sample_bam=self.sampleBam,contig_list=self.contig_list,
-                                     contig_size_dict=self.contig_size_dict,contig_pool_limit=self.contig_pool_limit,
-                                     output_dir=self.output_dir,keep_unmatched=self.keep_unmatched,
+                                     sample_bam=self.sampleBam,output_bcf=self.outputBcf,
+                                     keep_unmatched=self.keep_unmatched,
                                      keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads,jobs=self.jobs,
                                      mapq_threshold=self.mapq_threshold,bq_threshold=self.qual_threshold,
                                      haploid=self.haploid,conversion=self.conversion,ref_bias=self.ref_bias,sample_conversion=self.sample_conversion)
-
+                
             if ret:
                 logging.gemBS.gt("Methylation call done, samples performed: %s" %(ret))
-                
                 
     def extra_log(self):
         """Extra Parameters to be printed"""
@@ -731,7 +739,6 @@ class MethylationCall(BasicPipeline):
         printer("Right Trim      : %i", self.right_trim)
         printer("Left Trim       : %i", self.left_trim)
         printer("Chromosomes     : %s", self.contig_list)
-        printer("json File       : %s", self.json_file)
         printer("Threads         : %s", self.threads)
         if self.dbSNP_index_file != "":
             printer("dbSNP File      : %s", self.dbSNP_index_file)
