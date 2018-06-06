@@ -29,7 +29,7 @@ def cleanup_db_com():
         c.execute("COMMIT")
         if v[2]:
             for f in v[2]:
-                os.remove(f)
+                if os.path.exists(f): os.remove(f)
     if db != None:
         db.close()
             

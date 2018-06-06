@@ -285,16 +285,16 @@ class Mapping(BasicPipeline):
         self.underconversion_sequence = self.jsonData.check(section='mapping',key='underconversion_sequence',arg=args.underconversion_sequence)
         self.overconversion_sequence = self.jsonData.check(section='mapping',key='overconversion_sequence',arg=args.overconversion_sequence)
 
-        db_name = '.gemBS/gemBS.db'
-        self.db = sqlite3.connect(db_name)
+        self.input_dir = self.jsonData.check(section='mapping',key='sequence_dir',arg=None,default='.',dir_type=True)
+
+        self.db_name = '.gemBS/gemBS.db'
+        self.db = sqlite3.connect(self.db_name)
         db_check_index(self.db, self.jsonData)
         c = self.db.cursor()
         c.execute("SELECT file, status FROM indexing WHERE type = 'index'")
         index_name, status = c.fetchone()
         if status != 'OK':
             raise CommandException("GEM Index {} not found.  Run 'gemBS index' or correct configuration file and rerun".format(index_name)) 
-        db_check_mapping(self.db, self.jsonData)
-
         self.index = index_name
 
         #Check Temp Directory
@@ -302,9 +302,7 @@ class Mapping(BasicPipeline):
             raise CommandException("Temporary directory %s does not exists or is not a directory." %(self.tmp_dir))
 
         if args.fli:
-            for fname, fl, smp, ftype, status in c.execute("SELECT * FROM mapping WHERE fileid = ? AND status = 0", (args.fli,)):
-                self.do_mapping(fl, fname)
-            
+            self.do_mapping(fl)
         else:
             if args.sample:
                 ret = c.execute("SELECT * from mapping WHERE sample = ?", (args.sample,))
@@ -323,126 +321,172 @@ class Mapping(BasicPipeline):
                 bamlist = []
                 for fl, fname, ftype, status in v[1]:
                     if status == 0:
-                        self.do_mapping(fl, fname)
-                    if ftype == 'SINGLE_BAM':
-                        if status == 0:
-                            self.do_merge(smp, [], fname)
-                    else:
+                        self.do_mapping(fl)
+                    if ftype != 'SINGLE_BAM':
                         bamlist.append(fname)
-                if v[0] != None:
+                if v[0] != None:                    
                     self.do_merge(smp, bamlist, v[0])
                     
-    def do_mapping(self, fli, outfile):
+    def do_mapping(self, fli):
+        # Check if FLI still has status 0 (i.e. has not been claimed by another process)
+        self.db.isolation_level = None
+        c = self.db.cursor()
+        c.execute("BEGIN EXCLUSIVE")
+        c.execute("SELECT * FROM mapping WHERE fileid = ? AND status = 0", (fli,))
+        ret = c.fetchone()
+        if ret:
+            # Claim FLI by setting status to 3
+            outfile, fl, smp, filetype, status = ret
+            c.execute("UPDATE mapping SET status = 3 WHERE filepath = ?", (outfile,))
+            c.execute("COMMIT")
+            # Register output files and db cleanup in case of failure
+            odir = os.path.dirname(outfile)
+            jfile = os.path.join(odir, fl + '.json')
+            ixfile = os.path.join(odir, smp + '.bai')
+            reg_db_com(outfile, "UPDATE mapping SET status = 0 WHERE filepath = '{}'".format(outfile), self.db_name, [outfile, jfile, ixfile])                
+
+            try:
+                fliInfo = self.jsonData.sampleData[fli] 
+            except KeyError:
+                raise ValueError('Data file {} not found in config file'.format(fli))
+
+            sample = fliInfo.sample_barcode
+            input_dir = self.input_dir.replace('@SAMPLE',sample)
+
+            #Paired
+            self.paired = self.paired_end
+            ftype = self.ftype
+            if not self.paired:
+                if ftype == None: ftype = fliInfo.type 
+                if ftype in self.paired_types: self.paired = True
+
+            inputFiles = []
         
-        try:
-            fliInfo = self.jsonData.sampleData[fli] 
-        except KeyError:
-            raise ValueError('Data file {} not found in config file'.format(fli))
-
-        sample = fliInfo.sample_barcode
-        input_dir = self.input_dir.replace('@SAMPLE',sample)
-
-        #Paired
-        self.paired = self.paired_end
-        ftype = self.ftype
-        if not self.paired:
-            if ftype == None: ftype = fliInfo.type 
-            if ftype in self.paired_types: self.paired = True
-
-        inputFiles = []
-        
-        # Find input files
-        if not ftype:
-            ftype = fliInfo.type
-        if not ftype in self.stream_types:
-            files = fliInfo.file
-            if files:            
-                # If filenames were specified in configuration file then use them
-                if(ftype == 'PAIRED'):
-                    inputFiles = [os.path.join(input_dir,files['1']), os.path.join(input_dir,files['2'])]
+            # Find input files
+            if not ftype:
+                ftype = fliInfo.type
+            if not ftype in self.stream_types:
+                files = fliInfo.file
+                if files:            
+                    # If filenames were specified in configuration file then use them
+                    if(ftype == 'PAIRED'):
+                        inputFiles = [os.path.join(input_dir,files['1']), os.path.join(input_dir,files['2'])]
+                    else:
+                        for k,v in files.items():
+                            if ftype is None:
+                                if 'bam' in v: 
+                                    ftype = 'BAM'
+                                elif 'sam' in v:
+                                    ftype = 'SAM'
+                                else:
+                                    ftype = 'INTERLEAVED' if self.paired else 'SINGLE'
+                            inputFiles.append(os.path.join(input_dir,v))
+                            break
                 else:
-                    for k,v in files.items():
+                    # Otherwise search in input directory for possible data files
+                    if not os.path.isdir(input_dir):
+                        raise ValueError("Input directory {} does not exist".format(input_dir))
+
+                    # Look for likely data files in input_dir
+                    reg = re.compile("(.*){}(.*)(.)[.](fastq|fq|fasta|fa|bam|sam)([.][^.]+)?$".format(fliInfo.getFli()), re.I)
+                    mlist = []
+                    for file in os.listdir(input_dir):
+                        m = reg.match(file)
+                        if m: 
+                            if m.group(5) in [None, '.gz', '.xz', 'bz2', 'z']: 
+                                if ftype == 'PAIRED' and (m.group(3) not in ['1', '2'] or m.group(4).lower() not in ['fasta', 'fa', 'fastq', 'fq']): continue
+                                if ftype in ['SAM', 'BAM'] and m.group(4).lower() not in ['sam', 'bam']: continue
+                                mlist.append((file, m))
+                            
+                    if len(mlist) == 1:
+                        (file, m) = mlist[0]
+                        skip = false
                         if ftype is None:
-                            if 'bam' in v: 
-                                ftype = 'BAM'
-                            elif 'sam' in v:
-                                ftype = 'SAM'
+                            if m.group(4).lower() in ['SAM', 'BAM']:
+                                ftype = 'BAM' if m.group(4).lower == 'BAM' else 'SAM'
                             else:
                                 ftype = 'INTERLEAVED' if self.paired else 'SINGLE'
-                        inputFiles.append(os.path.join(input_dir,v))
-                        break
-            else:
-                # Otherwise search in input directory for possible data files
-                if not os.path.isdir(input_dir):
-                    raise ValueError("Input directory {} does not exist".format(input_dir))
-
-                # Look for likely data files in input_dir
-                reg = re.compile("(.*){}(.*)(.)[.](fastq|fq|fasta|fa|bam|sam)([.][^.]+)?$".format(fliInfo.getFli()), re.I)
-                mlist = []
-                for file in os.listdir(input_dir):
-                    m = reg.match(file)
-                    if m: 
-                        if m.group(5) in [None, '.gz', '.xz', 'bz2', 'z']: 
-                            if ftype == 'PAIRED' and (m.group(3) not in ['1', '2'] or m.group(4).lower() not in ['fasta', 'fa', 'fastq', 'fq']): continue
-                            if ftype in ['SAM', 'BAM'] and m.group(4).lower() not in ['sam', 'bam']: continue
-                            mlist.append((file, m))
-                            
-                if len(mlist) == 1:
-                    (file, m) = mlist[0]
-                    skip = false
-                    if ftype is None:
-                        if m.group(4).lower() in ['SAM', 'BAM']:
-                            ftype = 'BAM' if m.group(4).lower == 'BAM' else 'SAM'
+                        elif ftype == 'PAIRED' or (ftype == 'SAM' and m.group(4).lower != 'sam') or (ftype == 'BAM' and m.group(4).lower() != 'bam'): skip = True
+                        if not skip: inputFiles.append(file)
+                    elif len(mlist) == 2:
+                        (file1, m1) = mlist[0]
+                        (file2, m2) = mlist[1]
+                        for ix in [1, 2, 4]:
+                            if m1.group(ix) != m2.group(ix): break
                         else:
-                            ftype = 'INTERLEAVED' if self.paired else 'SINGLE'
-                    elif ftype == 'PAIRED' or (ftype == 'SAM' and m.group(4).lower != 'sam') or (ftype == 'BAM' and m.group(4).lower() != 'bam'): skip = True
-                    if not skip: inputFiles.append(file)
-                elif len(mlist) == 2:
-                    (file1, m1) = mlist[0]
-                    (file2, m2) = mlist[1]
-                    for ix in [1, 2, 4]:
-                        if m1.group(ix) != m2.group(ix): break
-                    else:
-                        if (ftype == None or ftype == 'PAIRED') and m1.group(4) in ['fastq', 'fq', 'fasta', 'fa']:
-                            if m1.group(3) == '1' and m2.group(3) == '2':
-                                inputFiles = [os.path.join(input_dir,file1), os.path.join(input_dir,file2)]
-                            elif m1.group(3) == '2' and m2.group(3) == '1':
-                                inputFiles = [os.path.join(input_dir,file2), os.path.join(input_dir,file1)]
-                            self.ftype = 'PAIRED'
-                            self.paired = True
+                            if (ftype == None or ftype == 'PAIRED') and m1.group(4) in ['fastq', 'fq', 'fasta', 'fa']:
+                                if m1.group(3) == '1' and m2.group(3) == '2':
+                                    inputFiles = [os.path.join(input_dir,file1), os.path.join(input_dir,file2)]
+                                elif m1.group(3) == '2' and m2.group(3) == '1':
+                                    inputFiles = [os.path.join(input_dir,file2), os.path.join(input_dir,file1)]
+                                self.ftype = 'PAIRED'
+                                self.paired = True
 
-            if not inputFiles:
-                raise ValueError('Could not find input files for {} in {}'.format(fliInfo.getFli(),input_dir))
+                if not inputFiles:
+                    raise ValueError('Could not find input files for {} in {}'.format(fliInfo.getFli(),input_dir))
 
-        self.curr_fli = fli
-        self.curr_ftype = ftype
-        self.inputFiles = inputFiles
-        self.curr_output_dir = os.path.dirname(outfile)
-        self.log_parameter()
+            self.curr_fli = fli
+            self.curr_ftype = ftype
+            self.inputFiles = inputFiles
+            self.curr_output_dir = os.path.dirname(outfile)
+            self.log_parameter()
 
-        logging.gemBS.gt("Bisulfite Mapping...")
-        ret = mapping(name=fli,index=self.index,fliInfo=fliInfo,inputFiles=inputFiles,ftype=ftype,
-                            read_non_stranded=self.read_non_stranded,
-                            outfile=outfile,paired=self.paired,tmpDir=self.tmp_dir,threads=self.threads,
-                            under_conversion=self.underconversion_sequence,over_conversion=self.overconversion_sequence) 
+            logging.gemBS.gt("Bisulfite Mapping...")
+            ret = mapping(name=fli,index=self.index,fliInfo=fliInfo,inputFiles=inputFiles,ftype=ftype,
+                          read_non_stranded=self.read_non_stranded,
+                          outfile=outfile,paired=self.paired,tmpDir=self.tmp_dir,threads=self.threads,
+                          under_conversion=self.underconversion_sequence,over_conversion=self.overconversion_sequence) 
         
-        if ret:
+            if ret:
+                logging.gemBS.gt("Bisulfite Mapping done. Output File: %s" %(ret))            
+            if filetype == 'SINGLE_BAM':
+                self.do_merge(smp, [], outfile)
             c = self.db.cursor()
-            c.execute("UPDATE mapping SET status = 1 WHERE fileid = ?", (fli,))
-            self.db.commit()
-            logging.gemBS.gt("Bisulfite Mapping done. Output File: %s" %(ret))
-
+            c.execute("BEGIN IMMEDIATE")
+            c.execute("UPDATE mapping SET status = 1 WHERE filepath = ?", (outfile,))
+            del_db_com(outfile)
+            
+        c.execute("COMMIT")
+        self.db.isolation_level = 'DEFERRED'
+    
     def do_merge(self, sample, inputs, fname):
-        ret = merging(inputs = inputs, sample = sample, threads = self.threads, outname = fname)
-        if ret:
-            logging.gemBS.gt("Merging process done for {}. Output files generated: {}".format(sample, ','.join(ret)))
+        if inputs:
+            self.db.isolation_level = None
             c = self.db.cursor()
-            if self.remove:
-                for f in inputs:
-                    os.remove(f)
-                    c.execute("UPDATE mapping SET status = 2 WHERE filepath = ?", (f,))
-            c.execute("UPDATE mapping SET status = 1 WHERE filepath = ?", (fname,))
-            self.db.commit()
+            c.execute("BEGIN EXCLUSIVE")
+            res = c.execute("SELECT * FROM mapping WHERE sample = ?", (sample,))
+            if res:
+                mstat = 1
+                for filename, fl, smp, ftype, status in res:
+                    if ftype == 'MULTI_BAM' and status != 1: break
+                    if ftype == 'MRG_BAM':
+                        outfile = filename
+                        mstat = status
+                else:
+                    if mstat == 0:
+                        c.execute("UPDATE mapping SET status = 3 WHERE filepath = ?", (outfile,))
+                        c.execute("COMMIT")
+                        # Register output files and db cleanup in case of failure
+                        odir = os.path.dirname(outfile)
+                        ixfile = os.path.join(odir, smp + '.bai')
+                        reg_db_com(outfile, "UPDATE mapping SET status = 0 WHERE filepath = '{}'".format(outfile), self.db_name, [outfile, ixfile]) 
+                        ret = merging(inputs = inputs, sample = sample, threads = self.threads, outname = outfile)
+                        if ret:
+                            logging.gemBS.gt("Merging process done for {}. Output files generated: {}".format(sample, ','.join(ret)))
+                        c.execute("BEGIN EXCLUSIVE")
+                        if self.remove:
+                            for f in inputs:
+                                if os.path.exists(f): os.remove(f)
+                                c.execute("UPDATE mapping SET status = 2 WHERE filepath = ?", (f,))
+                        c.execute("UPDATE mapping SET status = 1 WHERE filepath = ?", (outfile,))
+                        del_db_com(outfile)
+            c.execute("COMMIT")
+            self.db.isolation_level = 'DEFERRED'
+        else:
+            # No merging required - just create index
+            ret = merging(inputs = [], sample = sample, threads = self.threads, outname = fname)
+            if ret:
+                logging.gemBS.gt("Merging process done for {}. Output files generated: {}".format(sample, ','.join(ret)))
 
     def extra_log(self):
         """Extra Parameters to be printed"""
@@ -656,7 +700,7 @@ class MethylationCall(BasicPipeline):
         for fname, fli, smp, ftype, status in ret:
             if status == 1:
                 if not os.path.isfile(fname):
-                    raise CommandException("Sorry file %s was not found!!" %(fileBam))
+                    raise CommandException("Sorry file '{}' was not found".format(fname))
                 sampleBam[smp] = fname
             else:
                 logging.gemBS.gt("Sample BAM file '{}' not ready".format(fname))
