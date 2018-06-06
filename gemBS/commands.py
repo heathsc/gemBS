@@ -107,13 +107,11 @@ def gemBS_main():
             "prepare" : PrepareConfiguration,            
             "index" : Index,
             "map" : Mapping,
-            "merge" : Merging,
+            "merge-bams" : Merging,
             "call" : MethylationCall,
+            "merge-calls" : BsCallConcatenate,
             "filter": MethylationFiltering,
-            "mapping-commands" : MappingCommands,
-            "bscall" : BsCall,
-            "bscall-concatenate" : BsCallConcatenate,
-            "bsMap-report" : MappingReports,
+            "map-report" : MappingReports,
             "variants-report" : VariantsReports,
             "cpg-bigwig" : CpgBigwig
         }

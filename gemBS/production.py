@@ -155,72 +155,6 @@ class Index(BasicPipeline):
                 db_check_index(db, jsonData)
                 db_check_contigs(db, jsonData)
        
-class MappingCommands(BasicPipeline):
-    title = "Show Mapping commands"
-    description = """ From a json input file, generates the set of mapping commands to run for mapping all Bisulfite data involved in a Project """
-
-    def register(self,parser):
-        ## required parameters
-        parser.add_argument('-I', '--index', dest="index", metavar="index_file.BS.gem", help='Path to the Bisulfite Index Reference file.', required=False)
-        parser.add_argument('-j', '--json', dest="json_file", metavar="JSON_FILE", help='JSON file configuration.', required=True)
-        parser.add_argument('-i', '--input-dir', dest="input_dir", metavar="PATH", help='Directory where is located input data. FASTQ or BAM format.', required=False)
-        parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH", help='Directory to store Bisulfite mapping results. Default: .')
-        parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", help='Temporary folder to perform sorting operations. Default: /tmp')      
-        parser.add_argument('-t', '--threads', dest="threads", help='Number of threads to perform sorting operations. Default: %s' %self.threads)
-        parser.add_argument('-p', '--paired-end', dest="paired_end", action="store_true", help="Input data is Paired End")
-        parser.add_argument('-s', '--read-non-stranded', dest="read_non_stranded", action="store_true", 
-                            help='Automatically selects the proper C->T and G->A read conversions based on the level of Cs and Gs on the read.') 
-        parser.add_argument('-n', '--underconversion-sequence', dest="underconversion_sequence", metavar="SEQUENCE", help='Name of negative control sequence for bisulfite conversion.', required=False)
-        parser.add_argument('-v', '--overconversion-sequence', dest="overconversion_sequence", metavar="SEQUENCE", help='Name of positive control sequence for bisulfite conversion.', required=False)        
-        
-    def run(self,args):
-        from sets import Set
-        paired_types = Set(['PAIRED', 'INTERLEAVED', 'PAIRED_STREAM'])
-
-        ## All Flowcell Lane Index        
-        jsonData = JSONdata(args.json_file)
-
-        args.index = jsonData.check(section='mapping',key='gem_index',arg=args.index)
-        args.input_dir = jsonData.check(section='mapping',key='sequence_dir',arg=args.input_dir,dir_type=True)
-        args.tmp_dir = jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,default='/tmp',dir_type=True)
-        args.threads = jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
-        args.read_non_stranded = jsonData.check(section='mapping',key='non_stranded',arg=args.read_non_stranded,boolean=True)
-        args.underconversion_sequence = jsonData.check(section='mapping',key='underconversion_sequence',arg=args.underconversion_sequence)
-        args.overconversion_sequence = jsonData.check(section='mapping',key='overconversion_sequence',arg=args.overconversion_sequence)
-        args.output_dir = jsonData.check(section='mapping',key='bam_dir',arg=args.output_dir,default='.',dir_type=True)
-        output_sample = '@SAMPLE' in args.output_dir
-        input_sample = '@SAMPLE' in args.input_dir
-        for k,v in jsonData.sampleData.items():
-            ##Non Stranded
-            non_stranded = ""
-            if args.read_non_stranded:
-                non_stranded += "-s"
-            ## Conversion Parameters
-            conversion_parameters = ""            
-            if args.underconversion_sequence is not None:  
-                conversion_parameters += " -n %s" %(args.underconversion_sequence)
-            if args.overconversion_sequence is not None:  
-                conversion_parameters += " -v %s" %(args.overconversion_sequence)
-            if output_sample:
-                output = args.output_dir.replace('@SAMPLE',v.sample_barcode)
-            else:
-                output = args.output_dir
-            if input_sample:
-                input_dir = args.input_dir.replace('@SAMPLE',v.sample_barcode)
-            else:
-                input_dir = args.input_dir
-            paired = args.paired_end
-            if paired == None:
-                if v.type in paired_types:
-                    paired = True
-            if paired:
-                print ("gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s -p %s %s"\
-                       %(args.index,k,args.json_file,input_dir,output,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters))
-            else:
-                print ("gemBS mapping -I %s -f %s -j %s -i %s -o %s -d %s -t %s %s %s"\
-                      %(args.index,k,args.json_file,input_dir,output,args.tmp_dir,str(args.threads),non_stranded,conversion_parameters))
-            
-        
 class Mapping(BasicPipeline):
     title = "Bisulphite mapping"
     description = """Maps a single end or paired end bisulfite sequence using the gem mapper. 
@@ -246,7 +180,7 @@ class Mapping(BasicPipeline):
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads to perform sorting operations. Default %s' %self.threads)
         parser.add_argument('-T', '--type', dest="ftype", help='Type of data file (PAIRED, SINGLE, INTERLEAVED, STREAM, BAM)')
         parser.add_argument('-p', '--paired-end', dest="paired_end", action="store_true", help="Input data is Paired End")
-        parser.add_argument('-r', '--remove', dest="remove", help='Remove individual BAM files after merging.', required=False)
+        parser.add_argument('-r', '--remove', dest="remove", action="store_true", help='Remove individual BAM files after merging.', required=False)
         parser.add_argument('-s', '--read-non-stranded', dest="read_non_stranded", action="store_true", 
                               help='Automatically selects the proper C->T and G->A read conversions based on the level of Cs and Gs on the read.')     
         parser.add_argument('-u', '--underconversion-sequence', dest="underconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control unmethylated cytosines which fails to be\
@@ -469,7 +403,8 @@ class Mapping(BasicPipeline):
                         # Register output files and db cleanup in case of failure
                         odir = os.path.dirname(outfile)
                         ixfile = os.path.join(odir, smp + '.bai')
-                        reg_db_com(outfile, "UPDATE mapping SET status = 0 WHERE filepath = '{}'".format(outfile), self.db_name, [outfile, ixfile]) 
+                        md5file = outfile + '.md5'
+                        reg_db_com(outfile, "UPDATE mapping SET status = 0 WHERE filepath = '{}'".format(outfile), self.db_name, [outfile, ixfile, md5file]) 
                         ret = merging(inputs = inputs, sample = sample, threads = self.threads, outname = outfile)
                         if ret:
                             logging.gemBS.gt("Merging process done for {}. Output files generated: {}".format(sample, ','.join(ret)))
@@ -515,7 +450,7 @@ class Merging(Mapping):
         ## required parameters                     
         parser.add_argument('-t', '--threads', dest="threads", metavar="THREADS", help='Number of threads, Default: %s' %self.threads)
         parser.add_argument('-n', '--sample',dest="sample",metavar="SAMPLE",help="Sample to be merged",required=False) 
-        parser.add_argument('-r', '--remove', dest="remove", help='Remove individual BAM files after merging.', required=False)
+        parser.add_argument('-r', '--remove', dest="remove", action="store_true", help='Remove individual BAM files after merging.', required=False)
         
     def run(self, args):
         # JSON data
@@ -576,7 +511,7 @@ class MethylationCall(BasicPipeline):
 
                                    
     def register(self, parser):
-        ## required parameters
+
         parser.add_argument('-l','--contig-list',dest="contig_list",nargs="+",metavar="CONTIGS",help="List of contigs to perform the methylation pipeline.")
         parser.add_argument('-n','--sample',dest="sample",metavar="SAMPLE",help="Sample to be called")  
         parser.add_argument('-q','--mapq-threshold', dest="mapq_threshold", type=int, help="Threshold for MAPQ scores")
@@ -584,16 +519,17 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('-g','--right-trim', dest="right_trim", metavar="BASES",type=int, help='Bases to trim from right of read pair, Default: 0')
         parser.add_argument('-f','--left-trim', dest="left_trim", metavar="BASES",type=int, help='Bases to trim from left of read pair, Default: 5')        
         parser.add_argument('-t','--threads', dest="threads", metavar="THREADS", help='Number of threads, Default: %s' %self.threads)
-        parser.add_argument('-P','--jobs', dest="jobs", type=int, help='Number of parallel jobs')
+        parser.add_argument('-j','--jobs', dest="jobs", type=int, help='Number of parallel jobs')
         parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", help="Do not merge duplicate reads.")    
         parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", help="Do not discard reads that do not form proper pairs.")
         parser.add_argument('-e','--species',dest="species",metavar="SPECIES",default="HomoSapiens",help="Sample species name. Default: %s" %self.species)
+        parser.add_argument('-r','--remove', dest="remove", action="store_true", help='Remove individual BCF files after merging.')
         parser.add_argument('-1','--haploid', dest="haploid", action="store", help="Force genotype calls to be homozygous")
         parser.add_argument('-C','--conversion', dest="conversion", help="Set under and over conversion rates (under,over)")
         parser.add_argument('-B','--reference_bias', dest="ref_bias", help="Set bias to reference homozygote")
-        parser.add_argument('-m','--contig-pool-limit',dest="contig_pool_limit",metavar="PATH_BAM",help='Contigs smaller than this will be cooled together.')
         parser.add_argument('-b','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.")
-
+        parser.add_argument('-x','--concat-only', dest="concat", action="store_true", help="Only perform merging BCF files.")
+        
     def run(self,args):
         # JSON data
         json_file = '.gemBS/gemBS.json'
@@ -610,10 +546,10 @@ class MethylationCall(BasicPipeline):
         self.keep_duplicates = self.jsonData.check(section='calling',key='keep_duplicates',arg=args.keep_duplicates,boolean=True)
         self.haploid = self.jsonData.check(section='calling',key='haploid',arg=args.haploid,boolean=True)
         self.species = self.jsonData.check(section='calling',key='species',arg=args.species)
-        self.contig_pool_limit = self.jsonData.check(section='calling',key='contig_pool_limit',default=25000000,int_type=True, arg=args.contig_pool_limit)
         self.contig_list = self.jsonData.check(section='calling',key='contig_list',arg=args.contig_list,list_type=True, default = [])
         self.conversion = self.jsonData.check(section='calling',key='conversion',arg=args.conversion)
-        self.omit_contigs = self.jsonData.check(section='calling',key='omit_contigs',arg=None,list_type=True)
+        self.remove = self.jsonData.check(section='calling',key='remove_individual_bcfs',arg=args.remove, boolean=True)
+        
         if self.contig_list != None:
             if len(self.contig_list) == 1:
                 if os.path.isfile(self.contig_list[0]):
@@ -632,8 +568,8 @@ class MethylationCall(BasicPipeline):
 
         self.dbSNP_index_file = args.dbSNP_index_file
         self.sample_conversion = {}
-
-        if self.conversion != None and self.conversion.lower() == "auto":
+        
+        if self.conversion != None and self.conversion.lower() == "auto" and not args.concat:
             sample_lane_files = {}
             if args.sample:
                 ret = c.execute("SELECT * FROM mapping WHERE sample = ? AND type != 'MRG_BAM'", (args.sample,))
@@ -749,30 +685,45 @@ class MethylationCall(BasicPipeline):
                     self.sampleBam[smp] = fname
                 
         self.input = list(self.sampleBam.values())
+        self.samples = list(sampleBam.keys())
         self.output = []
         for smp, pl in self.outputBcf.items():
             for v in pl:
                 self.output.append(v[0])
         
         # Call for requested list
-
+        mrg = False
         if not self.output:
-            logging.gemBS.gt("No calling to be performed")
-        else:
+            for smp, v in mrg_bcf.items():
+                if v[1] == 0:
+                    mrg = True
+                    break
+            else:
+                if args.concat:
+                    logging.gemBS.gt("No merging to be performed")
+                else:
+                    logging.gemBS.gt("No calling to be performed")
+        if self.output or mrg:
             self.log_parameter()
             self.db.close()
             self.db = None
-            logging.gemBS.gt("Methylation Calling...")
+            if args.concat:
+                logging.gemBS.gt("Methylation Merging...")
+            else:
+                logging.gemBS.gt("Methylation Calling...")
             ret = methylationCalling(reference=self.fasta_reference,db_name=db_name,species=self.species,
-                                     right_trim=self.right_trim, left_trim=self.left_trim,
-                                     sample_bam=self.sampleBam,output_bcf=self.outputBcf,
-                                     keep_unmatched=self.keep_unmatched,
+                                     right_trim=self.right_trim, left_trim=self.left_trim,concat=args.concat,
+                                     sample_bam=self.sampleBam,output_bcf=self.outputBcf,remove=self.remove,
+                                     keep_unmatched=self.keep_unmatched,samples=self.samples,
                                      keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads,jobs=self.jobs,
                                      mapq_threshold=self.mapq_threshold,bq_threshold=self.qual_threshold,
                                      haploid=self.haploid,conversion=self.conversion,ref_bias=self.ref_bias,sample_conversion=self.sample_conversion)
                 
             if ret:
-                logging.gemBS.gt("Methylation call done, samples performed: %s" %(ret))
+                if args.concat:
+                    logging.gemBS.gt("Methylation merging done, samples performed: %s" %(ret))
+                else:
+                    logging.gemBS.gt("Methylation call done, samples performed: %s" %(ret))
                 
     def extra_log(self):
         """Extra Parameters to be printed"""
@@ -888,169 +839,35 @@ class MethylationFiltering(BasicPipeline):
         """Extra Parameters to be printed"""
         #Virtual methods, to be define in child class
         
-class BsCall(BasicPipeline):
-    title = "Bisulfite calling for sample and chromosome."
-    description = """ Tool useful for a cluster application manager. Methylation
-                      calls for a given sample and chromosome.
-                  """
-     
-    def membersInitiation(self):
-        self.species = "HomoSapiens"
-             
-    def register(self,parser):
-        ## required parameters
-        parser.add_argument('-r','--fasta-reference',dest="fasta_reference",metavar="PATH",help="Path to the fasta reference file.",required=True)
-        parser.add_argument('-e','--species',dest="species",metavar="SPECIES",default="HomoSapiens",help="Sample species name. Default: %s" %self.species)
-        parser.add_argument('-s','--sample-id',dest="sample_id",metavar="SAMPLE",help="Sample unique identificator")  
-        parser.add_argument('-c','--chrom',dest="chrom",metavar="CHROMOSOME",default=None,help="Chromosome name where is going to perform the methylation call")  
-        parser.add_argument('-i','--input-bam',dest="input_bam",metavar="INPUT_BAM",help='Input BAM aligned file.',default=None)
-        parser.add_argument('-g','--right-trim', dest="right_trim", metavar="BASES",type=int, default=0, help='Bases to trim from right of read pair, Default: 0')
-        parser.add_argument('-f','--left-trim', dest="left_trim", metavar="BASES", type=int, default=5, help='Bases to trim from left of read pair, Default: 5')
-        parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',default=None)
-        parser.add_argument('-p','--paired-end', dest="paired_end", action="store_true", default=False, help="Input data is Paired End") 
-        parser.add_argument('-q','--mapq-threshold', dest="mapq_threshold", type=int, default=None, help="Threshold for MAPQ scores")
-        parser.add_argument('-Q','--bq-threshold', dest="bq_threshold", type=int, default=None, help="Threshold for base quality scores")
-        parser.add_argument('-t','--threads', dest="threads", metavar="THREADS", default="1", help='Number of threads, Default: %s' %self.threads)     
-        parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", default=False, help="Do not discard reads that do not form proper pairs.")
-        parser.add_argument('-1','--haploid', dest="haploid", action="store", default=False, help="Force genotype calls to be homozygous")
-        parser.add_argument('-C','--conversion', dest="conversion", default=None, help="Set under and over conversion rates (under,over)")
-        parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.')
-        parser.add_argument('-J','--mapping-json',dest="mapping_json",help='Input mapping statistics JSON files',default=None)
-        parser.add_argument('-B','--reference_bias', dest="ref_bias", default=None, help="Set bias to reference homozygote")
-        parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", default=False, help="Do not merge duplicate reads.")
-        parser.add_argument('-d','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.",required=False,default="")
-
-    def run(self,args):
-        self.threads = args.threads
-        self.reference = args.fasta_reference
-        self.species = args.species
-        self.input = args.input_bam 
-        self.right_trim = args.right_trim
-        self.left_trim = args.left_trim        
-        self.chrom = args.chrom
-        self.sample_id = args.sample_id
-        self.output_dir = args.output_dir
-        self.paired = args.paired_end
-        self.keep_unmatched = args.keep_unmatched
-        self.keep_duplicates = args.keep_duplicates
-        self.dbSNP_index_file = args.dbSNP_index_file
-        self.mapq_threshold = args.mapq_threshold
-        self.bq_threshold = args.mapq_threshold
-        self.haploid = args.haploid
-        self.conversion = args.conversion
-        self.ref_bias = args.ref_bias
-        
-        if self.conversion != None and self.conversion.lower() == "auto":
-            if args.mapping_json == None or args.json_file == None:
-                self.conversion = None
-            else:
-                lane_stats_list = []
-                for k,v in JSONdata(args.json_file).sampleData.items():
-                    if v.sample_barcode == self.sample_id:
-                        fileJson = "%s/%s.json" %(args.mapping_json,v.getFli())
-                        if os.path.isfile(fileJson):
-                            lane_stats_list.append(LaneStats(name=v.getFli(),json_file=fileJson))
-                stats = SampleStats(name=self.sample_id,list_lane_stats=lane_stats_list)
-                uc = stats.getUnderConversionRate()
-                oc = stats.getOverConversionRate()
-                if uc == "NA":
-                    uc = 0.99
-                elif uc < 0.8:
-                    uc = 0.8
-                if oc == "NA":
-                    oc = 0.05
-                elif oc > 0.2:
-                    oc = 0.2
-                self.conversion = "{:.4f},{:.4f}".format(1-uc,oc)
-
-        #Check fasta existance
-        if not os.path.isfile(args.fasta_reference):
-            raise CommandException("Sorry path %s was not found!!" %(args.fasta_reference))
-        
-        #Check input bam existance 
-        if not os.path.isfile(args.input_bam):
-            raise CommandException("Sorry path %s was not found!!" %(args.input_bam))
-                        
-        #Bs Calling per chromosome
-        self.log_parameter()
-        logging.gemBS.gt("BsCall per sample and chromosome...")
-        
-        ret = bsCalling (reference=self.reference,species=self.species,input_bam=self.input,chrom=self.chrom,
-                             right_trim=self.right_trim, left_trim=self.left_trim,
-                             sample_id=self.sample_id,output_dir=self.output_dir,
-                             paired_end=self.paired,keep_unmatched=self.keep_unmatched,
-                             keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads,
-                             mapq_threshold=self.mapq_threshold,bq_threshold=self.bq_threshold,
-                             haploid=self.haploid,conversion=self.conversion,ref_bias=self.ref_bias)
-        if ret:
-            logging.gemBS.gt("Bisulfite calling done: %s" %(ret)) 
-       
-    def extra_log(self):
-        """Extra Parameters to be printed"""
-        #Virtual methos, to be define in child class
-        printer = logging.gemBS.gt
-        
-        printer("-------------- BS Call ------------")
-        printer("Reference       : %s", self.reference)
-        printer("Species         : %s", self.species) 
-        printer("Chromosomes     : %s", self.chrom)
-        printer("Sample ID       : %s", self.sample_id)
-        printer("Threads         : %s", self.threads)
-        printer("Right Trim      : %i", self.right_trim)
-        printer("Left Trim       : %i", self.left_trim)
-                
-        if self.dbSNP_index_file != "":
-            printer("dbSNP File      : %s", self.dbSNP_index_file)
-        printer("")       
-            
-                  
-class BsCallConcatenate(BasicPipeline):
+class BsCallConcatenate(MethylationCall):
     title = "Concatenation of methylation calls for different chromosomes for a given sample."  
     description = """ Concatenates bcf files comming from different methylation calls of 
                       different chromosomes.
                   """
     
     def register(self,parser):
-        ## required parameters
-        parser.add_argument('-s','--sample-id',dest="sample_id",metavar="SAMPLE",help="Sample unique identificator",required=True)
-        parser.add_argument('-l','--list-bcfs',nargs="+",dest="list_bcfs",metavar="BCFLIST",help="List of bcfs to be concatenated.",required=True)
-        parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',default=None)
-        
+
+        parser.add_argument('-n', '--sample',dest="sample",metavar="SAMPLE",help="Sample to be merged",required=False)
+        parser.add_argument('-t', '--threads', dest="threads", metavar="THREADS", help='Number of threads, Default: %s' %self.threads)
+        parser.add_argument('-r', '--remove', dest="remove", action="store_true", help='Remove individual BAM files after merging.', required=False)
+        parser.add_argument('-j', '--jobs', dest="jobs", type=int, help='Number of parallel jobs')
     
     def run(self,args):
-        self.list_bcf = args.list_bcfs  
-        self.sample_id = args.sample_id
-        self.output_dir = args.output_dir
-        
-        #Check bcf files to concatenate
-        if len(args.list_bcfs) < 1:
-            raise CommandException("No bcf files to concatenate.")
-            
-        for bcfFile in args.list_bcfs:
-            #Check bcf existance 
-            if not os.path.isfile(bcfFile):
-                raise CommandException("Sorry path %s was not found!!" %(bcfFile))
-                
-        #Bs Calling Concatenate
-        self.log_parameter()
-        logging.gemBS.gt("BCF concatenate files...")
-        args.list_bcfs.sort(key=lambda x: '{0:0>8}'.format(x).lower())        
-        ret = bsConcat(list_bcfs=self.list_bcf,sample=self.sample_id,output_dir=self.output_dir)
-        if ret:
-            logging.gemBS.gt("BCF Concatenation Done: %s" %(ret))
-            
-    def extra_log(self):
-        """Extra Parameters to be printed"""
-        #Virtual methos, to be define in child class
-        printer = logging.gemBS.gt
-        
-        printer("------- BS Call Concatenate ----------")
-        printer("List BCF        : %s", self.list_bcf)
-        printer("Sample ID       : %s", self.sample_id)
-        printer("")       
-            
-      
 
+        args.concat = True;
+        args.mapq_threshold = None;
+        args.qual_threshold = None;
+        args.contig_list = None;
+        args.right_trim = None;
+        args.left_trim = None;
+        args.keep_duplicates = None;
+        args.keep_unmatched = None;
+        args.species = None;
+        args.haploid = None;
+        args.conversion = None;
+        args.ref_bias = None;
+        args.dbSNP_index_file = None;
+        MethylationCall.run(self, args)
       
 class MappingReports(BasicPipeline):
     title = "Bisulfite Mapping reports. Builds a HTML and SPHINX report per lane and Sample."

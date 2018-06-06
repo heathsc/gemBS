@@ -511,7 +511,8 @@ def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/"):
         
     bam_filename = outname
     index_filename = outname[:-3] + 'bai'
- 
+    md5_filename = outname + '.md5'
+    
     bammerging = []       
 
     #Check output directory
@@ -530,8 +531,14 @@ def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/"):
     #Samtools index
     logfile = os.path.join(output,"bam_index_{}.err".format(sample))
     indexing = [executables['samtools'], "index", bam_filename, index_filename]
+    md5sum = ['md5sum',bam_filename]
     processIndex = run_tools([indexing],name="Indexing",logfile=logfile)
-    if processIndex.wait() != 0: raise ValueError("Error while indexing.")
+    processMD5 = run_tools([md5sum],name="BAM MD5",output=md5_filename)
+    if processIndex.wait() != 0:
+        raise ValueError("Error while indexing BAM file.")
+    if processMD5.wait() != 0:
+        raise ValueError("Error while calculating md5sum of BAM file.")
+
     return_info.append(os.path.abspath(index_filename))
     
     return return_info 
@@ -600,15 +607,17 @@ class BsCaller:
         return bsCall
 
 class MethylationCallIter:
-    def __init__(self, sample_bam, output_bcf, db_name, jobs):
+    def __init__(self, samples, sample_bam, output_bcf, db_name, jobs, concat):
         self.sample_bam = sample_bam
-        self.sample_list = list(sample_bam.keys())
+        self.sample_list = samples
         self.output_bcf = output_bcf
         self.db_name = db_name
         self.sample_ix = 0
         self.pool_ix = 0
         self.output_list = []
         self.plist = {}
+        self.concat = concat
+        
         for smp in self.sample_list:
             self.plist[smp] = {}
         for smp, pl in output_bcf.items():
@@ -626,13 +635,38 @@ class MethylationCallIter:
         c = db.cursor()
         c.execute("BEGIN EXCLUSIVE")
         ret = None
-        for fname, pool, smp, ftype, status in c.execute("SELECT * FROM calling"):
-            if fname in self.output_list and smp in self.sample_list and status == 0:
-                ret = (smp, self.sample_bam[smp], self.plist[smp][pool])
-                c.execute("UPDATE calling SET status = 3 WHERE filepath = ?", (fname,))
-                base, ext = os.path.splitext(fname)
-                jfile = base + '.json'
-                reg_db_com(fname, "UPDATE calling SET status = 0 WHERE filepath = '{}'".format(fname), self.db_name, [fname, jfile])
+        for sample in self.sample_list:
+            mrg_file = ""
+            mrg_ok = True
+            list_bcfs = []
+            for fname, pool, ftype, status in c.execute("SELECT filepath, poolid, type, status FROM calling WHERE sample = ?", (sample,)):
+                if ftype == 'POOL_BCF':
+                    if fname in self.output_list and status == 0:
+                        mrg_ok = False
+                        if not self.concat:
+                            ret = (ftype, sample, self.sample_bam[sample], self.plist[sample][pool])
+                            c.execute("UPDATE calling SET status = 3 WHERE filepath = ?", (fname,))
+                            base, ext = os.path.splitext(fname)
+                            jfile = base + '.json'
+                            reg_db_com(fname, "UPDATE calling SET status = 0 WHERE filepath = '{}'".format(fname), self.db_name, [fname, jfile])
+                            break
+                    elif status != 1:
+                        mrg_ok = False
+                    else:
+                        list_bcfs.append(fname)
+                elif ftype == 'MRG_BCF':
+                    if status == 0:
+                        mrg_file = fname
+                    else:
+                        mrg_ok = False
+            else:
+                if mrg_ok and mrg_file != "":
+                    c.execute("UPDATE calling SET status = 3 WHERE filepath = ?", (mrg_file,))
+                    ixfile = mrg_file + '.csi'
+                    md5file = mrg_file + '.md5'
+                    reg_db_com(mrg_file, "UPDATE calling SET status = 0 WHERE filepath = '{}'".format(mrg_file), self.db_name, [mrg_file, ixfile, md5file])
+                    ret = ('MRG_BCF', sample, mrg_file, list_bcfs)
+            if ret != None:
                 break
         c.execute("COMMIT")
         db.close()
@@ -641,47 +675,64 @@ class MethylationCallIter:
         else:
             return ret
 
-    def finished(self, sample, fname):
+    def finished(self, bcf_list, fname):
         db = sqlite3.connect(self.db_name)
         db.isolation_level = None
         c = db.cursor()
         c.execute("BEGIN EXCLUSIVE")
         c.execute("UPDATE calling SET status = 1 WHERE filepath = ?", (fname,))
+        if bcf_list != None:
+            for f in bcf_list:
+                if os.path.exists(f): os.remove(f)
+                c.execute("UPDATE calling SET status = 2 WHERE filepath = ?", (f,))
         c.execute("COMMIT")
         del_db_com(fname)
         db.close()
           
 class MethylationCallThread(th.Thread):
-    def __init__(self, threadID, methIter, bsCall, lock):
+    def __init__(self, threadID, methIter, bsCall, lock, remove):
         th.Thread.__init__(self)
         self.threadID = threadID
         self.methIter = methIter
         self.bsCall = bsCall
         self.lock = lock
+        self.remove = remove
 
     def run(self):
         while True:
             self.lock.acquire()
             try:
-                (sample, input_bam, pool) = self.methIter.__next__()
+                ret = self.methIter.__next__()
                 self.lock.release()
             except StopIteration:
                 self.lock.release()
                 break
-            bcf_file, pool, chrom_list = pool
-            output = os.path.dirname(bcf_file)
-            log_file = os.path.join(output,"bs_call_{}_{}.err".format(sample, pool))
-            report_file = os.path.join(output,"{}_{}.json".format(sample, pool))
-            bsCallCommand = self.bsCall.prepare(sample, input_bam, chrom_list, bcf_file, report_file)
-            process = run_tools(bsCallCommand, name="bscall", logfile=log_file)
-            if process.wait() != 0:
-                raise ValueError("Error while executing the bscall process.")
-            self.lock.acquire()
-            self.methIter.finished(sample, bcf_file)
-            self.lock.release()
-               
-def methylationCalling(reference=None,db_name=None,species=None,sample_bam=None,output_bcf=None,right_trim=0,left_trim=5,
-                       keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1",jobs=1,
+            if ret[0] == 'POOL_BCF':
+                (sample, input_bam, pool) = ret[1:]
+                bcf_file, pool, chrom_list = pool
+                output = os.path.dirname(bcf_file)
+                log_file = os.path.join(output,"bs_call_{}_{}.err".format(sample, pool))
+                report_file = os.path.join(output,"{}_{}.json".format(sample, pool))
+                bsCallCommand = self.bsCall.prepare(sample, input_bam, chrom_list, bcf_file, report_file)
+                process = run_tools(bsCallCommand, name="bscall", logfile=log_file)
+                if process.wait() != 0:
+                    raise ValueError("Error while executing the bscall process.")
+                self.lock.acquire()
+                self.methIter.finished(None, bcf_file)
+                self.lock.release()
+            else:
+                (sample, fname, list_bcfs) = ret[1:]
+                bsConcat(list_bcfs, sample, fname)
+                self.lock.acquire()
+                if self.remove:
+                    self.methIter.finished(list_bcfs, fname)
+                else:
+                    self.methIter.finished(None, fname)
+                self.lock.release()
+                
+                
+def methylationCalling(reference=None,db_name=None,species=None,sample_bam=None,output_bcf=None,samples=None,right_trim=0,left_trim=5,
+                       keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1",jobs=1,remove=False,concat=False,
                        mapq_threshold=None,bq_threshold=None,haploid=False,conversion=None,ref_bias=None,sample_conversion=None):
 
     """ Performs the process to make met5Bhylation calls.
@@ -689,6 +740,7 @@ def methylationCalling(reference=None,db_name=None,species=None,sample_bam=None,
     reference -- fasta reference file
     db_name -- path to db file
     species -- species name
+    sample -- list of samples for processing
     sample_bam -- sample dictionary where key is sample and value is bam aligned file 
     output_bcf -- sample dictionary where key is sample and value is list of tuples (output file, pool, list of contigs in pool)
     right_trim --  Bases to trim from right of read pair 
@@ -701,6 +753,7 @@ def methylationCalling(reference=None,db_name=None,species=None,sample_bam=None,
     bq_threshold -- threshold for base quality scores
     haploid -- force genotypes to be homozygous
     conversion -- conversion rates 'under,over'
+    remove -- remove individual BCF files after merging
     ref_bias -- bias to reference homozygote
     sample_conversion - per sample conversion rates (calculated if conversion == 'auto')
     """
@@ -716,12 +769,12 @@ def methylationCalling(reference=None,db_name=None,species=None,sample_bam=None,
             if not os.path.exists(odir):
                 os.makedirs(odir)
             
-    methIter = MethylationCallIter(sample_bam, output_bcf, db_name, jobs)
+    methIter = MethylationCallIter(samples, sample_bam, output_bcf, db_name, jobs, concat)
     lock = th.Lock()
     if jobs < 1: jobs = 1
     thread_list = []
     for ix in range(jobs):
-        thread = MethylationCallThread(ix, methIter, bsCall, lock)
+        thread = MethylationCallThread(ix, methIter, bsCall, lock, remove)
         thread.start()
         thread_list.append(thread)
     for thread in thread_list:
@@ -761,71 +814,20 @@ def methylationFiltering(bcfFile=None,output_dir=None,name=None,strand_specific=
     
     return os.path.abspath("%s" % output_dir)
 
-def bsCalling (reference=None,species=None,input_bam=None,right_trim=0,left_trim=5,chrom=None,sample_id=None,output_dir=None,
-               paired_end=True,keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1",mapq_threshold=None,bq_threshold=None,
-               haploid=False,conversion=None,ref_bias=None):
-    """ Performs the process to make bisulfite calls per sample and chromosome.
-    
-    reference -- fasta reference file
-    species -- species name
-    input_bam -- Path to input alignment bam file
-    right_trim --  Bases to trim from right of read pair 
-    left_trim -- Bases to trim from left of read pair
-    chrom -- chromosome name to perform the bisulfite calling
-    sample_id -- sample unique identification name
-    output_dir -- Directory output to store the call results
-    paired_end -- Is data paired end
-    keep_unmatched -- Do not discard reads that do not form proper pairs
-    keep_duplicates -- Do not merge duplicate reads 
-    dbSNP_index_file -- dbSNP Index File
-    threads -- Number of threads
-    mapq_threshold -- threshold for MAPQ scores
-    bq_threshold -- threshold for base quality scores
-    haploid -- force genotypes to be homozygous
-    conversion -- conversion rates 'under,over'
-    ref_bias -- bias to reference homozygote
-    """
-    
-    #Check output directory
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-        
-    bsCall = BsCaller(reference=reference,species=species,right_trim=right_trim,left_trim=left_trim,output_dir=output_dir,
-                      paired_end=paired_end,keep_unmatched=keep_unmatched,keep_duplicates=keep_duplicates,
-                      dbSNP_index_file=dbSNP_index_file,threads=threads,mapq_threshold=mapq_threshold,bq_threshold=bq_threshold,
-                      haploid=haploid,conversion=conversion,ref_bias=ref_bias,sample_conversion=sample_conversion)
-    #Definition bcf and report file
-    if chrom != None:
-        bcf_file = os.path.join(output_dir,"{}_{}.bcf".format(sample_id,chrom))
-        report_file = os.path.join(output_dir,"{}_{}.json".format(sample_id,chrom))
-        #Command bisulphite calling
-    else:
-        bcf_file = os.path.join(output_dir,"{}.bcf".format(sample_id))
-        report_file = os.path.join(output_dir,"{}.json".format(sample_id))
-        #Command bisulphite calling
-    
-    bsCallCommand = bsCall.prepare(sample_id, input_bam, [chrom], bcf_file, report_file)
-
-    process = run_tools(bsCallCommand, name="bscall")
-    if process.wait() != 0:
-        raise ValueError("Error while executing the bscall process.")
-    
-    return os.path.abspath("%s" % bcf_file)
-
-
-def bsConcat(list_bcfs=None,sample=None,output_dir=None):
+def bsConcat(list_bcfs=None,sample=None,bcfSample=None):
     """ Concatenates all bcf methylation calls files in one output file.
     
         list_bcfs -- list of bcf files to be concatenated
         sample -- unique sample identification
         output_dir -- output directory path
     """
-    
+
+    output_dir = os.path.dirname(bcfSample)
+
     #Check output directory
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         
-    bcfSample = os.path.join(output_dir,"{}.bcf".format(sample))
     bcfSampleMd5 = os.path.join(output_dir,"{}.bcf.md5".format(sample))
     logfile = os.path.join(output_dir,"bcf_concat_{}.err".format(sample))
    
@@ -843,14 +845,13 @@ def bsConcat(list_bcfs=None,sample=None,output_dir=None):
     md5sum = ['md5sum',bcfSample]
 
     processIndex = run_tools([indexing],name="Index BCF")
+    processMD5 = run_tools([md5sum],name="Index MD5",output=bcfSampleMd5)
     
     if processIndex.wait() != 0:
-        raise ValueError("Error while Indexing BCF file.")
-        
-    processMD5 = run_tools([md5sum],name="Index MD5",output=bcfSampleMd5)
+        raise ValueError("Error while Indexing BCF file.")        
                 
     if processMD5.wait() != 0:
-        raise ValueError("Error while calculating its md5sum when performing bsConcat.")
+        raise ValueError("Error while calculating md5sum of merged BCF file.")
         
     return os.path.abspath(bcfSample)
     
