@@ -505,7 +505,7 @@ class Mapping(BasicPipeline):
         
         printer("")
 
-class Merging(BasicPipeline):
+class Merging(Mapping):
     title = "Merging bams"
     description = """Merges all bam alignments involved in a given Bisulfite project or for a given sample.
                      Each bam alignment file belonging to a sample should be merged to perform the methylation calling.
@@ -521,14 +521,13 @@ class Merging(BasicPipeline):
         # JSON data
         json_file = '.gemBS/gemBS.json'
         self.jsonData = JSONdata(json_file)
-        db_name = '.gemBS/gemBS.db'
-        self.db = sqlite3.connect(db_name)
-        db_check_mapping(self.db, self.jsonData)
-
         self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
         self.remove = self.jsonData.check(section='mapping',key='remove_individual_bams',arg=args.remove, boolean=True)
 
         #Create Dictionary of samples and bam files, checking everything required has already been made        
+        self.db_name = '.gemBS/gemBS.db'
+        self.db = sqlite3.connect(self.db_name)
+        db_check_index(self.db, self.jsonData)
         c = self.db.cursor()
         if args.sample:
             ret = c.execute("SELECT * from mapping WHERE sample = ?", (args.sample,))
@@ -562,17 +561,8 @@ class Merging(BasicPipeline):
             elif not v[0]:
                 logging.gemBS.gt("Nothing to be done for sample {}".format(smp))
             else:
-                ret = merging(inputs = v[1], sample = smp, threads = self.threads, outname = v[0])
-                if ret:
-                    logging.gemBS.gt("Merging process done for {}. Output files generated: {}".format(smp, ','.join(ret)))
-                    c = self.db.cursor()
-                    if self.remove:
-                        for f in v[1]:
-                            os.remove(f)
-                            c.execute("UPDATE mapping SET status = 2 WHERE filepath = ?", (f,))
-                    c.execute("UPDATE mapping SET status = 1 WHERE filepath = ?", (v[0],))
-                    self.db.commit()
-
+                self.do_merge(smp, v[1], v[0])
+                
 class MethylationCall(BasicPipeline):
     title = "Methylation Calling"
     description = """Performs a methylation calling from a bam aligned file.
