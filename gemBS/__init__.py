@@ -570,7 +570,7 @@ class BsCaller:
         samtools = [executables['samtools'],'view','-L',contig_bed,'-h',input_bam]
         bsCall = [samtools]
 
-        parameters_bscall = ['%s' %(executables["bs_call"]),'-r',self.reference,'-n',sample,'--report-file',report_file]
+        parameters_bscall = ['%s' %(executables["bs_call"]),'-r',self.reference,'-n',sample,'--contig-bed',contig_bed,'--report-file',report_file]
     
         parameters_bscall.extend(['--right-trim','%i'%(self.right_trim)])
         parameters_bscall.extend(['--left-trim','%i'%(self.left_trim)])
