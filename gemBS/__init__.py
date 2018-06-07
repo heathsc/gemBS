@@ -148,7 +148,7 @@ class JSONdata(object):
             ret = default
         if ret != None:
             if boolean:
-                ret = json.loads(ret.lower())
+                ret = json.loads(str(ret).lower())
             elif int_type:
                 ret = int(ret)
             elif dir_type:
@@ -192,6 +192,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None)
 
     jsonOutput = os.path.join(cpath, 'gemBS.json')
     
+    generalDictionary['sampleData'] = {}
     if text_metadata is not None:
         #Parses Metadata coming from text file
         headers = { 
@@ -205,7 +206,6 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None)
             'read2': 'file2', 'end2': 'file2', 'file2': 'file2', 'location2': 'file2',
             }
         data_types = ['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM']
-        generalDictionary['sampleData'] = {}
         with open(text_metadata, 'r') as f:
             reader = csv.reader(f)
             try:
@@ -799,24 +799,26 @@ def methylationCalling(reference=None,db_name=None,species=None,sample_bam=None,
     return " ".join(list(sample_bam.keys()))
 
             
-def methylationFiltering(bcfFile=None,output_dir=None,name=None,strand_specific=False,non_cpg=False,select_het=False,
+def methylationFiltering(bcfFile=None,outfile=None,name=None,strand_specific=False,non_cpg=False,allow_het=False,
                          inform=1,phred=20,min_nc=1):
     """ Filters bcf methylation calls file 
 
     bcfFile -- bcfFile methylation calling file  
-    output_dir -- Output directory
+    outfile -- Output directory
     """
-        
+
+    output_dir = os.path.dirname(outfile)
+    
     #Check output directory
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-        
-    output_file = os.path.join(output_dir,"{}_cpg.txt".format(name))
-    mextr = [executables['bcftools'],'+mextr',bcfFile,'--','-z','-o',output_file,'--inform',inform,'--threshold',phred]
+
+    
+    mextr = [executables['bcftools'],'+mextr',bcfFile,'--','-z','-o',outfile,'--inform',str(inform),'--threshold',str(phred)]
     if strand_specific:
         mextr.append('--mode')
         mextr.append('strand-specific')
-    if select_het:
+    if allow_het:
         mextr.append('--select')
         mextr.append('het')
     if non_cpg:
@@ -824,12 +826,13 @@ def methylationFiltering(bcfFile=None,output_dir=None,name=None,strand_specific=
         mextr.append('--noncpgfile')
         mextr.append(non_cpg_output_file)
         mextr.append('--min-nc')
-        mextr.append(min_nc)
-    process = run_tools([mextr],name="Methylation Calls Filtering")
+        mextr.append(str(min_nc))
+    logfile = os.path.join(output_dir,"mextr_{}.err".format(name))
+    process = run_tools([mextr],name="Methylation Calls Filtering", logfile=logfile)
     if process.wait() != 0:
         raise ValueError("Error while filtering bcf methylation calls.")
     
-    return os.path.abspath("%s" % output_dir)
+    return os.path.abspath(outfile)
 
 def bsConcat(list_bcfs=None,sample=None,bcfSample=None):
     """ Concatenates all bcf methylation calls files in one output file.

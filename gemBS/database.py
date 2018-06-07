@@ -3,6 +3,7 @@ import sqlite3
 import re
 import fnmatch
 import logging
+from .utils import CommandException
 
 ## Global register for db commands that must be performed if
 ## processes are aborted
@@ -42,14 +43,15 @@ def db_create_tables(db):
     c.execute("CREATE TABLE IF NOT EXISTS mapping (filepath text PRIMARY KEY, fileid text, sample text, type text, status int)")
     c.execute("CREATE TABLE IF NOT EXISTS calling (filepath test PRIMARY KEY, poolid text, sample text, type text, status int)")
     c.execute("CREATE TABLE IF NOT EXISTS contigs (contig text PRIMARY KEY, output text)")
-    c.execute("CREATE TABLE IF NOT EXISTS filtering (sample text, output text, input text PRIMARY KEY, type text, status text)")
+    c.execute("CREATE TABLE IF NOT EXISTS filtering (filepath test PRIMARY KEY, sample text, status int)")
     db.commit()
 
 def db_check(db, js):
     db_check_index(db, js)
     db_check_mapping(db, js)
     db_check_contigs(db, js)
-
+    db_check_filtering(db, js)
+    
 def db_check_index(db, js):
     config = js.config
     ref = config['DEFAULT']['reference']
@@ -324,4 +326,47 @@ def _prepare_index_parameter(index):
             raise IOError("Bisulphite Index file not found : %s" % file_name)
 
     return index
+
+def db_check_filtering(db, js):
+    config =js.config
+    sdata = js.sampleData
+    cpg_dir = conf_get(config, 'cpg_dir', '.', 'filtering')
+
+    c = db.cursor()
+    slist = {}
+    for k, v in sdata.items():
+        sample = v.sample_barcode
+        if not sample in slist: 
+            slist[sample] = True
+
+    old_tab = {}
+    key_used = {}
+    for ret in c.execute("SELECT * FROM filtering"):
+        old_tab[ret[0]] = ret
+        key_used[ret[0]] = False
+
+    filter_tab = {}
+    changed = False
+    for sample in slist:
+        cpg = cpg_dir.replace('@SAMPLE', sample)
+        sample_cpg = os.path.join(cpg, "{}.cpg".format(sample))
+        key_used[sample_cpg] = True
+        old = old_tab.get(sample_cpg, ("","",0))
+        filter_tab[sample_cpg] = (sample_cpg, sample, old[2])
+        if old != filter_tab[sample_cpg]:
+            changed = True
+            print (old,filter_tab[sample_cpg])
+
+    if not changed:
+        for k, s in key_used.items():
+            if not s:
+                changed = True
+                break
+            
+    if changed:
+        print("Updating filtering table")
+        c.execute("DELETE FROM filtering")
+        for key, tab in filter_tab.items():
+            c.execute("INSERT INTO filtering VALUES(?, ?, ?)", tab)
+        db.commit()
 

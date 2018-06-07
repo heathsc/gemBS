@@ -755,9 +755,9 @@ class MethylationFilteringThread(th.Thread):
         while self.bcf_list:
             self.lock.acquire()
             if self.bcf_list:
-                bcf = self.bcf_list.pop(0)
+                v = self.bcf_list.pop(0)
                 self.lock.release()
-                self.methFilt.do_filter(bcf)
+                self.methFilt.do_filter(v)
             else:
                 self.lock.release()
             
@@ -771,70 +771,91 @@ class MethylationFiltering(BasicPipeline):
                   
     def register(self,parser):
         ## required parameters
-        parser.add_argument('-b','--bcf',dest="bcf_file",metavar="PATH",help="BCF Methylation call file", default=None)
-        parser.add_argument('-p','--path-bcf',dest="path_bcf",metavar="PATH_BCF",help='Path to sample BCF files.',default=None)
-        parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.', default=None)
-        parser.add_argument('-P','--jobs', dest="jobs", default=1, type=int, help='Number of parallel jobs')
-        parser.add_argument('-o','--output-dir',dest="output_dir",metavar="PATH",help='Output directory to store the results.',required=True)
+        parser.add_argument('-j','--jobs', dest="jobs", type=int, help='Number of parallel jobs')
+        parser.add_argument('-n','--sample',dest="sample",metavar="SAMPLE",help="Sample to be called")  
         parser.add_argument('-s','--strand-specific', dest="strand_specific", action="store_true", default=False, help="Output separate lines for each strand.")
-        parser.add_argument('-q','--phred-threshold', dest="phred", default="20", help="Min threshold for genotype phred score.")
-        parser.add_argument('-I','--inform', dest="inform", default="1", help="Min threshold for informative reads.")
-        parser.add_argument('-M','--min-nc', dest="min_nc", default="1", help="Min threshold for non-converted reads for non CpG sites.")
-        parser.add_argument('-H','--select-het', dest="select_het", action="store_true", default=False, help="Select heterozygous and homozgyous sites.")
-        parser.add_argument('-n','--non-cpg', dest="non_cpg", action="store_true", default=False, help="Output non-cpg sites.")
+        parser.add_argument('-q','--phred-threshold', dest="phred", help="Min threshold for genotype phred score.")
+        parser.add_argument('-I','--min-inform', dest="inform", help="Min threshold for informative reads.")
+        parser.add_argument('-M','--min-nc', dest="min_nc", help="Min threshold for non-converted reads for non CpG sites.")
+        parser.add_argument('-H','--allow-het', dest="allow_het", action="store_true", help="Allow both heterozygous and homozgyous sites.")
+        parser.add_argument('-N','--non-cpg', dest="non_cpg", action="store_true", help="Output non-cpg sites.")
         
     def run(self,args):
-        self.output_dir = args.output_dir
-        self.path_bcf = args.path_bcf
-        self.strand_specific = args.strand_specific
-        self.select_het = args.select_het
-        self.non_cpg = args.non_cpg
-        self.phred = args.phred
-        self.inform = args.inform
-        self.min_nc = args.min_nc
+        # JSON data
+        json_file = '.gemBS/gemBS.json'
+        self.jsonData = JSONdata(json_file)
+
+        self.jobs = self.jsonData.check(section='filtering',key='jobs',arg=args.jobs,default=1,int_type=True)
+        self.allow_het = self.jsonData.check(section='filtering',key='allow_het',arg=args.allow_het,boolean=True,default=False)
+        self.non_cpg = self.jsonData.check(section='filtering',key='non_cpg',arg=args.non_cpg,boolean=True,default=False)
+        self.strand_specific = self.jsonData.check(section='filtering',key='strand_specific',arg=args.strand_specific,boolean=True,default=False)
+        self.phred = self.jsonData.check(section='filtering',key='phred_threshold',arg=args.phred, default = 20)
+        self.inform = self.jsonData.check(section='filtering',key='min_inform',arg=args.inform, default = 1, int_type=True)
+        self.min_nc = self.jsonData.check(section='filtering',key='min_nc',arg=args.inform, default = 1, int_type=True)
+        self.path_bcf = self.jsonData.check(section='calling',key='bcf_dir',arg=None, default = '.', dir_type=True)
+
+        self.db_name = '.gemBS/gemBS.db'
+        db = sqlite3.connect(self.db_name)
+        db_check_filtering(db, self.jsonData)
+        c = db.cursor()
         self.bcf_list = []
-        self.threads = args.jobs
-        
-        if args.bcf_file == None:
-            if args.path_bcf != None and args.json_file != None:
-                for k,v in JSONdata(args.json_file).sampleData.items():
-                    bcf = os.path.join(self.path_bcf,"{}.raw.bcf".format(v.sample_barcode))
-                    if v.sample_barcode not in self.bcf_list:
-                        if os.path.isfile(bcf):
-                            self.bcf_list.append(v.sample_barcode)
-            if not self.bcf_list:
-                raise ValueError("No BCF files found to filter.")
+        if args.sample:
+            ret = c.execute("SELECT filepath, sample from calling WHERE sample = ? AND type = 'MRG_BCF' AND status = 1", (args.sample,))
         else:
-            #Check bcf file existance
-            if not os.path.isfile(args.bcf_file):
-                raise CommandException("Sorry path %s was not found!!" %(args.bcf_file))
+            ret = c.execute("SELECT filepath, sample from calling WHERE type = 'MRG_BCF' AND status = 1")
+        for fname, smp in ret:
+            self.bcf_list.append((smp, fname))
+        db.close()
+
+        if not self.bcf_list:
+            logging.gemBS.gt("No BCF files are available for filtering.")
+        else:
+            if self.jobs > len(self.bcf_list):
+                self.jobs = len(self.bcf_list)
+            self.threads = self.jobs
+            self.log_parameter()
+            logging.gemBS.gt("Methylation Filtering...")
+            if self.jobs > 1:
+                threads = []
+                lock = th.Lock()
+                for ix in range(self.jobs):
+                    thread = MethylationFilteringThread(ix, self, lock)
+                    thread.start()
+                    threads.append(thread)
+                for thread in threads:
+                    thread.join()
             else:
-                self.bcf_list.append(args.bcf_file)
+                for v in self.bcf_list:
+                    self.do_filter(v)
 
-        self.log_parameter()
-        logging.gemBS.gt("Methylation Filtering...")
-        if args.jobs > 1:
-            threads = []
-            lock = th.Lock()
-            for ix in range(args.jobs):
-                thread = MethylationFilteringThread(ix, self, lock)
-                thread.start()
-                threads.append(thread)
-            for thread in threads:
-                thread.join()
-        else:
-            for sample in self.bcf_list:
-                self.do_filter(sample)
-
-    def do_filter(self, sample):
-        bcf = os.path.join(self.path_bcf,"{}.raw.bcf".format(sample))
-        self.bcf_file = bcf
-        #Call methylation filtering
-        ret = methylationFiltering(bcfFile=bcf,output_dir=self.output_dir,name=sample,strand_specific=self.strand_specific,non_cpg=self.non_cpg,
-                                         select_het=self.select_het,inform=self.inform,phred=self.phred,min_nc=self.min_nc)
+    def do_filter(self, v):
+        sample, bcf_file = v
+        self.bcf_file = bcf_file
+        db = sqlite3.connect(self.db_name)
+        db.isolation_level = None
+        c = db.cursor()
+        c.execute("BEGIN EXCLUSIVE")
+        c.execute("SELECT filepath FROM filtering WHERE sample = ? AND status = 0", (sample,))
+        ret = c.fetchone()
         if ret:
-            logging.gemBS.gt("Methylation filtering of {} done, results located at: {}".format(bcf, ret))
+            cpgfile = ret[0]
+            c.execute("UPDATE filtering SET status = 3 WHERE filepath = ?", (cpgfile, ))
+            c.execute("COMMIT")
+            ixfile = cpgfile + '.tbi'
+            reg_db_com(cpgfile, "UPDATE filtering SET status = 0 WHERE filepath = '{}'".format(cpgfile), self.db_name, [cpgfile, ixfile])                
             
+            #Call methylation filtering
+            ret = methylationFiltering(bcfFile=bcf_file,outfile=cpgfile,name=sample,strand_specific=self.strand_specific,non_cpg=self.non_cpg,
+                                         allow_het=self.allow_het,inform=self.inform,phred=self.phred,min_nc=self.min_nc)
+            if ret:
+                logging.gemBS.gt("Methylation filtering of {} done, results located at: {}".format(bcf_file, ret))
+            
+            c.execute("BEGIN IMMEDIATE")
+            c.execute("UPDATE filtering SET status = 1 WHERE filepath = ?", (cpgfile, ))
+            del_db_com(cpgfile)
+        c.execute("COMMIT")
+        db.close()
+        
     def extra_log(self):
         """Extra Parameters to be printed"""
         #Virtual methods, to be define in child class
