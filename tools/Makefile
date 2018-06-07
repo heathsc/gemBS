@@ -50,11 +50,14 @@ debug: setup gem3-debug $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR
 	$(MAKE) --directory=bs_call debug
 	cd gem3-mapper; ./configure;
 
-setup: gen/Makefile
+setup: gen/Makefile bs_call/src/Makefile.mk
 	@mkdir -p $(FOLDER_BIN) 
 
 gen/Makefile: gen/Makefile.in gen/configure
 	cd gen; ./configure
+
+bs_call/src/Makefile.mk: bs_call/src/Makefile.mk.in bs_call/GEMTools/Makefile.mk.in bs_call/configure
+	cd bs_call; ./configure
 
 gem3: gem3-mapper/Makefile.mk
 	$(MAKE) --directory=gem3-mapper
