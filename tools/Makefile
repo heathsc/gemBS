@@ -21,29 +21,34 @@ BCFTOOLS_TAR=bcftools-$(BCFTOOLS_VERSION).tar.bz2
 SAMTOOLS_URL=https://github.com/samtools/samtools/releases/download/$(SAMTOOLS_VERSION)/$(SAMTOOLS_TAR)
 BCFTOOLS_URL=https://github.com/samtools/bcftools/releases/download/$(BCFTOOLS_VERSION)/$(BCFTOOLS_TAR)
 
-FOLDER_BIN=./bin/
+UNAME := $(shell uname -s)
+ifeq ($(UNAME),Linux)
+  ARCHIVE=http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64
+endif
+ifeq ($(UNAME),Darwin)
+  ARCHIVE=http://hgdownload.cse.ucsc.edu/admin/exe/macOSX.x86_64
+endif
 
-all: release
+		  
+FOLDER_BIN=bin
 
-static:	setup gem3-static $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
+all: release $(FOLDER_BIN)/wigToBigWig $(FOLDER_BIN)/bedToBigBed
 	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
 	$(MAKE) --directory=$(BCFTOOLS_DIR) all
+
+static:	setup gem3-static $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
 	$(MAKE) --directory=readNameClean static
 	$(MAKE) --directory=gen static
 	$(MAKE) --directory=cpgToWig static
 	$(MAKE) --directory=bs_call static
 
 release: setup	gem3 $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
-	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
-	$(MAKE) --directory=$(BCFTOOLS_DIR) all
 	$(MAKE) --directory=readNameClean
 	$(MAKE) --directory=gen
 	$(MAKE) --directory=cpgToWig
 	$(MAKE) --directory=bs_call
 
 debug: setup gem3-debug $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
-	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
-	$(MAKE) --directory=$(BCFTOOLS_DIR) all
 	$(MAKE) --directory=readNameClean debug
 	$(MAKE) --directory=gen debug
 	$(MAKE) --directory=cpgToWig debug
@@ -90,9 +95,15 @@ $(BCFTOOLS_DIR)/plugins/%.c:
 	ln -sf ../../gemBS_plugins/$(notdir $@) $(BCFTOOLS_DIR)/plugins/ 
 	ln -sf ../../gemBS_plugins/$(basename $(notdir $@)).mk $(BCFTOOLS_DIR)/plugins/
 
+$(FOLDER_BIN)/bedToBigBed:
+	wget $(ARCHIVE)/bedToBigBed -O $(FOLDER_BIN)/bedToBigBed  && chmod 755 $(FOLDER_BIN)/bedToBigBed
+
+$(FOLDER_BIN)/wigToBigWig:
+	wget $(ARCHIVE)/wigToBigWig -O $(FOLDER_BIN)/wigToBigWig && chmod 755 $(FOLDER_BIN)/wigToBigWig
+
 clean:
 	@rm -f *~
-	@rm -rf $(FLODER_BIN) $(SAMTOOLS_DIR) $(BCFTOOLS_DIR)
+	@rm -rf $(FOLDER_BIN) $(SAMTOOLS_DIR) $(BCFTOOLS_DIR)
 	$(MAKE) --directory=gen clean
 	$(MAKE) --directory=gem3-mapper clean
 	$(MAKE) --directory=bs_call clean

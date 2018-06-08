@@ -12,7 +12,7 @@ _db_com_register = {}
 
 def reg_db_com(key, com, db_name, rm_list):
     if key in _db_com_register:
-        raise CommandError("Can not register duplicate key")
+        raise CommandException("Can not register duplicate key")
     _db_com_register[key] = (db_name, com, rm_list)
 
 def del_db_com(key):

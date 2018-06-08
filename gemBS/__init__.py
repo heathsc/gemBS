@@ -19,7 +19,7 @@ import gzip
 # from configparser import ConfigParser
 # from configparser import ExtendedInterpolation
 
-from .utils import run_tools
+from .utils import run_tools, CommandException
 from .parser import gembsConfigParse
 from .database import *
 
@@ -74,10 +74,12 @@ class execs_dict(dict):
 ## paths to the executables
 executables = execs_dict({
     "readNameClean": "readNameClean",
-    "gem-indexer":"gem-indexer",
-    "gem-mapper":"gem-mapper",
-    "bs_call":"bs_call",
-    "dbSNP_idx":"dbSNP_idx",
+    "gem-indexer": "gem-indexer",
+    "gem-mapper": "gem-mapper",
+    "bs_call": "bs_call",
+    "wigToBigWig": "wigToBigWig",
+    "bedToBigBed": "bedToBigBed",
+    "dbSNP_idx": "dbSNP_idx",
     "filter_vcf": "filter_vcf",
     "cpgToWig": "cpgToWig",
     "samtools": "samtools",
@@ -775,8 +777,8 @@ def methylationCalling(reference=None,db_name=None,species=None,sample_bam=None,
     c = db.cursor()
     c.execute("SELECT * FROM indexing WHERE type = 'contig_sizes'")
     ret = c.fetchone()
-    if not ret or ret[2] != 'OK':
-        raise CommandError("Could not open contig sizes file.")
+    if not ret or ret[2] != 1:
+        raise CommandException("Could not open contig sizes file.")
     contig_size = {}
     with open (ret[0], "r") as f:
         for line in f:
@@ -914,7 +916,7 @@ def cpgBigWigConversion(name=None,output_dir=None,cpg_file=None,chr_len=None,qua
     bigWigCovFile = os.path.join(output_dir,"{}.bs_cov.bw".format(name))
            
     #Methylation Call             
-    bigWigCallJob = ['wigToBigWig',wigCallFile,chr_len,bigWigCallFile]
+    bigWigCallJob = [executables['wigToBigWig'],wigCallFile,chr_len,bigWigCallFile]
     
     processCall = run_tools([bigWigCallJob],name="methWigToBigWig_%s"%(name))
     
@@ -922,7 +924,7 @@ def cpgBigWigConversion(name=None,output_dir=None,cpg_file=None,chr_len=None,qua
         raise ValueError("Error while transforming methylation calls to BigWig.")        
 
     #Coverage
-    bigWigCovJob = ['wigToBigWig',wigCovFile,chr_len,bigWigCovFile]
+    bigWigCovJob = [executables['wigToBigWig'],wigCovFile,chr_len,bigWigCovFile]
     processCov = run_tools([bigWigCovJob],name="covWigToBigWig_%s"%(name))
     
     if processCov.wait() != 0:
