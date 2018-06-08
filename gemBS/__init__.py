@@ -349,7 +349,9 @@ def index(input_name, index_name, threads=None,tmpDir=None,list_dbSNP_files=[],d
     """
     
     index_base = index_name[:-4] if index_name.endswith('.gem') else index_name
-        
+    output_dir, base = os.path.split(index_name)
+    logfile = os.path.join(output_dir,"gem_indexer_" + base + ".err")
+                           
     indexer = [
         executables['gem-indexer'],
         '-b',
@@ -369,10 +371,11 @@ def index(input_name, index_name, threads=None,tmpDir=None,list_dbSNP_files=[],d
     if threads is not None:
         indexer.extend(['-t', str(threads)])
 
-    print (indexer)
-    process = run_tools([indexer], name="gem-indexer")
+    
+    process = run_tools([indexer], name="gem-indexer", logfile=logfile)
     if process.wait() != 0:
         raise ValueError("Error while executing the Bisulphite gem-indexer")
+    
     if index_name != index_base + ".gem":
         os.rename(index_base + ".gem", index_name)
         os.rename(index_base + ".info", index_name + ".info")

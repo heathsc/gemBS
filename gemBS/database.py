@@ -39,7 +39,7 @@ def conf_get(cfg, key, default = None, section = 'DEFAULT'):
 
 def db_create_tables(db):
     c = db.cursor()
-    c.execute("CREATE TABLE IF NOT EXISTS indexing (file text, type text PRIMARY KEY, status text)")
+    c.execute("CREATE TABLE IF NOT EXISTS indexing (file text, type text PRIMARY KEY, status int)")
     c.execute("CREATE TABLE IF NOT EXISTS mapping (filepath text PRIMARY KEY, fileid text, sample text, type text, status int)")
     c.execute("CREATE TABLE IF NOT EXISTS calling (filepath test PRIMARY KEY, poolid text, sample text, type text, status int)")
     c.execute("CREATE TABLE IF NOT EXISTS contigs (contig text PRIMARY KEY, output text)")
@@ -59,7 +59,7 @@ def db_check_index(db, js):
         raise CommandException("Reference file '{}' does not exist".format(ref))
 
     c = db.cursor()
-    c.execute("REPLACE INTO indexing VALUES (?, 'reference', 'OK')",(ref,))
+    c.execute("REPLACE INTO indexing VALUES (?, 'reference', 1)",(ref,))
     cdef =config['DEFAULT']
     index = cdef.get('index', None)
     csizes = cdef.get('contig_sizes', None)
@@ -89,14 +89,14 @@ def db_check_index(db, js):
                 csizes = index + '.contig.sizes'                
     if index == None:
         index = os.path.join(index_dir, reference_basename) + '.BS.gem'
-        index_ok = "OK" if os.path.exists(index) else "MISSING"
+        index_ok = 1 if os.path.exists(index) else 0
     else:
         try:
             index = _prepare_index_parameter(index)
-            index_ok = "OK"
+            index_ok = 1
         except IOError:
-            index_ok = "MISSING"
-    csizes_ok = "OK" if os.path.exists(csizes) else "MISSING"
+            index_ok = 0
+    csizes_ok = 1 if os.path.exists(csizes) else 0
     c.execute("REPLACE INTO indexing VALUES (?, 'index', ?)",(index, index_ok))
     c.execute("REPLACE INTO indexing VALUES (?, 'contig_sizes', ?)",(csizes,csizes_ok))
     db.commit()
@@ -163,7 +163,7 @@ def db_check_contigs(db, js):
     c = db.cursor()
     c.execute("SELECT * FROM indexing WHERE type = 'contig_sizes'")
     ret = c.fetchone()
-    if ret[2] != 'OK': return
+    if ret[2] != 1: return
     contig_size = {}
     with open (ret[0], "r") as f:
         for line in f:

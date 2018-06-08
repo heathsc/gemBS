@@ -117,11 +117,11 @@ class Index(BasicPipeline):
         jsonData = JSONdata(json_file)
         db_name = '.gemBS/gemBS.db'
         db = sqlite3.connect(db_name)
+        db_check_index(db, jsonData)
         c = db.cursor()
         db_data = {}
         for fname, ftype, status in c.execute("SELECT * FROM indexing"):
             db_data[ftype] = (fname, status)
-            print(ftype, fname, status)
 
         fasta_input, fasta_input_ok = db_data['reference']
         index_name, index_ok = db_data['index']
@@ -138,15 +138,16 @@ class Index(BasicPipeline):
         
         self.log_parameter()
         
-        if index_ok == "OK":
+        if index_ok == 1:
             logging.warning("Bisulphite Index {} already exists, skipping indexing".format(index_name))
         else:
             logging.gemBS.gt("Creating index")
             ret = index(fasta_input, index_name, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=os.path.dirname(index_name),list_dbSNP_files=args.list_dbSNP_files,dbsnp_index=args.dbsnp_index)
             if ret:
                 logging.gemBS.gt("Index done: {}".format(index))
+                db_check_index(db, jsonData)
 
-        if csizes_ok == "OK":
+        if csizes_ok == 1:
             logging.warning("Contig sizes file {} already exists, skipping indexing".format(csizes))
         else:
             ret = makeChromSizes(index_name, csizes)
@@ -227,7 +228,7 @@ class Mapping(BasicPipeline):
         c = self.db.cursor()
         c.execute("SELECT file, status FROM indexing WHERE type = 'index'")
         index_name, status = c.fetchone()
-        if status != 'OK':
+        if status != 1:
             raise CommandException("GEM Index {} not found.  Run 'gemBS index' or correct configuration file and rerun".format(index_name)) 
         self.index = index_name
 
@@ -613,7 +614,7 @@ class MethylationCall(BasicPipeline):
         # Get fasta reference
         c.execute("SELECT file, status FROM indexing WHERE type = 'reference'")
         self.fasta_reference, status = c.fetchone()
-        if status != 'OK':
+        if status != 1:
             raise CommandException("Fasta reference {} not found.  Run 'gemBS index' or correct configuration file and rerun".format(fasta_reference)) 
 
         #Check input bam existance
