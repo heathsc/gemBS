@@ -356,7 +356,7 @@ class ProcessWrapper(object):
                     if r is not None:
                         r.wait()
             exit_value = 0
-            for i, process in enumerate(self.processes):
+            for process in reverse(self.processes):
                 ev = process.wait()
                 if exit_value is not 0:
                     exit_value = ev
