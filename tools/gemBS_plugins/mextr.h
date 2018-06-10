@@ -32,14 +32,21 @@ typedef struct {
 typedef enum {FMT_FT, FMT_MC8, FMT_AMQ, FMT_CX, FMT_AQ, FMT_MQ, FMT_GQ, FMT_GOF, FMT_GL} fmt_tag;
 typedef enum {CPGMODE_COMBINED, CPGMODE_SEPARATE} cpg_mode;
 typedef enum {SELECT_HOM, SELECT_HET} select_mode;
+typedef enum {BEDMETHYL_CPG, BEDMETHYL_CHG, BEDMETHYL_CHH, BEDMETHYL_NONE} bedmethyl_type;
+	      
 typedef struct {
   bcf_hdr_t *hdr;
   char *cpgfilename;
   char *noncpgfilename;
   char *reportfilename;
+  char *bedmethyl;
+  char *bedmethylnames[3];
+  char *bedmethyl_track_line;
+  char *bedmethyl_desc;
   FILE *cpgfile;
   FILE *noncpgfile;
   FILE *reportfile;
+  FILE *bedmethylfiles[3];
   stats_t *stats;
   cpg_mode mode;
   select_mode sel_mode;
@@ -92,6 +99,7 @@ void calc_gt_prob(gt_meth *gt, args_t *args, char rf);
 void calc_cpg_meth(args_t *args, int ns, cpg_prob *cpg, gt_meth *g1, gt_meth *g2);
 double get_meth(gt_meth *g, int idx);
 void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt[], int idx, cpg_prob *sample_cpg, double *Q[]);
+void output_bedmethyl(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt[], int idx);
 void fill_base_prob_table(void);
 
 #endif // MEXTR_H_

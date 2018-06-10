@@ -38,7 +38,7 @@ static char trans_base[256] = {
   ['Y'] = 'R', ['R'] = 'Y', ['S'] = 'S', ['W'] = 'W', ['K'] = 'M', ['M'] = 'K',
   ['B'] = 'V', ['V'] = 'B', ['D'] = 'H', ['H'] = 'D', ['N'] = 'N', ['.'] = '.'
 };
-  
+
 void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt[], int idx, cpg_prob *cpg, double *Q[]) {
   static char *cx;
   static int32_t cx_n;
@@ -79,7 +79,7 @@ void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt
     int cx_sz = tags[FMT_CX].st[idx].ne / ns;
     if(args->mode == CPGMODE_COMBINED) {
       calc_cpg_meth(args, ns, cpg, sample_gt[idx], sample_gt[idx ^ 1]);
-      fprintf(fp,"%s\t%d\t%.2s", args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos + 1, cx_len >= 5 ? cx + 2 : ".");
+      fprintf(fp,"%s\t%d\t%d\t%.2s", args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos, rec->pos + 2, cx_len >= 5 ? cx + 2 : ".");
       char *cx_p = tags[FMT_CX].st[idx].dat_p;
       int *mq_p1 = tags[FMT_MQ].st[idx].ne == ns ? tags[FMT_MQ].st[idx].dat_p : NULL; 
       int *mq_p2 = tags[FMT_MQ].st[idx^1].ne == ns ? tags[FMT_MQ].st[idx^1].dat_p : NULL;
@@ -129,7 +129,7 @@ void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt
     } else {
       for(int pos = 0; pos < 2; pos++) {
 	int *mq_p = tags[FMT_MQ].st[idx ^ pos].ne == ns ? tags[FMT_MQ].st[idx ^ pos].dat_p : NULL; 
-	fprintf(fp,"%s\t%d\t%c", args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos + pos + 1, cx_len >= 3 + pos ? cx[2 + pos] : '.');
+	fprintf(fp,"%s\t%d\t%d\t%c", args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos + pos, rec->pos + pos + 1, cx_len >= 3 + pos ? cx[2 + pos] : '.');
 	char *cx_p = tags[FMT_CX].st[idx].dat_p;
 	for(int ix = 0; ix < ns; ix++, cx_p += cx_sz) {
 	  gt_meth *g = sample_gt[idx ^ pos]+ix;
@@ -172,10 +172,9 @@ void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt
     fp=args->noncpgfile;
     assert(fp != NULL);
     for(int pos = 0; pos < 2; pos++) {
-      double z = 0.0;
       for(int ix = 0; ix < ns; ix++) {
 	double z = 0.0;
-	gt_meth *g = sample_gt[idx ^ pos]+ix;
+	gt_meth *g = sample_gt[idx ^ pos] + ix;
 	if(!g->skip) {
 	  double m = get_meth(g, pos);
 	  if(m > 0.0) {
@@ -183,14 +182,14 @@ void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt
 	      if(g->counts[5] >= args->min_nc && (g->counts[5] + g->counts[7] >= args->min_inform)) {
 		if(args->sel_mode == SELECT_HOM) z = exp(g->gt_prob[4]);
 		else z = exp(g->gt_prob[1]) + exp(g->gt_prob[4]) + exp(g->gt_prob[5]) + exp(g->gt_prob[6]);
-		gt_meth *g2 = sample_gt[idx ^ 1]+ix;
+		gt_meth *g2 = sample_gt[idx ^ 1] + ix;
 		z *= 1.0 - (exp(g2->gt_prob[2]) + exp(g2->gt_prob[5]) + exp(g2->gt_prob[7]) + exp(g2->gt_prob[8]));
 	      }
 	    } else {
 	      if(g->counts[6] >= args->min_nc && (g->counts[6] + g->counts[4] >= args->min_inform)) {
 		if(args->sel_mode == SELECT_HOM) z = exp(g->gt_prob[7]);
 		else z = exp(g->gt_prob[2]) + exp(g->gt_prob[5]) + exp(g->gt_prob[7]) + exp(g->gt_prob[8]);
-		gt_meth *g2 = sample_gt[idx]+ix;
+		gt_meth *g2 = sample_gt[idx] + ix;
 		z *= 1.0 - (exp(g2->gt_prob[1]) + exp(g2->gt_prob[4]) + exp(g2->gt_prob[5]) + exp(g2->gt_prob[6]));
 	      }
 	    }
@@ -206,12 +205,12 @@ void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt
 	int cx_len = bcf_get_info_values(args->hdr, rec, "CX", (void **)&cx, &cx_n, BCF_HT_STR);    
 	int cx_sz = tags[FMT_CX].st[idx ^ pos].ne / ns;
 	int *mq_p = tags[FMT_MQ].st[idx ^ pos].ne == ns ? tags[FMT_MQ].st[idx ^ pos].dat_p : NULL; 
-	fprintf(fp,"%s\t%d\t%c", args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos + pos + 1, cx_len >= 3? cx[2] : '.');
+	fprintf(fp,"%s\t%d\t%d\t%c", args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos + pos, rec->pos + pos + 1, cx_len >= 3 + pos ? cx[2 + pos] : '.');
 	char *cx_p = tags[FMT_CX].st[idx ^ pos].dat_p;
 	for(int ix = 0; ix < ns; ix++, cx_p += cx_sz) {
-	  gt_meth *g = sample_gt[idx ^ pos]+ix;
+	  gt_meth *g = sample_gt[idx ^ pos] + ix;
 	  if(!g->skip) {
-	    int gq = calc_phred(1.0 - exp(g->gt_prob[g->max_gt])); // Prob. of not being called genotype
+ 	    int gq = calc_phred(1.0 - exp(g->gt_prob[g->max_gt])); // Prob. of not being called genotype
 	    fprintf(fp, "\t%c\tGQ=%d", gt_iupac[g->max_gt], gq);
 	    if(g->max_gt != (pos ? 7 : 4)) {
 	      int dq = calc_phred(exp(g->gt_prob[pos ? 7 : 4])); // Prob. of being CG
@@ -255,3 +254,68 @@ void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt
     }
   }
 }							  
+
+static char *rgb_tab[11] = { "0,255,0", "55,255,0", "105,255,0", "155,255,0", "205,255,0", "255,255,0",
+			     "255,205,0", "255,155,0", "255,105,0", "255,55,0", "255,0,0" };
+  
+void output_bedmethyl(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt[], int idx) {
+  static char *cx;
+  static int32_t cx_n;
+  static char *gt_iupac = "AMRWCSYGKT";
+  static uint8_t gt_msk[] = {0x11, 0xb3, 0x55, 0x99, 0xa2, 0xf6, 0xaa, 0x54, 0xdc, 0x88};
+  
+  int ns = bcf_hdr_nsamples(args->hdr);
+  if(ns > 1) return;
+  gt_meth *g = sample_gt[idx];
+  if(!g->skip) {
+    int cx_len = bcf_get_info_values(args->hdr, rec, "CX", (void **)&cx, &cx_n, BCF_HT_STR);
+    if(cx_len < 3) return;
+    char strand;
+    if(cx[2] == 'C') strand = '+';
+    else if(cx[2] == 'G') strand = '-';
+    else return;
+    if(strand == '+' && cx_len < 5) return;
+    char *cx_p = tags[FMT_CX].st[idx].dat_p;
+    int cx_sz = tags[FMT_CX].st[idx].ne;
+    char rtmp[8];
+    if(strand == '+') {
+      int k;
+      for(k = 0; k < 3; k++) rtmp[k] = cx[k + 2];
+      for(k = 0; k < 3 && k < cx_sz - 2; k++) rtmp[k + 4] = cx_p[k + 2];
+      for(;k < 3; k++) rtmp[k + 4] = 'N';
+    } else {
+      int k;
+      for(k = 0; k < 3; k++) rtmp[2 - k] = trans_base[(int)cx[k]];
+      for(k = 0; k < 3 && k < cx_sz; k++) rtmp[6 - k] = trans_base[(int)cx_p[k]];
+      for(;k < 3; k++) rtmp[6 - k] = 'N';
+    }
+    bedmethyl_type btype = BEDMETHYL_NONE;
+    assert(rtmp[0] == 'C');
+    if(rtmp[1] == 'G') {
+      btype = BEDMETHYL_CPG;
+      rtmp[2] = rtmp[6] = 0;
+    } else {
+      btype = rtmp[2] == 'G' ? BEDMETHYL_CHG : BEDMETHYL_CHH;
+      rtmp[3] = rtmp[7] = 0;
+    }
+    int32_t ct[2];
+    if(strand == '-') {
+      ct[0] = g->counts[6];
+      ct[1] = g->counts[4];
+    } else {
+      ct[0] = g->counts[5];
+      ct[1] = g->counts[7];
+    }
+    int32_t cov = ct[0] + ct[1];
+    if(cov > 0) {
+      double m = (double)ct[0] / (double)cov;
+      FILE *fp = args->bedmethylfiles[btype];
+      if(fp != NULL) {
+	int gq = calc_phred(1.0 - exp(g->gt_prob[g->max_gt])); // Prob. of not being called genotype
+	fprintf(fp, "%s\t%d\t%d\t\"%s\"\t%d\t%c\t%d\t%d\t%s\t%d\t%d\t%s\t%s\t%d\n",
+		args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos, rec->pos + 1, args->bedmethyl_desc, cov > 1000 ? 1000 : cov, strand, 
+		rec->pos, rec->pos + 1, rgb_tab[(int)(m * 10.0 + 0.5)], cov, (int)(100.0 * m), rtmp, rtmp + 4, gq);
+      }
+    }
+  }
+}

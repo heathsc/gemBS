@@ -67,13 +67,35 @@ static cpg_prob *sample_cpg;
 static double *sample_Q[3];
 
 static void init_files(args_t *a) {
-  a->cpgfile = open_ofile(a->cpgfilename, a->compress);
+  if(a->cpgfilename == NULL) a->cpgfile = NULL;
+  else if(a->cpgfilename[0] == '-' && a->cpgfilename[1] == 0) a->cpgfile = open_ofile(NULL, a->compress);
+  else  a->cpgfile = open_ofile(a->cpgfilename, a->compress);
   a->noncpgfile = a->noncpgfilename == NULL ? (a->output_noncpg ? a->cpgfile : NULL) : open_ofile(a->noncpgfilename, a->compress);
+  if(a->bedmethyl != NULL) {
+    char *p = strrchr(a->bedmethyl, '.');
+    if(p && !strcmp(".bed",p)) {
+      *p = 0;
+    }
+    p = strrchr(a->bedmethyl, '_');
+    if(p && !strcmp("_cpg",p)) {
+      *p = 0;
+    }
+    size_t l = strlen(a->bedmethyl);
+    p = malloc((l + 9) * 3);
+    a->bedmethylnames[0] = p;
+    a->bedmethylnames[1] = p + l + 9;
+    a->bedmethylnames[2] = p + 2 * (l + 9);
+    sprintf(a->bedmethylnames[BEDMETHYL_CPG], "%s_cpg.bed", a->bedmethyl);
+    sprintf(a->bedmethylnames[BEDMETHYL_CHG], "%s_chg.bed", a->bedmethyl);
+    sprintf(a->bedmethylnames[BEDMETHYL_CHH], "%s_chh.bed", a->bedmethyl);
+    for(int i = 0; i < 3; i++) 
+      a->bedmethylfiles[i] = open_ofile(a->bedmethylnames[i], a->compress);
+  }
 }
 
 static void print_file_header(FILE *fp, int ns, char **names) {
   if(fp != NULL) {
-    fputs("Contig\tPos\tRef", fp);
+    fputs("Contig\tPos0\tPos1\tRef", fp);
     for(int i = 0; i < ns; i++) {
       char *name = names[i];
       fprintf(fp, "\t%s:Call\t%s:Flags\t%s:Meth\t%s:non_conv\t%s:conv\t%s:support_call\t%s:total\n", name, name, name, name, name, name, name);
@@ -81,16 +103,77 @@ static void print_file_header(FILE *fp, int ns, char **names) {
   }
 }
 
+char *copy_and_strip_quotes(char *s) {
+  if(!s) return s;
+  size_t l = strlen(s);
+  if(l > 1) {
+    if((s[0] == '\"' && s[l-1] =='\"') || (s[0] == '\'' && s[l-1] =='\'')) {
+      (s++)[--l] = 0;
+    }
+  }
+  char *s1 = malloc(l + 1);
+  if(s1 != NULL) memcpy(s1, s, l + 1);
+  return s1;
+}
+
+static void print_bedmethyl_headers(args_t *args) {
+  if(args->bedmethyl_track_line == NULL) {
+    char *sample_name = NULL;
+    char *sample_desc = NULL;
+    char *sample_bc = NULL;
+    // Try and get sample info from VCF file headers
+    bcf_hdr_t *h = args->hdr;
+    for(int i = 0; i < h->nhrec; i++) {
+      bcf_hrec_t *hr = h->hrec[i];
+      if(hr->type == BCF_HL_STR) {
+	if(!strcmp(hr->key, "bs_call_sample_info")) {
+	  int ix = bcf_hrec_find_key(hr, "ID");
+	  if(ix >= 0) {
+	    sample_bc = copy_and_strip_quotes(hr->vals[ix]);
+	    ix = bcf_hrec_find_key(hr, "SM");
+	    if(ix >= 0) sample_name = copy_and_strip_quotes(hr->vals[ix]);
+	    ix = bcf_hrec_find_key(hr, "DS");
+	    if(ix >= 0) sample_desc = copy_and_strip_quotes(hr->vals[ix]);
+	  }
+	}
+      }
+    }
+    if(sample_name == NULL) sample_name = strdup(h->samples[0]);
+    if(sample_desc == NULL) sample_desc = strdup(sample_name);
+    for(bedmethyl_type t = BEDMETHYL_CPG; t <= BEDMETHYL_CHH; t++) {
+      FILE *fp = args->bedmethylfiles[t];
+      if(fp != NULL) {
+	fprintf(fp, "track name=\"%s\" description=\"%s\" visibility=2 itemRgb=\"On\"\n", sample_desc, sample_name);
+      }
+    }
+    if(sample_bc) free(sample_bc);
+    if(sample_name) free(sample_name);
+    args->bedmethyl_desc = sample_desc;
+  } else {
+    for(bedmethyl_type t = BEDMETHYL_CPG; t <= BEDMETHYL_CHH; t++) {
+      char *line = args->bedmethyl_track_line;
+      size_t l = strlen(line);
+      if(l > 1 && line[l - 1] == '\n') line[--l] = 0;
+      if(!strncmp(line, "track ", 6)) line += 6;
+      FILE *fp = args->bedmethylfiles[t];
+      if(fp != NULL) fprintf(fp, "track %s\n", line);
+    }
+  }
+}
+
 static void print_headers(args_t *args) {
   int ns = bcf_hdr_nsamples(args->hdr);
-  print_file_header(args->cpgfile, ns, args->hdr->samples);
+  if(args->cpgfile) print_file_header(args->cpgfile, ns, args->hdr->samples);
   if(args->output_noncpg && args->noncpgfile != args->cpgfile)
     print_file_header(args->noncpgfile, ns, args->hdr->samples);
+  print_bedmethyl_headers(args);
 }
 
 static void close_files(args_t *a) {
   if(a->cpgfile != NULL && a->cpgfile != stdout) fclose(a->cpgfile);
   if(a->noncpgfile != NULL) fclose(a->noncpgfile);
+  for(int i = 0; i < 3; i++)
+    if(a->bedmethylfiles[i] != NULL) fclose(a->bedmethylfiles[i]);
 }
 
 static args_t args = {
@@ -99,8 +182,13 @@ static args_t args = {
   .noncpgfile = NULL,
   .reportfile = NULL,
   .cpgfilename = NULL,
+  .bedmethylfiles = {NULL, NULL, NULL},
   .noncpgfilename = NULL,
   .reportfilename = NULL,
+  .bedmethyl = NULL,
+  .bedmethylnames = {NULL, NULL, NULL},
+  .bedmethyl_track_line = NULL,
+  .bedmethyl_desc = ".",
   .stats = NULL,
   .min_prop = 0.0,
   .min_num = 1,
@@ -137,6 +225,8 @@ const char *usage(void)
     "Plugin options:\n"
     "   -o, --cpgfile           Output file for CpG sites (default = stdout)\n"
     "   -n, --noncpgfile        Output file for nonCpG sites (default, not output)\n"
+    "   -b. --bed-methyl        Output file base for bedMethly files (default, not output)\n" 
+    "   -t. --bed-track-line    Track line for for bedMethly files (default, info taken from input VCF file)\n" 
     "   -r, --report-file       Output file for JSON report (default, not output)\n"
     "   -H, --no_header         Do not print header line(s) in output file(s) (default, false)\n"
     "   -g, --common-gt         Recall genotypes assuming common genotypes across samples\n"
@@ -209,6 +299,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out __unused__)
   static struct option loptions[] = {
     {"cpgfile",required_argument,0,'c'},
     {"noncpgfile",required_argument,0,'n'},
+    {"bed-methyl",required_argument,0,'b'},
+    {"bed-track-line",required_argument,0,'t'},
     {"report-file",required_argument,0,'r'},
     {"no_header",no_argument,0,'H'},
     {"common-gt",no_argument,0,'g'},
@@ -226,7 +318,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out __unused__)
   };
   int c;
   bool mult_comp = false;
-  while ((c = getopt_long(argc, argv, "?Qh:o:c:n:r:m:M:I:s:p:N:T:gzHjx",loptions,NULL)) >= 0) {
+  while ((c = getopt_long(argc, argv, "?Qh:o:c:b:n:r:m:M:I:s:p:N:T:t:gzHjx",loptions,NULL)) >= 0) {
     switch (c) {
     case 'o':
       args.cpgfilename = optarg;
@@ -272,6 +364,12 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out __unused__)
       args.min_num = atoi(optarg);
       if(args.min_num < 1) args.min_num = 1;
       break;
+    case 'b':
+      args.bedmethyl = optarg;
+      break;
+    case 't':
+      args.bedmethyl_track_line = optarg;
+      break;
     case 'I':
       args.min_inform = atoi(optarg);
       if(args.min_inform < 0) args.min_inform = 0;
@@ -303,7 +401,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out __unused__)
   if(mult_comp) error("Can not combine multiple compression options\n");
   if (optind != argc) error(usage());
   init_files(&args);
-  if(args.header) print_headers(&args);
+  if(args.header || args.bedmethyl) print_headers(&args);
   if(args.reportfilename != NULL) init_stats(&args);
   int ns = bcf_hdr_nsamples(args.hdr);
   assert(ns > 0);
@@ -435,6 +533,9 @@ bcf1_t *process(bcf1_t *rec)
       // Here is the logic for deciding what we print
       if(rec->rid != curr_rid) curr_rid = rec->rid;
       else if(rec->pos - prev_pos == 1 && valid[idx ^ 1]) output_cpg(&args, &prev_rec, tags, sample_gt, idx ^ 1, sample_cpg, sample_Q);
+      if(args.bedmethyl) {
+	output_bedmethyl(&args, rec, tags, sample_gt, idx);
+      }
       idx ^= 1;
       prev_pos = rec->pos;
       memcpy(&prev_rec, rec, sizeof(bcf1_t));
