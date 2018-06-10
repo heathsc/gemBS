@@ -34,7 +34,7 @@ FOLDER_BIN=bin
 
 all: release $(FOLDER_BIN)/wigToBigWig $(FOLDER_BIN)/bedToBigBed
 	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
-	$(MAKE) --directory=$(BCFTOOLS_DIR) all
+	$(MAKE) $(FOLDER_BIN)/bcftools
 
 static:	setup gem3-static $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
 	$(MAKE) --directory=readNameClean static
@@ -79,7 +79,10 @@ gem3-mapper/Makefile.mk: gem3-mapper/Makefile.mk.in gem3-mapper/configure
 $(SAMTOOLS_DIR)/config.mk:
 	cd $(SAMTOOLS_DIR); ./configure
 
-$(BCFTOOLS_DIR)/config.h: $(BCFTOOLS_DIR)/plugins/mextr.c $(BCFTOOLS_DIR)/plugins/snpxtr.c
+$(FOLDER_BIN)/bcftools: $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/plugins/mextr.c $(BCFTOOLS_DIR)/plugins/snpxtr.c
+	$(MAKE) --directory=$(BCFTOOLS_DIR) all
+
+$(BCFTOOLS_DIR)/config.h:
 	cd $(BCFTOOLS_DIR); ./configure
 	touch $(BCFTOOLS_DIR)/config.h
 
