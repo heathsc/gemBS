@@ -177,6 +177,7 @@ static void close_files(args_t *a) {
   if(a->noncpgfile != NULL) fclose(a->noncpgfile);
   for(int i = 0; i < 3; i++)
     if(a->bedmethylfiles[i] != NULL) fclose(a->bedmethylfiles[i]);
+  while(waitpid(-1, NULL, 0) > 0);
 }
 
 static args_t args = {
