@@ -110,11 +110,11 @@ def db_check_mapping(db, js):
     c = db.cursor()
     slist = {}
     for k, v in sdata.items():
-        sample = v.sample_barcode
-        if not sample in slist: 
-            slist[sample] = [k]
+        bc = v.sample_barcode
+        if not bc in slist: 
+            slist[bc] = [k]
         else:
-            slist[sample].append(k)
+            slist[bc].append(k)
 
     old_tab = {}
     key_used = {}
@@ -124,22 +124,23 @@ def db_check_mapping(db, js):
     
     mapping_tab = {}
     changed = False
-    for sample, fli in slist.items():
-        bam = bam_dir.replace('@SAMPLE', sample)
-        sample_bam = os.path.join(bam, "{}.bam".format(sample))
+    for bc, fli in slist.items():
+        sample = sdata[fli[0]].sample_name
+        bam = bam_dir.replace('@BARCODE', bc).replace('@SAMPLE', sample)
+        sample_bam = os.path.join(bam, "{}.bam".format(bc))
         key_used[sample_bam] = True
         old = old_tab.get(sample_bam, (0,0,0,0,0))
         if len(fli) > 1:
-            mapping_tab[sample_bam] = (sample_bam, '', sample, 'MRG_BAM', old[4])
+            mapping_tab[sample_bam] = (sample_bam, '', bc, 'MRG_BAM', old[4])
             for k in fli:
                 ind_bam = os.path.join(bam, "{}.bam".format(k))
                 old1 = old_tab.get(ind_bam, (0,0,0,0,0))
-                mapping_tab[ind_bam] = (ind_bam, k, sample, 'MULTI_BAM', old1[4])
+                mapping_tab[ind_bam] = (ind_bam, k, bc, 'MULTI_BAM', old1[4])
                 key_used[ind_bam] = True
                 if old1 != mapping_tab[ind_bam]:
                     changed = True
         else:
-            mapping_tab[sample_bam] = (sample_bam, fli[0], sample, 'SINGLE_BAM', old[4])
+            mapping_tab[sample_bam] = (sample_bam, fli[0], bc, 'SINGLE_BAM', old[4])
         if old != mapping_tab[sample_bam]:
             changed = True
 
@@ -278,24 +279,24 @@ def db_check_contigs(db, js):
             pl[2] = pl[2] + sz
         for pl in pools:
             pool_list.append((pl[0], pl[1]))
-    sample_list = {}
+    bc_list = {}
     for k, v in sdata.items():
-        sample_list[v.sample_barcode] = True
+        bc_list[v.sample_barcode] = v.sample_name
     c.execute("DELETE FROM contigs")
     c.execute("DELETE FROM calling")
-    for sample in sample_list:
-        bcf = bcf_dir.replace('@SAMPLE', sample)
-        bcf_file = os.path.join(bcf, "{}.bcf".format(sample, ))
-        st = mrg_list.get(sample, 0)
-        c.execute("INSERT INTO calling VALUES (?, ?, ?, 'MRG_BCF', ?)", (bcf_file, '' , sample, st))
+    for bc,sample in bc_list.items():
+        bcf = bcf_dir.replace('@BARCODE', bc).replace('@SAMPLE', sample)
+        bcf_file = os.path.join(bcf, "{}.bcf".format(bc, ))
+        st = mrg_list.get(bc, 0)
+        c.execute("INSERT INTO calling VALUES (?, ?, ?, 'MRG_BCF', ?)", (bcf_file, '' , bc, st))
         for pl in pool_list:
             if pl[0] in ctg_pools:
                 v = ctg_pools[pl[0]][2]
-                st = v.get(sample, 0)
+                st = v.get(bc, 0)
             else:
                 st = 0
-            bcf_file = os.path.join(bcf, "{}_{}.bcf".format(sample, pl[0]))
-            c.execute("INSERT INTO calling VALUES (?, ?, ?, 'POOL_BCF', ?)", (bcf_file, pl[0], sample, st))
+            bcf_file = os.path.join(bcf, "{}_{}.bcf".format(bc, pl[0]))
+            c.execute("INSERT INTO calling VALUES (?, ?, ?, 'POOL_BCF', ?)", (bcf_file, pl[0], bc, st))
     for pl in pool_list:
         for ctg in pl[1]:
             c.execute("INSERT INTO contigs VALUES (?, ?)",(ctg, pl[0]))
@@ -330,14 +331,14 @@ def _prepare_index_parameter(index):
 def db_check_filtering(db, js):
     config =js.config
     sdata = js.sampleData
-    cpg_dir = conf_get(config, 'cpg_dir', '.', 'filtering')
+    cpg_dir = conf_get(config, 'filter_dir', '.', 'filtering')
 
     c = db.cursor()
     slist = {}
     for k, v in sdata.items():
-        sample = v.sample_barcode
-        if not sample in slist: 
-            slist[sample] = True
+        bc = v.sample_barcode
+        if not bc in slist: 
+            slist[bc] = v.sample_name
 
     old_tab = {}
     key_used = {}
@@ -347,15 +348,14 @@ def db_check_filtering(db, js):
 
     filter_tab = {}
     changed = False
-    for sample in slist:
-        cpg = cpg_dir.replace('@SAMPLE', sample)
-        sample_cpg = os.path.join(cpg, "{}.cpg".format(sample))
+    for bc, sample in slist.items():
+        cpg = cpg_dir.replace('@BARCODE', bc).replace('@SAMPLE', sample)
+        sample_cpg = os.path.join(cpg, bc)
         key_used[sample_cpg] = True
         old = old_tab.get(sample_cpg, ("","",0))
-        filter_tab[sample_cpg] = (sample_cpg, sample, old[2])
+        filter_tab[sample_cpg] = (sample_cpg, bc, old[2])
         if old != filter_tab[sample_cpg]:
             changed = True
-            print (old,filter_tab[sample_cpg])
 
     if not changed:
         for k, s in key_used.items():

@@ -15,9 +15,7 @@ import shutil
 import sqlite3
 import json
 import gzip
-
-# from configparser import ConfigParser
-# from configparser import ExtendedInterpolation
+import pkg_resources
 
 from .utils import run_tools, CommandException
 from .parser import gembsConfigParse
@@ -84,6 +82,8 @@ executables = execs_dict({
     "cpgToWig": "cpgToWig",
     "samtools": "samtools",
     "bcftools": "bcftools",
+    "bgzip": "bgzip",
+    "tabix": "tabix",
     })
 
 class Fli(object):
@@ -92,6 +92,7 @@ class Fli(object):
         #fli Members
         self.fli = None
         self.sample_barcode = None
+        self.description = None
         self.library = None
         self.type = None
         self.file = None
@@ -134,10 +135,18 @@ class JSONdata(object):
                     fliCommands.sample_barcode = value    
                 elif key == "library_barcode":
                     fliCommands.library = value    
+                elif key == "description":
+                    fliCommands.description = value    
+                elif key == "sample_name":
+                    fliCommands.sample_name = value    
                 elif key == "type":
                     fliCommands.type = value
                 elif key == "file":
                     fliCommands.file = value
+                elif key == "centre":
+                    fliCommands.centre = value
+                elif key == "platform":
+                    fliCommands.platform = value
 
                 self.sampleData[fli] = fliCommands
 
@@ -198,7 +207,8 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None)
     if text_metadata is not None:
         #Parses Metadata coming from text file
         headers = { 
-        		'sample': 'sample_barcode', 'sampleid': 'sample_barcode', 'barcode': 'sample_barcode', 'samplebarcode': 'sample_barcode',
+        		'sampleid': 'sample_barcode', 'barcode': 'sample_barcode', 'samplebarcode': 'sample_barcode',
+        		'sample': 'sample_name', 'name': 'sample_name', 'samplename': 'sample_name',
         		'library': 'library_barcode', 'lib': 'library_barcode', 'libbarcode': 'library_barcode', 'librarybarcode': 'library_barcode',
             'fileid': 'fli', 'fli': 'fli', 'dataset': 'fli', 
             'type': 'type', 'filetype': 'type', 
@@ -206,6 +216,9 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None)
             'file': 'file', 'location' : 'file',
             'read1': 'file1', 'end1': 'file1', 'file1': 'file1', 'location1': 'file1',
             'read2': 'file2', 'end2': 'file2', 'file2': 'file2', 'location2': 'file2',
+            'description': 'description', 'desc': 'description',
+            'centre': 'centre', 'center': 'centre',
+            'platform': 'platform'
             }
         data_types = ['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM']
         with open(text_metadata, 'r') as f:
@@ -320,6 +333,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None)
                     sample = {}
                     sample["sample_barcode"] = element["sample_barcode"]
                     sample["library_barcode"] = element["library_barcode"]
+                    sample["sample_name"] = element["sample_name"]
                     generalDictionary['sampleData'][fli] = sample
 
         with open(jsonOutput, 'w') as of:
@@ -476,7 +490,16 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
     logfile = os.path.join(outputDir,"gem_mapper_{}.err".format(name))
     mapping.extend(["--report-file",report_file])
     #Read Groups
-    readGroups = "@RG\\tID:%s\\tSM:%s\\tLB:%s\\tPU:%s\\tCN:CNAG\\tPL:Illumina" %(fliInfo.getFli(),fliInfo.sample_barcode,fliInfo.library,fliInfo.getFli())
+    readGroups = "@RG\\tID:{}\\tSM:{}\\tBC:{}\\tPU:{}".format(fliInfo.getFli(),fliInfo.sample_name,fliInfo.sample_barcode,fliInfo.getFli())
+    if fliInfo.description != None:
+        readGroups += "\\tDS:{}".format(fliInfo.description)
+    if fliInfo.library != None:
+        readGroups += "\\tLB:{}".format(fliInfo.library)
+    if fliInfo.centre != None:
+        readGroups += "\\tCN:{}".format(fliInfo.centre)
+    if fliInfo.library != None:
+        readGroups += "\\tPL:{}".format(fliInfo.platform)
+
     mapping.extend(["-r",readGroups])    
     #Bisulfite Conversion Values
     if under_conversion != "":
@@ -804,40 +827,109 @@ def methylationCalling(reference=None,db_name=None,species=None,sample_bam=None,
     return " ".join(list(sample_bam.keys()))
 
             
-def methylationFiltering(bcfFile=None,outfile=None,name=None,strand_specific=False,non_cpg=False,allow_het=False,
-                         inform=1,phred=20,min_nc=1):
+def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=False,cpg=False,non_cpg=False,allow_het=False,
+                         inform=1,phred=20,min_nc=1,bedMethyl=False,contig_list=None,contig_size_file=None):
     """ Filters bcf methylation calls file 
 
     bcfFile -- bcfFile methylation calling file  
-    outfile -- Output directory
+    outbase -- path to base of filenames
     """
 
-    output_dir = os.path.dirname(outfile)
+    output_dir = os.path.dirname(outbase)
     
     #Check output directory
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
+    #Make contig_list file to define contig order
+    contig_bed = outbase + "_contig_list.bed"
     
-    mextr = [executables['bcftools'],'+mextr',bcfFile,'--','-z','-o',outfile,'--inform',str(inform),'--threshold',str(phred)]
-    if strand_specific:
-        mextr.append('--mode')
-        mextr.append('strand-specific')
-    if allow_het:
-        mextr.append('--select')
-        mextr.append('het')
+    with open(contig_bed, "w") as f:
+        for ctg, size in contig_list:
+            f.write("{}\t0\t{}\n".format(ctg, size))
+
+    bcftools = [executables['bcftools'],'view','-R',contig_bed,'-Ou',bcfFile]
+    mextr = [executables['bcftools'],'+mextr','--','-z']
+    if cpg:
+        mextr.extend(['-o', outbase + '_cpg.txt'])
     if non_cpg:
-        non_cpg_output_file = os.path.join(output_dir,"{}_non_cpg.txt".format(name))
-        mextr.append('--noncpgfile')
-        mextr.append(non_cpg_output_file)
-        mextr.append('--min-nc')
-        mextr.append(str(min_nc))
+        mextr.extend(['--noncpgfile', outbase + '_non_cpg.txt', '--min-nc', str(min_nc)])
+    if bedMethyl:
+        mextr.extend(['-b', outbase])
+        
+    if cpg or non_cpg:
+        mextr.extend(['--inform',str(inform),'--threshold',str(phred)])
+    if strand_specific:
+        mextr.extend(['--mode', 'strand-specific'])
+    if allow_het:
+        mextr.extend(['--select', 'het'])
+    
     logfile = os.path.join(output_dir,"mextr_{}.err".format(name))
-    process = run_tools([mextr],name="Methylation Calls Filtering", logfile=logfile)
+    process = run_tools([bcftools, mextr],name="Methylation Calls Filtering", logfile=logfile)
     if process.wait() != 0:
         raise ValueError("Error while filtering bcf methylation calls.")
+
+    os.remove(contig_bed)
     
-    return os.path.abspath(outfile)
+    # Now generate indexes and bigBed files if required
+    if cpg:
+        tfile = "{}_cpg.txt.gz.tbi".format(outbase)
+        if os.path.exists(tfile):
+            os.remove(tfile)
+        logfile = os.path.join(output_dir,"tabix_{}_cpg.err".format(name))
+        tabix = [executables['tabix'], '-p', 'bed', '-S', '1', "{}_cpg.txt.gz".format(outbase)]
+        cpg_idx_proc = run_tools([tabix],name="Index Methylation CpG files", logfile=logfile)
+        if cpg_idx_proc.wait() != 0:
+            raise ValueError("Error while indexing CpG calls.")
+
+    if non_cpg:
+        tfile = "{}_non_cpg.txt.gz.tbi".format(outbase)
+        if os.path.exists(tfile):
+            os.remove(tfile)
+        logfile = os.path.join(output_dir,"tabix_{}_non_cpg.err".format(name))
+        tabix = [executables['tabix'], '-p', 'bed', '-S', '1', "{}_non_cpg.txt.gz".format(outbase)]
+        non_cpg_idx_proc = run_tools([tabix],name="Index Methylation non-CpG files", logfile=logfile)
+
+    if bedMethyl:
+        if pkg_resources.resource_exists("gemBS", "etc"):
+            etc_dir = pkg_resources.resource_filename("gemBS", "etc")
+        else:
+            raise CommandException("Couldn't locate gemBS etc directory")
+        
+        bm_proc = []
+        bm_tfile = []
+        for x in ('cpg', 'chg', 'chh'):
+            bfile = "{}_{}.bed.gz".format(outbase, x)
+            unzip = [executables['bgzip'], '-cd', bfile]
+
+            sed = ['sed', '1d']
+            ofile = "{}_{}.bed.tmp".format(outbase,x)
+            p = run_tools([unzip, sed],name='Make temp bed9+5 file',output=ofile)
+            bm_proc.append(p)
+            bm_tfile.append(ofile)
+        for p in bm_proc:
+            if p.wait() != 0:
+                raise ValueError("Error while uncompressing bed9+5 files.")
+        bm_proc = []
+        for ix, x in enumerate(['cpg', 'chg', 'chh']):
+            bed2bb = [executables['bedToBigBed'], '-type=bed9+5',"-as={}/bed9_5.as".format(etc_dir), '-tab', bm_tfile[ix],
+                      contig_size_file, "{}_{}.bb".format(outbase,x)]
+            logfile = os.path.join(output_dir,"bedToBigWig_{}_{}.err".format(name,x))
+            p = run_tools([bed2bb], name='Make bigBed file',logfile=logfile)
+            bm_proc.append(p)
+            
+    if cpg:
+        if cpg_idx_proc.wait() != 0:
+            raise ValueError("Error while indexing CpG calls.")
+    if non_cpg:
+        if non_cpg_idx_proc.wait() != 0:
+            raise ValueError("Error while indexing non-CpG calls.")
+    if bedMethyl:
+        for ix, p in enumerate(bm_proc):
+            if p.wait() != 0:
+                raise ValueError("Error while making bigBed files.")
+            os.remove(bm_tfile[ix])
+    return os.path.abspath(output_dir)
 
 def bsConcat(list_bcfs=None,sample=None,bcfSample=None):
     """ Concatenates all bcf methylation calls files in one output file.

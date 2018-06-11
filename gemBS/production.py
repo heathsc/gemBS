@@ -285,8 +285,9 @@ class Mapping(BasicPipeline):
             except KeyError:
                 raise ValueError('Data file {} not found in config file'.format(fli))
 
-            sample = fliInfo.sample_barcode
-            input_dir = self.input_dir.replace('@SAMPLE',sample)
+            sample = fliInfo.sample_name
+            bc = fliInfo.sample_barcode
+            input_dir = self.input_dir.replace('@BARCODE',bc).replace('@SAMPLE',sample)
 
             #Paired
             self.paired = self.paired_end
@@ -779,7 +780,9 @@ class MethylationFiltering(BasicPipeline):
         parser.add_argument('-I','--min-inform', dest="inform", help="Min threshold for informative reads.")
         parser.add_argument('-M','--min-nc', dest="min_nc", help="Min threshold for non-converted reads for non CpG sites.")
         parser.add_argument('-H','--allow-het', dest="allow_het", action="store_true", help="Allow both heterozygous and homozgyous sites.")
-        parser.add_argument('-N','--non-cpg', dest="non_cpg", action="store_true", help="Output non-cpg sites.")
+        parser.add_argument('-c','--cpg', dest="cpg", action="store_true", help="Output gemBS bed with cpg sites.")
+        parser.add_argument('-N','--non-cpg', dest="non_cpg", action="store_true", help="Output gemBS bed with non-cpg sites.")
+        parser.add_argument('-b','--bed-methyl', dest="bedmethyl", action="store_true", help="Output bedMethyl files (bed and bigBed)")
         
     def run(self,args):
         # JSON data
@@ -788,17 +791,45 @@ class MethylationFiltering(BasicPipeline):
 
         self.jobs = self.jsonData.check(section='filtering',key='jobs',arg=args.jobs,default=1,int_type=True)
         self.allow_het = self.jsonData.check(section='filtering',key='allow_het',arg=args.allow_het,boolean=True,default=False)
-        self.non_cpg = self.jsonData.check(section='filtering',key='non_cpg',arg=args.non_cpg,boolean=True,default=False)
+        self.cpg = self.jsonData.check(section='filtering',key='make_cpg',arg=args.non_cpg,boolean=True,default=False)
+        self.non_cpg = self.jsonData.check(section='filtering',key='make_non_cpg',arg=args.non_cpg,boolean=True,default=False)
+        self.bedMethyl = self.jsonData.check(section='filtering',key='make_bedmethyl',arg=args.non_cpg,boolean=True,default=False)
         self.strand_specific = self.jsonData.check(section='filtering',key='strand_specific',arg=args.strand_specific,boolean=True,default=False)
         self.phred = self.jsonData.check(section='filtering',key='phred_threshold',arg=args.phred, default = 20)
         self.inform = self.jsonData.check(section='filtering',key='min_inform',arg=args.inform, default = 1, int_type=True)
         self.min_nc = self.jsonData.check(section='filtering',key='min_nc',arg=args.inform, default = 1, int_type=True)
         self.path_bcf = self.jsonData.check(section='calling',key='bcf_dir',arg=None, default = '.', dir_type=True)
 
+        if not (self.cpg or self.non_cpg or self.bedMethyl):
+            self.cpg = True
+
+        self.mask = 0
+        if self.cpg: self.mask |= 3
+        if self.non_cpg: self.mask |= 12
+        if self.bedMethyl: self.mask |= 48
+        
         self.db_name = '.gemBS/gemBS.db'
         db = sqlite3.connect(self.db_name)
+        db_check_index(db, self.jsonData)        
         db_check_filtering(db, self.jsonData)
         c = db.cursor()
+        c.execute("SELECT * FROM indexing WHERE type = 'contig_sizes'")
+        ret = c.fetchone()
+        if not ret or ret[2] != 1:
+            raise CommandException("Could not open contig sizes file.")
+        self.contig_size_file = ret[0]
+        contig_size = {}
+        with open (self.contig_size_file, "r") as f:
+            for line in f:
+                fd = line.split()
+                if(len(fd) > 1):
+                    contig_size[fd[0]] = int(fd[1])
+
+        self.contig_list = []
+        for ctg in c.execute("SELECT contig FROM contigs"):
+            self.contig_list.append((ctg[0], contig_size[ctg[0]]))
+        self.contig_list.sort(key = lambda x: x[0])
+        
         self.bcf_list = []
         if args.sample:
             ret = c.execute("SELECT filepath, sample from calling WHERE sample = ? AND type = 'MRG_BCF' AND status = 1", (args.sample,))
@@ -836,24 +867,39 @@ class MethylationFiltering(BasicPipeline):
         db.isolation_level = None
         c = db.cursor()
         c.execute("BEGIN EXCLUSIVE")
-        c.execute("SELECT filepath FROM filtering WHERE sample = ? AND status = 0", (sample,))
+        c.execute("SELECT filepath, status FROM filtering WHERE sample = ?", (sample,))
         ret = c.fetchone()
         if ret:
-            cpgfile = ret[0]
-            c.execute("UPDATE filtering SET status = 3 WHERE filepath = ?", (cpgfile, ))
-            c.execute("COMMIT")
-            ixfile = cpgfile + '.tbi'
-            reg_db_com(cpgfile, "UPDATE filtering SET status = 0 WHERE filepath = '{}'".format(cpgfile), self.db_name, [cpgfile, ixfile])                
+            filebase, status = ret
+            if (status & self.mask) == 0:
+                status1 = status | self.mask
+                c.execute("UPDATE filtering SET status = ? WHERE filepath = ?", (status1, filebase))
+                c.execute("COMMIT")
+                files = [filebase + "_contig_list.bed"]
+                if self.cpg:
+                    files.extend([filebase + '_cpg.txt.gz', filebase + '_cpg.txt.gz.tbi'])
+                if self.non_cpg:
+                    files.extend([filebase + '_non_cpg.txt.gz', filebase + '_non_cpg.txt.gz.tbi'])
+                if self.bedMethyl:
+                    for x in ('cpg', 'chg', 'chh') :
+                        files.extend([filebase + "_{}.bed.gz".format(x), filebase + "_{}.bed.tmp".format(x),
+                                      filebase + "_{}.bb".format(x)])
+
+                reg_db_com(filebase, "UPDATE filtering SET status = 0 WHERE filepath = '{}'".format(filebase), self.db_name, files)                
             
-            #Call methylation filtering
-            ret = methylationFiltering(bcfFile=bcf_file,outfile=cpgfile,name=sample,strand_specific=self.strand_specific,non_cpg=self.non_cpg,
-                                         allow_het=self.allow_het,inform=self.inform,phred=self.phred,min_nc=self.min_nc)
-            if ret:
-                logging.gemBS.gt("Methylation filtering of {} done, results located at: {}".format(bcf_file, ret))
+                #Call methylation filtering
+                ret = methylationFiltering(bcfFile=bcf_file,outbase=filebase,name=sample,strand_specific=self.strand_specific,
+                                           cpg=self.cpg,non_cpg=self.non_cpg,contig_list=self.contig_list,allow_het=self.allow_het,
+                                           inform=self.inform,phred=self.phred,min_nc=self.min_nc,bedMethyl=self.bedMethyl,
+                                           contig_size_file=self.contig_size_file)
+                if ret:
+                    logging.gemBS.gt("Methylation filtering of {} done, results located in: {}".format(bcf_file, ret))
             
-            c.execute("BEGIN IMMEDIATE")
-            c.execute("UPDATE filtering SET status = 1 WHERE filepath = ?", (cpgfile, ))
-            del_db_com(cpgfile)
+                status1 = self.mask & 21
+                c.execute("BEGIN IMMEDIATE")
+                c.execute("UPDATE filtering SET status = ? WHERE filepath = ?", (status1, filebase))
+                del_db_com(filebase)
+                
         c.execute("COMMIT")
         db.close()
         

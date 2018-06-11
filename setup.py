@@ -94,7 +94,8 @@ def _install_bundle(install_dir):
     bin_dir = os.path.join(install_dir, "bin")
     lib_dir = os.path.join(install_dir, "lib")
     plugins_dir = os.path.join(install_dir, "libexec","bcftools")
-    config_dir = os.path.join(install_dir, "etc","gemBS_configs")
+    etc_dir = os.path.join(install_dir, "etc")
+    config_dir = os.path.join(etc_dir, "gemBS_configs")
     for dir in [bin_dir, lib_dir, plugins_dir, config_dir]:
         if not os.path.exists(dir):
             os.makedirs(dir)
@@ -125,6 +126,13 @@ def _install_bundle(install_dir):
         shutil.copy(file, plugins_dir)
         os.chmod(os.path.join(plugins_dir,os.path.basename(file)), 0o755)
 
+    files = [x for x in os.listdir("gemBS/etc")]
+    for file in files:
+        if os.path.isfile(os.path.join("gemBS/etc",file)):
+            print ("Copy {} to {}".format(file, etc_dir))
+            shutil.copy(os.path.join("gemBS/etc",file), etc_dir)
+            os.chmod(os.path.join(etc_dir, file), 0o644)
+    
     files = [x for x in os.listdir("gemBS/etc/gemBS_configs")]
     for file in files:
         print ("Copy {} to {}".format(file, config_dir))
