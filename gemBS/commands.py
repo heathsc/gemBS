@@ -113,7 +113,6 @@ def gemBS_main():
             "filter": MethylationFiltering,
             "map-report" : MappingReports,
             "variants-report" : VariantsReports,
-            "cpg-bigwig" : CpgBigwig
         }
         instances = {}
 
