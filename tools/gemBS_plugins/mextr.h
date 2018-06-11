@@ -39,12 +39,14 @@ typedef struct {
   char *cpgfilename;
   char *noncpgfilename;
   char *reportfilename;
+  char *wigfilename;
   char *bedmethyl;
   char *bedmethylnames[3];
   char *bedmethyl_track_line;
   char *bedmethyl_desc;
   FILE *cpgfile;
   FILE *noncpgfile;
+  FILE *wigfile;
   FILE *reportfile;
   FILE *bedmethylfiles[3];
   stats_t *stats;

@@ -260,9 +260,7 @@ static char *rgb_tab[11] = { "0,255,0", "55,255,0", "105,255,0", "155,255,0", "2
   
 void output_bedmethyl(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt[], int idx) {
   static char *cx;
-  static int32_t cx_n;
-  static char *gt_iupac = "AMRWCSYGKT";
-  static uint8_t gt_msk[] = {0x11, 0xb3, 0x55, 0x99, 0xa2, 0xf6, 0xaa, 0x54, 0xdc, 0x88};
+  static int32_t cx_n,old_rid = 0xffffffff;
   
   int ns = bcf_hdr_nsamples(args->hdr);
   if(ns > 1) return;
@@ -307,15 +305,23 @@ void output_bedmethyl(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sam
       ct[1] = g->counts[7];
     }
     int32_t cov = ct[0] + ct[1];
-    if(cov > 0) {
-      double m = (double)ct[0] / (double)cov;
-      FILE *fp = args->bedmethylfiles[btype];
+    double m = cov > 0 ? (double)ct[0] / (double)cov : 0.0;
+    if(cov > 0 && args->wigfile) {
+      FILE *fp = args->wigfile;
       if(fp != NULL) {
-	int gq = calc_phred(1.0 - exp(g->gt_prob[g->max_gt])); // Prob. of not being called genotype
-	fprintf(fp, "%s\t%d\t%d\t\"%s\"\t%d\t%c\t%d\t%d\t%s\t%d\t%d\t%s\t%s\t%d\n",
-		args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos, rec->pos + 1, args->bedmethyl_desc, cov > 1000 ? 1000 : cov, strand, 
-		rec->pos, rec->pos + 1, rgb_tab[(int)(m * 10.0 + 0.5)], cov, (int)(100.0 * m), rtmp, rtmp + 4, gq);
+	if(rec->rid != old_rid) {
+	  old_rid = rec->rid;
+	  fprintf(fp, "variableStep chrom=%s\n", args->hdr->id[BCF_DT_CTG][rec->rid].key);
+	}
+	fprintf(fp, "%u\t%.4g\n", rec->pos + 1, 100.0 * m);
       }
+    }
+    FILE *fp = args->bedmethylfiles[btype];
+    if(fp != NULL) {
+      int gq = calc_phred(1.0 - exp(g->gt_prob[g->max_gt])); // Prob. of not being called genotype
+      fprintf(fp, "%s\t%u\t%u\t\"%s\"\t%d\t%c\t%u\t%u\t%s\t%d\t%d\t%s\t%s\t%d\n",
+	      args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos, rec->pos + 1, args->bedmethyl_desc, cov > 1000 ? 1000 : cov, strand, 
+	      rec->pos, rec->pos + 1, rgb_tab[(int)(m * 10.0 + 0.5)], cov, (int)(100.0 * m), rtmp, rtmp + 4, gq);
     }
   }
 }

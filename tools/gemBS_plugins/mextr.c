@@ -71,8 +71,12 @@ static double *sample_Q[3];
 
 static void init_files(args_t *a) {
   if(a->cpgfilename == NULL) a->cpgfile = NULL;
-  else if(a->cpgfilename[0] == '-' && a->cpgfilename[1] == 0) a->cpgfile = open_ofile(NULL, a->compress, false);
+  else if(a->cpgfilename[0] == '-' && a->cpgfilename[1] == 0) a->cpgfile = open_ofile(NULL, 0, false);
   else  a->cpgfile = open_ofile(a->cpgfilename, a->compress, a->append_mode);
+  if(a->wigfilename == NULL) a->wigfile = NULL;
+  else if(a->wigfilename[0] == '-' && a->wigfilename[1] == 0) a->wigfile = open_ofile(NULL, 0, false);
+  else  a->wigfile = open_ofile(a->wigfilename, a->compress, a->append_mode);
+  
   a->noncpgfile = a->noncpgfilename == NULL ? (a->output_noncpg ? a->cpgfile : NULL) : open_ofile(a->noncpgfilename, a->compress, a->append_mode);
   if(a->bedmethyl != NULL) {
     char *p = strrchr(a->bedmethyl, '.');
@@ -175,6 +179,7 @@ static void print_headers(args_t *args) {
 static void close_files(args_t *a) {
   if(a->cpgfile != NULL && a->cpgfile != stdout) fclose(a->cpgfile);
   if(a->noncpgfile != NULL) fclose(a->noncpgfile);
+  if(a->wigfile != NULL && a->wigfile != stdout) fclose(a->wigfile);
   for(int i = 0; i < 3; i++)
     if(a->bedmethylfiles[i] != NULL) fclose(a->bedmethylfiles[i]);
   while(waitpid(-1, NULL, 0) > 0);
@@ -184,8 +189,10 @@ static args_t args = {
   .hdr = NULL,
   .cpgfile = NULL,
   .noncpgfile = NULL,
+  .wigfile = NULL,
   .reportfile = NULL,
   .cpgfilename = NULL,
+  .wigfilename = NULL,
   .bedmethylfiles = {NULL, NULL, NULL},
   .noncpgfilename = NULL,
   .reportfilename = NULL,
@@ -231,6 +238,7 @@ const char *usage(void)
     "   -o, --cpgfile           Output file for CpG sites (default = stdout)\n"
     "   -n, --noncpgfile        Output file for nonCpG sites (default, not output)\n"
     "   -b. --bed-methyl        Output file base for bedMethly files. Not compatible with multi-sample files  (default, not output)\n" 
+    "   -w. --wigfile           Output file for wig file (methylation)\n" 
     "   -t. --bed-track-line    Track line for for bedMethly files (default, info taken from input VCF file)\n" 
     "   -r, --report-file       Output file for JSON report (default, not output)\n"
     "   -H, --no_header         Do not print header line(s) in output file(s) (default, false)\n"
@@ -304,6 +312,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out __unused__)
   check_hdr_params(&args);
   static struct option loptions[] = {
     {"cpgfile",required_argument,0,'c'},
+    {"wigfile",required_argument,0,'c'},
     {"noncpgfile",required_argument,0,'n'},
     {"bed-methyl",required_argument,0,'b'},
     {"bed-track-line",required_argument,0,'t'},
@@ -325,13 +334,16 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out __unused__)
   };
   int c;
   bool mult_comp = false;
-  while ((c = getopt_long(argc, argv, "?Qh:o:c:b:n:r:m:M:I:s:p:N:T:t:gzHjxa",loptions,NULL)) >= 0) {
+  while ((c = getopt_long(argc, argv, "?Qh:o:c:b:n:r:m:M:I:s:p:N:T:t:w:gzHjxa",loptions,NULL)) >= 0) {
     switch (c) {
     case 'a':
       args.append_mode = true;
       break;
     case 'o':
       args.cpgfilename = optarg;
+      break;
+    case 'w':
+      args.wigfilename = optarg;
       break;
     case 'n':
       args.noncpgfilename = optarg;
@@ -412,7 +424,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out __unused__)
   if(args.append_mode && args.compress) error("Output compression not compatible with append mode\n");
   int ns = bcf_hdr_nsamples(args.hdr);
   assert(ns > 0);
-  if(args.bedmethyl && ns > 1) error("bedMethyl output not compatible with multi-sample files\n");
+  if((args.bedmethyl || args.wigfile) && ns > 1) error("bedMethyl and wig output not compatible with multi-sample files\n");
   if (optind != argc) error(usage());
   init_files(&args);
   if(!args.append_mode && (args.header || args.bedmethyl)) print_headers(&args);
@@ -545,7 +557,7 @@ bcf1_t *process(bcf1_t *rec)
       // Here is the logic for deciding what we print
       if(rec->rid != curr_rid) curr_rid = rec->rid;
       else if(rec->pos - prev_pos == 1 && valid[idx ^ 1]) output_cpg(&args, &prev_rec, tags, sample_gt, idx ^ 1, sample_cpg, sample_Q);
-      if(args.bedmethyl) {
+      if(args.bedmethyl || args.wigfile) {
 	output_bedmethyl(&args, rec, tags, sample_gt, idx);
       }
       idx ^= 1;
