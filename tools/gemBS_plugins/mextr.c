@@ -11,8 +11,9 @@
 #include "utils.h"
 #include "compress.h"
 
-static FILE *open_ofile(char *name, int compress) {
+static FILE *open_ofile(char *name, int compress, bool append) {
   FILE *fp = NULL;
+  if(append) compress = 0;
   int comp_ix = COMPRESS_NONE;
   if(compress != 0) {
     for(comp_ix = 0; comp_ix < COMPRESS_NONE; comp_ix++) {
@@ -33,7 +34,9 @@ static FILE *open_ofile(char *name, int compress) {
       int i = child_open(WRITE, tname, cdata->comp_path[comp_ix][0]);
       fp = fdopen(i, "w");
       if(name != tname) free(tname);
-    } else fp = fopen(name, "w");
+    } else {
+      fp = append ? fopen(name, "a") : fopen(name, "w");
+    }
   } else {
     if(isatty(fileno(stdout))) comp_ix = COMPRESS_NONE;
     if(comp_ix < COMPRESS_NONE) {
@@ -68,9 +71,9 @@ static double *sample_Q[3];
 
 static void init_files(args_t *a) {
   if(a->cpgfilename == NULL) a->cpgfile = NULL;
-  else if(a->cpgfilename[0] == '-' && a->cpgfilename[1] == 0) a->cpgfile = open_ofile(NULL, a->compress);
-  else  a->cpgfile = open_ofile(a->cpgfilename, a->compress);
-  a->noncpgfile = a->noncpgfilename == NULL ? (a->output_noncpg ? a->cpgfile : NULL) : open_ofile(a->noncpgfilename, a->compress);
+  else if(a->cpgfilename[0] == '-' && a->cpgfilename[1] == 0) a->cpgfile = open_ofile(NULL, a->compress, false);
+  else  a->cpgfile = open_ofile(a->cpgfilename, a->compress, a->append_mode);
+  a->noncpgfile = a->noncpgfilename == NULL ? (a->output_noncpg ? a->cpgfile : NULL) : open_ofile(a->noncpgfilename, a->compress, a->append_mode);
   if(a->bedmethyl != NULL) {
     char *p = strrchr(a->bedmethyl, '.');
     if(p && !strcmp(".bed",p)) {
@@ -89,7 +92,7 @@ static void init_files(args_t *a) {
     sprintf(a->bedmethylnames[BEDMETHYL_CHG], "%s_chg.bed", a->bedmethyl);
     sprintf(a->bedmethylnames[BEDMETHYL_CHH], "%s_chh.bed", a->bedmethyl);
     for(int i = 0; i < 3; i++) 
-      a->bedmethylfiles[i] = open_ofile(a->bedmethylnames[i], a->compress);
+      a->bedmethylfiles[i] = open_ofile(a->bedmethylnames[i], a->compress, a->append_mode);
   }
 }
 
@@ -205,7 +208,8 @@ static args_t args = {
   .compress = 0,
   .common_gt = false,
   .output_noncpg = false,
-  .header = true
+  .header = true,
+  .append_mode = false
 };
 
 const char *about(void)
@@ -225,7 +229,7 @@ const char *usage(void)
     "Plugin options:\n"
     "   -o, --cpgfile           Output file for CpG sites (default = stdout)\n"
     "   -n, --noncpgfile        Output file for nonCpG sites (default, not output)\n"
-    "   -b. --bed-methyl        Output file base for bedMethly files (default, not output)\n" 
+    "   -b. --bed-methyl        Output file base for bedMethly files. Not compatible with multi-sample files  (default, not output)\n" 
     "   -t. --bed-track-line    Track line for for bedMethly files (default, info taken from input VCF file)\n" 
     "   -r, --report-file       Output file for JSON report (default, not output)\n"
     "   -H, --no_header         Do not print header line(s) in output file(s) (default, false)\n"
@@ -246,6 +250,7 @@ const char *usage(void)
     "   -z, --gzip              Compress output with gzip (bgzip if available)\n"
     "   -j, --bzip2             Compress output with bzip2\n"
     "   -x, --xz                Compress output with xz\n"
+    "   -a, --append            Append to output files rather than create new ones.  Not compatible wih output compression\n"
     "\n"
     "Example:\n"
     "   bcftools +mextr in.vcf -- -o out_cpg.txt -n out_noncpg.txt -z\n"
@@ -314,12 +319,16 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out __unused__)
     {"gzip",no_argument,0,'z'},
     {"bzip2",no_argument,0,'j'},
     {"xz",no_argument,0,'x'},
+    {"append",no_argument,0,'a'},
     {0,0,0,0}
   };
   int c;
   bool mult_comp = false;
-  while ((c = getopt_long(argc, argv, "?Qh:o:c:b:n:r:m:M:I:s:p:N:T:t:gzHjx",loptions,NULL)) >= 0) {
+  while ((c = getopt_long(argc, argv, "?Qh:o:c:b:n:r:m:M:I:s:p:N:T:t:gzHjxa",loptions,NULL)) >= 0) {
     switch (c) {
+    case 'a':
+      args.append_mode = true;
+      break;
     case 'o':
       args.cpgfilename = optarg;
       break;
@@ -399,12 +408,14 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out __unused__)
     }
   }
   if(mult_comp) error("Can not combine multiple compression options\n");
-  if (optind != argc) error(usage());
-  init_files(&args);
-  if(args.header || args.bedmethyl) print_headers(&args);
-  if(args.reportfilename != NULL) init_stats(&args);
+  if(args.append_mode && args.compress) error("Output compression not compatible with append mode\n");
   int ns = bcf_hdr_nsamples(args.hdr);
   assert(ns > 0);
+  if(args.bedmethyl && ns > 1) error("bedMethyl output not compatible with multi-sample files\n");
+  if (optind != argc) error(usage());
+  init_files(&args);
+  if(!args.append_mode && (args.header || args.bedmethyl)) print_headers(&args);
+  if(args.reportfilename != NULL) init_stats(&args);
   sample_gt[0] = malloc(sizeof(gt_meth) * ns * 2);
   sample_gt[1] = sample_gt[0] + ns;
   sample_Q[0] = malloc(sizeof(double) * (ns + 1) * 2 + ns);

@@ -64,6 +64,7 @@ typedef struct {
   double over_conv;
   int bq_thresh;
   int mq_thresh;
+  bool append_mode;
 } args_t;
 
 typedef struct {
