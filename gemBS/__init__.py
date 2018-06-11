@@ -828,7 +828,7 @@ def methylationCalling(reference=None,db_name=None,species=None,sample_bam=None,
 
             
 def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=False,cpg=False,non_cpg=False,allow_het=False,
-                         inform=1,phred=20,min_nc=1,bedMethyl=False,contig_list=None,contig_size_file=None):
+                         inform=1,phred=20,min_nc=1,bedMethyl=False,bigWig=False,contig_list=None,contig_size_file=None):
     """ Filters bcf methylation calls file 
 
     bcfFile -- bcfFile methylation calling file  
@@ -856,6 +856,9 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         mextr.extend(['--noncpgfile', outbase + '_non_cpg.txt', '--min-nc', str(min_nc)])
     if bedMethyl:
         mextr.extend(['-b', outbase])
+    if bigWig:
+        mextr.extend(['-w', '-'])
+        wig2bigwig = [executables['wigToBigWig'], '/dev/stdin', contig_size_file, outbase + '.bw']
         
     if cpg or non_cpg:
         mextr.extend(['--inform',str(inform),'--threshold',str(phred)])
@@ -863,9 +866,13 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         mextr.extend(['--mode', 'strand-specific'])
     if allow_het:
         mextr.extend(['--select', 'het'])
-    
+
+    pipeline = [bcftools, mextr]
+    if bigWig:
+        pipeline.append(wig2bigwig)
+        
     logfile = os.path.join(output_dir,"mextr_{}.err".format(name))
-    process = run_tools([bcftools, mextr],name="Methylation Calls Filtering", logfile=logfile)
+    process = run_tools(pipeline, name="Methylation Calls Filtering", logfile=logfile)
     if process.wait() != 0:
         raise ValueError("Error while filtering bcf methylation calls.")
 

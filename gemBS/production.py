@@ -782,7 +782,8 @@ class MethylationFiltering(BasicPipeline):
         parser.add_argument('-H','--allow-het', dest="allow_het", action="store_true", help="Allow both heterozygous and homozgyous sites.")
         parser.add_argument('-c','--cpg', dest="cpg", action="store_true", help="Output gemBS bed with cpg sites.")
         parser.add_argument('-N','--non-cpg', dest="non_cpg", action="store_true", help="Output gemBS bed with non-cpg sites.")
-        parser.add_argument('-b','--bed-methyl', dest="bedmethyl", action="store_true", help="Output bedMethyl files (bed and bigBed)")
+        parser.add_argument('-b','--bed-methyl', dest="bedMethyl", action="store_true", help="Output bedMethyl files (bed and bigBed)")
+        parser.add_argument('-w','--bigWig', dest="bigWig", action="store_true", help="Output bigWig file")
         
     def run(self,args):
         # JSON data
@@ -791,9 +792,10 @@ class MethylationFiltering(BasicPipeline):
 
         self.jobs = self.jsonData.check(section='filtering',key='jobs',arg=args.jobs,default=1,int_type=True)
         self.allow_het = self.jsonData.check(section='filtering',key='allow_het',arg=args.allow_het,boolean=True,default=False)
-        self.cpg = self.jsonData.check(section='filtering',key='make_cpg',arg=args.non_cpg,boolean=True,default=False)
+        self.cpg = self.jsonData.check(section='filtering',key='make_cpg',arg=args.cpg,boolean=True,default=False)
         self.non_cpg = self.jsonData.check(section='filtering',key='make_non_cpg',arg=args.non_cpg,boolean=True,default=False)
-        self.bedMethyl = self.jsonData.check(section='filtering',key='make_bedmethyl',arg=args.non_cpg,boolean=True,default=False)
+        self.bedMethyl = self.jsonData.check(section='filtering',key='make_bedmethyl',arg=args.bedMethyl,boolean=True,default=False)
+        self.bigWig = self.jsonData.check(section='filtering',key='make_bigwig',arg=args.bigWig,boolean=True,default=False)
         self.strand_specific = self.jsonData.check(section='filtering',key='strand_specific',arg=args.strand_specific,boolean=True,default=False)
         self.phred = self.jsonData.check(section='filtering',key='phred_threshold',arg=args.phred, default = 20)
         self.inform = self.jsonData.check(section='filtering',key='min_inform',arg=args.inform, default = 1, int_type=True)
@@ -880,6 +882,8 @@ class MethylationFiltering(BasicPipeline):
                     files.extend([filebase + '_cpg.txt.gz', filebase + '_cpg.txt.gz.tbi'])
                 if self.non_cpg:
                     files.extend([filebase + '_non_cpg.txt.gz', filebase + '_non_cpg.txt.gz.tbi'])
+                if self.bigWig:
+                    files.append(filebase + '.bw')
                 if self.bedMethyl:
                     for x in ('cpg', 'chg', 'chh') :
                         files.extend([filebase + "_{}.bed.gz".format(x), filebase + "_{}.bed.tmp".format(x),
@@ -891,7 +895,7 @@ class MethylationFiltering(BasicPipeline):
                 ret = methylationFiltering(bcfFile=bcf_file,outbase=filebase,name=sample,strand_specific=self.strand_specific,
                                            cpg=self.cpg,non_cpg=self.non_cpg,contig_list=self.contig_list,allow_het=self.allow_het,
                                            inform=self.inform,phred=self.phred,min_nc=self.min_nc,bedMethyl=self.bedMethyl,
-                                           contig_size_file=self.contig_size_file)
+                                           bigWig=self.bigWig,contig_size_file=self.contig_size_file)
                 if ret:
                     logging.gemBS.gt("Methylation filtering of {} done, results located in: {}".format(bcf_file, ret))
             
