@@ -1122,22 +1122,24 @@ class BsCallConcatenate(MethylationCall):
         parser.add_argument('-t', '--threads', dest="threads", metavar="THREADS", help='Number of threads, Default: %s' %self.threads)
         parser.add_argument('-r', '--remove', dest="remove", action="store_true", help='Remove individual BAM files after merging.', required=False)
         parser.add_argument('-j', '--jobs', dest="jobs", type=int, help='Number of parallel jobs')
+        parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
     
     def run(self,args):
 
-        args.concat = True;
-        args.mapq_threshold = None;
-        args.qual_threshold = None;
-        args.contig_list = None;
-        args.right_trim = None;
-        args.left_trim = None;
-        args.keep_duplicates = None;
-        args.keep_unmatched = None;
-        args.species = None;
-        args.haploid = None;
-        args.conversion = None;
-        args.ref_bias = None;
-        args.dbSNP_index_file = None;
+        args.concat = True
+        args.req_pool = None
+        args.mapq_threshold = None
+        args.qual_threshold = None
+        args.contig_list = None
+        args.right_trim = None
+        args.left_trim = None
+        args.keep_duplicates = None
+        args.keep_unmatched = None
+        args.species = None
+        args.haploid = None
+        args.conversion = None
+        args.ref_bias = None
+        args.dbSNP_index_file = None
         MethylationCall.run(self, args)
       
 class MappingReports(BasicPipeline):
