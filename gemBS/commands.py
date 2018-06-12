@@ -5,6 +5,7 @@ import pkg_resources
 import os
 import sys
 
+from argparse import RawTextHelpFormatter
 from .utils import CommandException
 from .production import *
 from .database import cleanup_db_com
@@ -87,8 +88,8 @@ atexit.register(_cleanup_on_shutdown)
 def gemBS_main():
     try:
         parser = argparse.ArgumentParser(prog="gemBS",
-                description="gemBS is a bioinformatic pipeline to perform the different steps involved in the Bisulfite Sequencing Analysis."
-                )
+                                         description="gemBS is a bioinformatic pipeline to perform the different steps involved in the Bisulfite Sequencing Analysis."
+        )
         parser.add_argument('--loglevel', dest="loglevel", default=None, help="Log level (error, warn, info, debug)")
         parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __VERSION__)
         if pkg_resources.resource_exists("gemBS", "libexec/bcftools"):
@@ -119,7 +120,7 @@ def gemBS_main():
         subparsers = parser.add_subparsers(title="commands", metavar="<command>", description="Available commands", dest="command")
         
         for name, cmdClass in commands.items():
-            p = subparsers.add_parser(name, help=cmdClass.title, description=cmdClass.description)
+            p = subparsers.add_parser(name, help=cmdClass.title, description=cmdClass.description, formatter_class = argparse.RawDescriptionHelpFormatter)
             instances[name] = cmdClass()
             instances[name].register(p)
 

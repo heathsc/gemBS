@@ -86,7 +86,7 @@ executables = execs_dict({
     "tabix": "tabix",
     })
 
-class Fli(object):
+class Fli:
     
     def __init__(self):
         #fli Members
@@ -100,7 +100,7 @@ class Fli(object):
         #Get FLI (flowcell lane index)
         return self.fli
 
-class JSONdata(object):
+class JSONdata:
     #Class to manage the flowcell lane index information of the project
     def __init__(self, json_file = None, jdict = None):
         self.json_file = json_file
@@ -170,9 +170,12 @@ class JSONdata(object):
         self.config[section][key] = ret
         return ret
 
-def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None):
+def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,no_db=False,dbfile=None,output=None):
 
     generalDictionary = {}
+    cpath = None
+    inputs_path = None
+    
     if configFile is not None:
         config = gembsConfigParse()
         config.read(configFile)
@@ -187,6 +190,11 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None)
             if sect in config:
                 for key,val in config[sect].items():
                     config_dict[sect][key] = val
+        if no_db:
+            dbfile=':memory:'
+        elif dbfile == None:
+            dbfile = def_dict.get('gembs_dbfile', '.gemBS/gemBS.db')
+        config_dict['DEFAULT']['gembs_dbfile'] = dbfile
         generalDictionary['config'] = config_dict
         if not 'reference' in config_dict['DEFAULT']:
             raise ValueError("No value for 'reference' given in main section of configuration file {}".format(configFile))
@@ -194,22 +202,31 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None)
         if not os.path.exists(config_dict['DEFAULT']['reference']):
             raise CommandException("Reference file '{}' does not exist".format(config_dict['DEFAULT']['reference']))
 
-        cpath = '.gemBS'
-        inputs_path = os.path.join(cpath,'inputs')
-        if not os.path.exists(inputs_path): os.makedirs(inputs_path)
-        shutil.copy(configFile, inputs_path)
+        if not no_db:
+            cpath = os.path.dirname(dbfile)
+            inputs_path = os.path.join(cpath,'gemBS_inputs')
+            if not os.path.exists(inputs_path): os.makedirs(inputs_path)
+            shutil.copy(configFile, inputs_path)
+        else:
+            dbfile=':memory:'
     else:
         raise ValueError("configFile is not set")
 
-    jsonOutput = os.path.join(cpath, 'gemBS.json')
+    if output != None:
+        jsonOutput = output
+    else:
+        if cpath != None:
+            jsonOutput = os.path.join(cpath, 'gemBS.json')
+        else:
+            jsonOutput = 'gemBS.json'
     
     generalDictionary['sampleData'] = {}
     if text_metadata is not None:
         #Parses Metadata coming from text file
         headers = { 
-        		'sampleid': 'sample_barcode', 'barcode': 'sample_barcode', 'samplebarcode': 'sample_barcode',
-        		'sample': 'sample_name', 'name': 'sample_name', 'samplename': 'sample_name',
-        		'library': 'library_barcode', 'lib': 'library_barcode', 'libbarcode': 'library_barcode', 'librarybarcode': 'library_barcode',
+            'sampleid': 'sample_barcode', 'barcode': 'sample_barcode', 'samplebarcode': 'sample_barcode',
+            'sample': 'sample_name', 'name': 'sample_name', 'samplename': 'sample_name',
+            'library': 'library_barcode', 'lib': 'library_barcode', 'libbarcode': 'library_barcode', 'librarybarcode': 'library_barcode',
             'fileid': 'fli', 'fli': 'fli', 'dataset': 'fli', 
             'type': 'type', 'filetype': 'type', 
             'readend': 'end', 'end': 'end',
@@ -320,7 +337,8 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None)
                 raise ValueError('Could not parse config file')
         with open(jsonOutput, 'w') as of:
             json.dump(generalDictionary, of, indent=2)
-        shutil.copy(text_metadata, inputs_path)
+        if inputs_path != None:
+            shutil.copy(text_metadata, inputs_path)
             
     elif lims_cnag_json is not None:
         # Parses json from cnag lims
@@ -339,12 +357,12 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None)
         with open(jsonOutput, 'w') as of:
             json.dump(generalDictionary, of, indent=2) 
 
-        shutil.copy(lims_cnag_json, inputs_path)
+        if inputs_path != None:
+            shutil.copy(lims_cnag_json, inputs_path)
     
     js = JSONdata(jdict = generalDictionary)
     # Initialize or check database
-    db_name = os.path.join(cpath,'gemBS.db')
-    db = sqlite3.connect(db_name)
+    db = sqlite3.connect(dbfile)
     # Create tables (if not already existing)
     db_create_tables(db)
     # Check and/or populate tables

@@ -34,9 +34,6 @@ def cleanup_db_com():
     if db != None:
         db.close()
             
-def conf_get(cfg, key, default = None, section = 'DEFAULT'):
-    return cfg[section][key] if key in cfg[section] else default
-
 def db_create_tables(db):
     c = db.cursor()
     c.execute("CREATE TABLE IF NOT EXISTS indexing (file text, type text PRIMARY KEY, status int)")
@@ -104,8 +101,8 @@ def db_check_index(db, js):
 def db_check_mapping(db, js):
     config =js.config
     sdata = js.sampleData
-    fastq_dir = conf_get(config, 'sequence_dir', '.', 'mapping')
-    bam_dir = conf_get(config, 'bam_dir', '.', 'mapping')
+    fastq_dir = config['mapping'].get('sequence_dir', '.')
+    bam_dir = config['mapping'].get('bam_dir', '.')
 
     c = db.cursor()
     slist = {}
@@ -173,12 +170,13 @@ def db_check_contigs(db, js):
                 contig_size[fd[0]] = int(fd[1])
     
     config = js.config
-    bam_dir = conf_get(config, 'bam_dir', '.', 'mapping')
-    bcf_dir = conf_get(config, 'bcf_dir', '.', 'mapping')
+    bam_dir = config['mapping'].get('bam_dir', '.')
+    bcf_dir = config['calling'].get('bcf_dir', '.')
+    
     sdata = js.sampleData
-    pool_size = int(conf_get(config, 'contig_pool_limit', '25000000', 'calling'))
-    omit = conf_get(config, 'omit_contigs', [], 'calling')
-    ctg_req_list = conf_get(config, 'contig_list', [], 'calling')
+    pool_size = int(config['calling'].get('contig_pool_limit', '25000000'))
+    omit = config['calling'].get('omit_contigs', [])
+    ctg_req_list = config['calling'].get('contig_list', [])
     ctg_pools = {}
     ctg_flag = {}
     mrg_list = {}
@@ -331,7 +329,7 @@ def _prepare_index_parameter(index):
 def db_check_filtering(db, js):
     config =js.config
     sdata = js.sampleData
-    cpg_dir = conf_get(config, 'filter_dir', '.', 'filtering')
+    cpg_dir = config['filtering'].get('filter_dir', '.')
 
     c = db.cursor()
     slist = {}

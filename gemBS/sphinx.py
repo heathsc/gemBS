@@ -883,7 +883,7 @@ class SumupSphinx(BasicSphinx):
         vectorSphinx.append("\n")
         self.addTocTree(vectorSphinx=vectorSphinx,vectorDocuments=vectorDocuments)
         
-class ConfigSphinx(object):
+class ConfigSphinx:
     """Sphinx configuration python file generation"""
     def __init__(self,path_config_file=None,path_makefile_file=None,master_file=None,project_name=None,main_title='BISULFITE PIPELINE'):
         """Constructor Class for config file generation

@@ -56,40 +56,64 @@ class BasicPipeline(Command):
 
 class PrepareConfiguration(Command):
     title = "Prepare"
-    description = """ Sets up pipeline directories and controls files.
+    description = """Sets up pipeline directories and controls files.
                       
-                      Input Files:
+Input Files:
 
-                          Two files are required, one describing the data files and a configuration file with
-                          the analysis parameters.
+  Two files are required, a configuration file describing the model parameters and analysis directory
+  structure, and second file describing the sample metadata and associated data files.
 
-                          Option 1: Simple text file, comma separated with 5 columns.
-                          FORMAT: sample_id,library,flowcell,lane,index
-                          
-                          Option 2: CNAG Lims Subproject json file
+  The sample file will normally be a text file in CSV format with an optional (although recommended) header line,
+  although there is also the option to import a JSON file from the CNAG LIMS.
 
-                          In addition, a config file with default parameters for the gemBS commands can also be supplied.
-                    
-                      If you are managing CNAG bisulfite sequencing data and you have acces to the CNAG lims then Option 2 is the most user friendly.
-                      Otherwise Option 1.
-                  """
+  Full documentation of the input file formats can be found in the gemBS documentation.  
+
+  The prepare command reads in the configuration files and writes a JSON file with the data from both
+  files, that is used by the subsequent gemBS commands.  Any parameters supplied in the configuration
+  files is used as the default by the other gemBS commands, so judicious use can prevent a lot of typing
+  and help standardize analyses.  
+
+  The prepare command will then check that the mimum required information has been provided, and will check 
+  for the existence of key input files (notable the genome reference fasta file).  
+
+  A persistant (disk-based) sqlite3 database is used by default so that gemBS can track at what stage the pipeline
+  has reached and handle pipeline steps that failed.  This allows normal operation and restarting of the pipeline 
+  to be achieved using minimal input from the user.  
+
+  The use of the disk-base database is recommended for normal operations but does require a shared filesystem (that 
+  supports non-local file locks) across all instances of gemBS that are running on the same datafiles.  If this is 
+  not the case then this can be turned off using the --no-db option.  Use of this option will require that the user 
+  tracks the state of the analysis themselves.
+
+  By default the database (if used) is stored in the file .gemBS/gemBS.db and the output JSON file is stored in 
+  .gemBS/gemBS.json.  If the -no-db option is set then the JSON file will be stored to the file gemBS.json in the
+  current directory.  The --output option can be used to specify an alternate locationn for the JSON file and the 
+  --db-file option can specify an alternate locaiton for the database file.  The database location is stored in the
+  JSON file so that it can be recovered by subsequent calls to gemBS.  However if the default location is not used 
+  for the JSON file them it will be necessary to specify the location of the JSON file for each gemBS command.  It 
+  is therefore advised to stay with the default option if possible.
+
+"""
                 
     def register(self, parser):
         ## required parameters
-        parser.add_argument('-t', '--text-metadata', dest="text_metadata", help="Sample metadata in csv file.  See documentation for description of file format.")
-        parser.add_argument('-l', '--lims-cnag-json', dest="lims_cnag_json", help="Lims Cnag subproject json file.")
         parser.add_argument('-c', '--config', dest="config", help="""Text config file with gemBS parameters.""",required=True)
+        parser.add_argument('-t', '--text-metadata', dest="text_metadata", help="Sample metadata in csv file.  See documentation for description of file format.")
+        parser.add_argument('-o', '--output', dest="output", help="Output JSON file.  See documentation for description of file format.")
+        parser.add_argument('-D', '--no-db', dest="no_db", action="store_true", help="Do not use disk base database.")
+        parser.add_argument('-d', '--db-file', dest="dbfile", help="Specify location for database file.")
+        parser.add_argument('-l', '--lims-cnag-json', dest="lims_cnag_json", help="Lims CNAG subproject JSON file.")
         
-    def run(self,args):        
+    def run(self,args):
         #Try text metadata file
         if args.text_metadata is not None:
             if os.path.isfile(args.text_metadata):
-                prepareConfiguration(text_metadata=args.text_metadata,configFile=args.config)
+                prepareConfiguration(text_metadata=args.text_metadata,configFile=args.config,no_db=args.no_db,dbfile=args.dbfile,output=args.output)
             else:
                 raise CommandException("File %s not found" %(args.text_metadata))
         elif args.lims_cnag_json is not None:
             if os.path.isfile(args.lims_cnag_json):
-                prepareConfiguration(lims_cnag_json=args.lims_cnag_json,configFile=args.config)
+                prepareConfiguration(lims_cnag_json=args.lims_cnag_json,configFile=args.config,no_db=args.no_db,dbfile=args.dbfile,output=args.output)
             else:
                 raise CommandException("File %s not found" %(args.lims_cnag_json))
         else:

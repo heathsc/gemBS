@@ -15,7 +15,7 @@ from .report import BasicHtml
 from .bsCallStats import *
 from .bsCallSphinxReports import *
 
-class HtmlBsCallReport(object):
+class HtmlBsCallReport:
     """ Basic Methods for BsCall Reports """
     
     def __init__(self,html_file_name=None,parentName="",currentName="",parentDocument=""):

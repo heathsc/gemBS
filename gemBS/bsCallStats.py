@@ -16,7 +16,7 @@ import os
 import math
 
 
-class StatsMother(object):
+class StatsMother:
     """Common methods to all type of class stats"""
     
     def __init__(self):
@@ -54,7 +54,7 @@ class StatsMother(object):
             return 0.0
 
 
-class PlotMother(object):
+class PlotMother:
     """Common methods for plotting"""
     
     def __init__(self,pngFile,concept,relativeImgDirectory="./IMG/",relativeSphinxPathImage="../IMG/"):
@@ -177,7 +177,7 @@ class SimpleStats(StatsMother):
         percentage = self.getPercentage(self.data["Passed"],self.data["All"])
         return [self.concept,"%i"%(self.data["All"]),"%i"%(self.data["Passed"]),"%.2f %%"%(percentage)]            
         
-class TotalStats(object):
+class TotalStats:
     """Manage Total Stats Table"""
     
     def __init__(self):

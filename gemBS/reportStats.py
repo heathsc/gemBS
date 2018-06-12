@@ -18,7 +18,7 @@ importlib.import_module('mpl_toolkits.mplot3d').Axes3D
 
 import math
 
-class NucleotideStats(object):
+class NucleotideStats:
     """ Gets percentage of nucleotide statistics """
     
     def __init__(self,a_bp,c_bp,t_bp,g_bp,n_bp):
@@ -61,7 +61,7 @@ class NucleotideStats(object):
             return 0.0
         
 
-class Value(object):
+class Value:
     """ Class value to define a given metric, could be total or per pairs """
     def __init__(self):
         self.total = 0
@@ -97,7 +97,7 @@ class Value(object):
         self.pair_two_percentage = percent_two
         
 
-class BsStats(object):
+class BsStats:
     
     def __init__(self):
         #Is paired or single end
@@ -480,7 +480,7 @@ class SampleStats(BsStats):
         #Get First Lane Paired Status
         self.is_paired = list_lane_stats[0].is_paired
 
-class RunBasicStats(object):
+class RunBasicStats:
     """ Class responsable of basic functions """
 
     def __init__(self,mapping_stats=None,png_mapq_histogram=None,png_insert_size_histogram=None):

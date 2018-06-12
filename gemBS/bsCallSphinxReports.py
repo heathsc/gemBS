@@ -7,7 +7,7 @@ Created on Tue Dec 19 12:11:17 2017
 
 from .sphinx import ConfigSphinx
 
-class SphinxBsCallReport(object):
+class SphinxBsCallReport:
     """ Basic Methods for BsCall Reports """
     
     def __init__(self,sphinx_file_name=None,currentName=""):
