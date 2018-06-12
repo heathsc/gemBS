@@ -8,7 +8,7 @@ import sys
 from argparse import RawTextHelpFormatter
 from .utils import CommandException
 from .production import *
-from .database import cleanup_db_com
+from .database import database
 
 __VERSION__ = "3.0.0"
 
@@ -80,7 +80,7 @@ def loglevel(level):
 # cleanup functions
 def _cleanup_on_shutdown():
 #    terminate_processes()
-    cleanup_db_com()
+    database.cleanup_db_com()
 
 import atexit
 atexit.register(_cleanup_on_shutdown)
@@ -92,6 +92,8 @@ def gemBS_main():
         )
         parser.add_argument('--loglevel', dest="loglevel", default=None, help="Log level (error, warn, info, debug)")
         parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __VERSION__)
+        parser.add_argument('-j', '--json-file', dest="json", help="Location of gemBS JSON file")
+        
         if pkg_resources.resource_exists("gemBS", "libexec/bcftools"):
             f = pkg_resources.resource_filename("gemBS", "libexec/bcftools")
             os.environ["BCFTOOLS_PLUGINS"] = f
@@ -129,13 +131,24 @@ def gemBS_main():
             loglevel(args.loglevel)
         else:
             sys.tracebacklimit = 0
-        try:
-            instances[args.command].run(args)
-        except CommandException as e:
-            sys.stderr.write("%s\n" % (str(e)))
-            exit(1)
-    except KeyboardInterrupt:
-        exit(1)
+
+        if args.json == None:
+            for x in ('.gemBS/gemBS.json', 'gemBS.json'):
+                if os.path.isfile(x):
+                    args.json = x
+                    break
+                
+        BasicPipeline.gemBS_json = args.json
+        if args.command == None:
+            parser.print_help(sys.stderr)
+        else:
+            try:
+                instances[args.command].run(args)
+            except CommandException as e:
+                sys.stderr.write("%s\n" % (str(e)))
+                exit(1)
+            except KeyboardInterrupt:
+                exit(1)
     finally:
         pass
 

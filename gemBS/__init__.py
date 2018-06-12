@@ -91,6 +91,7 @@ class Fli:
     def __init__(self):
         #fli Members
         self.fli = None
+        self.sample_name = None
         self.sample_barcode = None
         self.description = None
         self.library = None
@@ -191,7 +192,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
                 for key,val in config[sect].items():
                     config_dict[sect][key] = val
         if no_db:
-            dbfile=':memory:'
+            dbfile='file:gemBS?mode=memory&cache=shared'
         elif dbfile == None:
             dbfile = def_dict.get('gembs_dbfile', '.gemBS/gemBS.db')
         config_dict['DEFAULT']['gembs_dbfile'] = dbfile
@@ -207,8 +208,6 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
             inputs_path = os.path.join(cpath,'gemBS_inputs')
             if not os.path.exists(inputs_path): os.makedirs(inputs_path)
             shutil.copy(configFile, inputs_path)
-        else:
-            dbfile=':memory:'
     else:
         raise ValueError("configFile is not set")
 
@@ -362,11 +361,12 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
     
     js = JSONdata(jdict = generalDictionary)
     # Initialize or check database
-    db = sqlite3.connect(dbfile)
+    database.setup(js)
+    db = database() 
     # Create tables (if not already existing)
-    db_create_tables(db)
+    db.create_tables()
     # Check and/or populate tables
-    db_check(db, js)
+    db.check()
     db.close()
 
 def index(input_name, index_name, threads=None,tmpDir=None,list_dbSNP_files=[],dbsnp_index="",sampling_rate=None):
@@ -474,8 +474,6 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
     under_conversion -- Under conversion sequence
     over_conversion -- Over conversion sequence
     """        
-    ## prepare inputs
-    # index = _prepare_index_parameter(index)
     ## prepare the input
     bamToFastq = []  
     mapping = [executables['gem-mapper'], '-I', index]

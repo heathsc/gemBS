@@ -6,6 +6,7 @@ import fnmatch
 import logging
 import json
 import sys
+import datetime
 from sys import exit
 import subprocess
 import threading as th
@@ -17,17 +18,17 @@ from .sphinx import *
 from .bsCallReports import *
 from .__init__ import *
 
+
 class BasicPipeline(Command):
     """General mapping pipeline class."""
 
+    gemBS_json = None
+
     def __init__(self):
-        # general parameter
-        self.input = None # input files
-        self.output = None #Output files
-        self.output_dir = "."
-        self.tmp_dir = "/tmp/"
-        self.threads = "1"
-        
+        # general parameters
+        self.command = None 
+        self.time = str(datetime.datetime.now())
+        self.threads = 1
         self.membersInitiation()
         
     def membersInitiation(self):
@@ -36,15 +37,12 @@ class BasicPipeline(Command):
         
     def log_parameter(self):
         """Print selected parameters"""
-        printer = logging.gemBS.gt
+        if self.command != None:
+            printer = logging.gemBS.gt
       
-        printer("------------ Input Parameters ------------")
-        printer("Input File(s)    : %s", self.input)
-        printer("Output File(s)   : %s", self.output)
-        printer("Output Directory : %s", self.output_dir)
-        printer("TMP Directory    : %s", self.tmp_dir)
-        printer("Threads          : %s", self.threads)
-        printer("")
+            printer("")
+            printer("Command {} started at {}".format(self.command, self.time))
+            printer("")
        
         self.extra_log()
         
@@ -66,7 +64,7 @@ Input Files:
   The sample file will normally be a text file in CSV format with an optional (although recommended) header line,
   although there is also the option to import a JSON file from the CNAG LIMS.
 
-  Full documentation of the input file formats can be found in the gemBS documentation.  
+  A full description of the input file formats can be found in the gemBS documentation.  
 
   The prepare command reads in the configuration files and writes a JSON file with the data from both
   files, that is used by the subsequent gemBS commands.  Any parameters supplied in the configuration
@@ -83,7 +81,9 @@ Input Files:
   The use of the disk-base database is recommended for normal operations but does require a shared filesystem (that 
   supports non-local file locks) across all instances of gemBS that are running on the same datafiles.  If this is 
   not the case then this can be turned off using the --no-db option.  Use of this option will require that the user 
-  tracks the state of the analysis themselves.
+  tracks the state of the analysis themselves.  Note that if multiple instances of gemBS are run simultaneously on
+  common analysis directories (i.e., using a shared filesystem, stroing output files in the same locations) then the
+  disk based database must be used to avoid interference between the different gemBS instances.
 
   By default the database (if used) is stored in the file .gemBS/gemBS.db and the output JSON file is stored in 
   .gemBS/gemBS.json.  If the -no-db option is set then the JSON file will be stored to the file gemBS.json in the
@@ -123,9 +123,17 @@ Input Files:
 class Index(BasicPipeline):
     title = "Index genomes"
     description = """Reference indexing for Bisulfite GEM mapping 
-                     Generates by default a file called reference.BS.gem (Index), 
-                     reference.BS.info (Information about the index process) and
-                     reference.chrom.sizes (a list of contigs and sizes)
+
+  Generates by default a file called reference.BS.gem (GEM Index), reference.BS.info (Information about the index process) and
+  reference.chrom.sizes (a list of contigs and sizes).  Optionally the index command will also take a list of bed files with SNP names 
+  and locations (such as can be downloaded from dbSNP) and make an indexed file that can be used during the calling process to add SNP 
+  names into the output VCF/BCF file.
+
+  PLEASE NOTE!  If bisulfite conversion control sequences have been added to the sequencing libraries then their sequences should be 
+  added to the fasta reference file, and gemBS should be told the names of these sequences.
+
+  More details about the reference files, conversion control sequences, GEM index and dbSNP index can be found in the gemBS documentation.
+
     """
 
     def register(self, parser):
@@ -137,11 +145,10 @@ class Index(BasicPipeline):
         parser.add_argument('-x', '--dbsnp-index', dest="dbsnp_index", help='dbSNP output index file name.')
 
     def run(self, args):
-        json_file = '.gemBS/gemBS.json'
-        jsonData = JSONdata(json_file)
-        db_name = '.gemBS/gemBS.db'
-        db = sqlite3.connect(db_name)
-        db_check_index(db, jsonData)
+        self.command = 'index'
+        jsonData = JSONdata(Index.gemBS_json)
+        db = database(jsonData)
+        db.check_index()
         c = db.cursor()
         db_data = {}
         for fname, ftype, status in c.execute("SELECT * FROM indexing"):
@@ -182,27 +189,32 @@ class Index(BasicPipeline):
        
 class Mapping(BasicPipeline):
     title = "Bisulphite mapping"
-    description = """Maps a single end or paired end bisulfite sequence using the gem mapper. 
-     
-    Each time a mapping is called a fastq file is mapped. (Two Paired fastq files in case of paired end).
-    Files must be located in an input directory in the form: FLOWCELL_LANE_INDEX.suffix
-                  
-    Suffix could be: _1.fq _2.fq _1.fastq _2.fastq _1.fq.gz _2.fq.gz _1.fastq.gz _2.fastq.gz for paired end.
-    .fq .fq.gz .fastq .fastq.gz for single end or interleaved paired end files.
+    description = """Maps single end or paired end bisulfite sequence using the GEM3 mapper. 
+  
+  By default the map command will try and perform mapping on all datafiles that it knows about that have not already been mapped.
+  If all datafiles for a sample have been mapped then the map command will merge the BAM files if multiple BAMs exist for the sample.
+  The resulting BAM will then be indexed and the md5 sum calculated. If the option --remove is set or 'remove_individual_bams' is set 
+  to True in the  configuration file then the individual BAM files will be deleted after the merge step has been successfully completed.  
+  If no disk based database is being used for gemBS and separate instances of gemBS are being run on non-shared file systems then the merging will 
+  not always be performed automatically and may have to be invoked manually using the merge-bams command.
 
-    Suffix could also be .bam in case of aligned files.
-                  
-    Example:
-    gemBS mapping -I ref.BS.gem --fli flowcellname_lanename_indexname --json myfile.json --input-dir INPUTPATH --output-dir OUTPUTPATH --tmp-dir $TMPDIR --threads 8 -p
-    
+  The mapping process can be restricted to a single sample using the option '-n <SAMPLE NAME>' or '-b <SAMPLE BARCODE>'.  The mapping can 
+  also be restricted to a single dataset ID using the option '-D <DATASET>'
+
+  The locations of the input and output data are given by the configuration files; see the gemBS documentation for details.
+
+  The --dry-run option will output a list of the mapping / merging operations that would be run by the map command without executing
+  any of the commands.
+
     """   
  
     def register(self,parser):
         ## required parameters
-        parser.add_argument('-f', '--fli', dest="fli", metavar="DATA_FILE", help='Data file ID to be mapped.', required=False)
-        parser.add_argument('-n', '--sample', dest="sample", metavar="SAMPLE", help='Sample to be mapped.', required=False)
+        parser.add_argument('-D', '--dataset', dest="fli", metavar="DATA_FILE", help='Data file ID to be mapped.', required=False)
+        parser.add_argument('-n', '--sample-name', dest="sample_name", metavar="SAMPLE", help='Name of sample to be mapped.', required=False)
+        parser.add_argument('-b', '--barcode', dest="sample", metavar="BARCODE", help='Barcode of sample to be mapped.', required=False)
         parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", help='Temporary folder to perform sorting operations. Default: /tmp')      
-        parser.add_argument('-t', '--threads', dest="threads", help='Number of threads to perform sorting operations. Default %s' %self.threads)
+        parser.add_argument('-t', '--threads', dest="threads", help='Number of threads to perform sorting operations.')
         parser.add_argument('-T', '--type', dest="ftype", help='Type of data file (PAIRED, SINGLE, INTERLEAVED, STREAM, BAM)')
         parser.add_argument('-p', '--paired-end', dest="paired_end", action="store_true", help="Input data is Paired End")
         parser.add_argument('-r', '--remove', dest="remove", action="store_true", help='Remove individual BAM files after merging.', required=False)
@@ -212,31 +224,46 @@ class Mapping(BasicPipeline):
                               deaminated and thus appears to be Methylated.', default=None,required=False)
         parser.add_argument('-v', '--overconversion-sequence', dest="overconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control methylated cytosines which are\
                               deaminated and thus appears to be Unmethylated.', default=None,required=False)
+        parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
                     
     def run(self, args):     
         self.all_types = ['PAIRED', 'SINGLE', 'INTERLEAVED', 'BAM', 'SAM', 'STREAM', 'SINGLE_STREAM', 'PAIRED_STREAM']
         self.paired_types = ['PAIRED', 'INTERLEAVED', 'PAIRED_STREAM']
         self.stream_types = ['STREAM', 'SINGLE_STREAM', 'PAIRED_STREAM']
 
-        if args.ftype:
-            args.ftype = args.ftype.upper()
-            if args.ftype in self.all_types:
-                if args.ftype == 'STREAM': 
-                    args.ftype = 'PAIRED_STREAM' if args.paired_end else 'SINGLE_STREAM'
-                elif args.ftype in self.paired_types:
-                    args.paired_end = True
-                elif args.paired_end:
-                    raise ValueError('Type {} is not paired'.format(args.ftype))
-            else:
-                raise ValueError('Invalid type specified {}'.format(args.ftype))
+        self.args = args
         self.ftype = args.ftype
-
-        # JSON data
-        json_file = '.gemBS/gemBS.json'
-        self.jsonData = JSONdata(json_file)
-
         self.paired_end = args.paired_end
+        if self.ftype:
+            self.ftype = self.ftype.upper()
+            if self.ftype in self.all_types:
+                if self.ftype == 'STREAM': 
+                    self.ftype = 'PAIRED_STREAM' if self.paired_end else 'SINGLE_STREAM'
+                elif self.ftype in self.paired_types:
+                    self.paired_end = True
+                elif self.paired_end:
+                    raise ValueError('Type {} is not paired'.format(self.ftype))
+            else:
+                raise ValueError('Invalid type specified {}'.format(self.ftype))
+        self.dry_run = args.dry_run
+        
+        self.command = 'map'
+        
+        # JSON data
+        self.jsonData = JSONdata(Mapping.gemBS_json)
+
+        sdata = self.jsonData.sampleData
+        if args.fli != None:
+            args.sample = sdata[args.fli].sample_barcode
+
+        if not args.sample and args.sample_name:
+            for k, v in sdata.items():
+                if v.sample_name == args.sample_name:
+                    args.sample = v.sample_barcode
+                    break
+                                
         self.name = args.sample
+        
         self.tmp_dir = self.jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,default='/tmp',dir_type=True)
         self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
         self.read_non_stranded = self.jsonData.check(section='mapping',key='non_stranded',arg=args.read_non_stranded, boolean=True)
@@ -246,9 +273,14 @@ class Mapping(BasicPipeline):
 
         self.input_dir = self.jsonData.check(section='mapping',key='sequence_dir',arg=None,default='.',dir_type=True)
 
-        self.db_name = '.gemBS/gemBS.db'
-        self.db = sqlite3.connect(self.db_name)
-        db_check_index(self.db, self.jsonData)
+        self.db = database(self.jsonData)
+        self.db.check_index()
+        self.mem_db = self.db.mem_db()
+
+        # If we are doing a dry-run we will use an in memory copy of the db so the on disk db is not touched
+        if self.dry_run:
+            self.db.copy_to_mem()
+            
         c = self.db.cursor()
         c.execute("SELECT file, status FROM indexing WHERE type = 'index'")
         index_name, status = c.fetchone()
@@ -260,31 +292,32 @@ class Mapping(BasicPipeline):
         if not os.path.isdir(self.tmp_dir):
             raise CommandException("Temporary directory %s does not exists or is not a directory." %(self.tmp_dir))
 
-        if args.fli:
-            self.do_mapping(fl)
+        if args.sample:
+            ret = c.execute("SELECT * from mapping WHERE sample = ?", (args.sample,))
         else:
-            if args.sample:
-                ret = c.execute("SELECT * from mapping WHERE sample = ?", (args.sample,))
+            ret = c.execute("SELECT * from mapping")
+        work_list = {}
+        for fname, fl, smp, ftype, status in ret:
+            if not smp in work_list:
+                work_list[smp] = [None, []]
+            if ftype == 'MRG_BAM':
+                if status == 0:
+                    work_list[smp][0] = fname
             else:
-                ret = c.execute("SELECT * from mapping")
-            work_list = {}
-            for fname, fl, smp, ftype, status in ret:
-                if not smp in work_list:
-                    work_list[smp] = [None, []]
-                if ftype == 'MRG_BAM':
-                    if status == 0:
-                        work_list[smp][0] = fname
-                else:
-                    work_list[smp][1].append((fl, fname, ftype, status))
-            for smp, v in work_list.items():
-                bamlist = []
-                for fl, fname, ftype, status in v[1]:
-                    if status == 0:
+                work_list[smp][1].append((fl, fname, ftype, status))
+        for smp, v in work_list.items():
+            bamlist = []
+            skipped = False
+            for fl, fname, ftype, status in v[1]:
+                if status == 0:
+                    if args.fli != None and args.fli != fl:
+                        skipped = True
+                    else:
                         self.do_mapping(fl)
-                    if ftype != 'SINGLE_BAM':
-                        bamlist.append(fname)
-                if v[0] != None:                    
-                    self.do_merge(smp, bamlist, v[0])
+                if ftype != 'SINGLE_BAM':
+                    bamlist.append(fname)
+            if not skipped and v[0] != None:                    
+                self.do_merge(smp, bamlist, v[0])
                     
     def do_mapping(self, fli):
         # Check if FLI still has status 0 (i.e. has not been claimed by another process)
@@ -298,11 +331,12 @@ class Mapping(BasicPipeline):
             outfile, fl, smp, filetype, status = ret
             c.execute("UPDATE mapping SET status = 3 WHERE filepath = ?", (outfile,))
             c.execute("COMMIT")
+            self.name = smp
             # Register output files and db cleanup in case of failure
             odir = os.path.dirname(outfile)
             jfile = os.path.join(odir, fl + '.json')
             ixfile = os.path.join(odir, smp + '.bai')
-            reg_db_com(outfile, "UPDATE mapping SET status = 0 WHERE filepath = '{}'".format(outfile), self.db_name, [outfile, jfile, ixfile])                
+            database.reg_db_com(outfile, "UPDATE mapping SET status = 0 WHERE filepath = '{}'".format(outfile), [outfile, jfile, ixfile])                
 
             try:
                 fliInfo = self.jsonData.sampleData[fli] 
@@ -389,22 +423,43 @@ class Mapping(BasicPipeline):
             self.curr_ftype = ftype
             self.inputFiles = inputFiles
             self.curr_output_dir = os.path.dirname(outfile)
-            self.log_parameter()
-
-            logging.gemBS.gt("Bisulfite Mapping...")
-            ret = mapping(name=fli,index=self.index,fliInfo=fliInfo,inputFiles=inputFiles,ftype=ftype,
-                          read_non_stranded=self.read_non_stranded,
-                          outfile=outfile,paired=self.paired,tmpDir=self.tmp_dir,threads=self.threads,
-                          under_conversion=self.underconversion_sequence,over_conversion=self.overconversion_sequence) 
+            if not self.dry_run:
+                self.log_parameter()
+                logging.gemBS.gt("Bisulfite Mapping...")
+            if self.dry_run:
+                args = self.args
+                com = 'gemBS'
+                if self.mem_db:
+                    if Mapping.gemBS_json != 'gemBS.json':
+                        com += ' -f ' + Mapping.gemBS_json
+                else:
+                    if Mapping.gemBS_json != '.gemBS/gemBS.json':
+                        com += ' -f ' + Mapping.gemBS_json
+                com += ' map -D ' + fli
+                if args.ftype: com += ' -T ' + args.ftype
+                if args.paired_end: com += ' -p'
+                if args.remove: com += ' -r'
+                if args.threads: com += ' -t ' + args.threads
+                if args.tmp_dir: com += ' -d ' + args.tmp_dir
+                if args.read_non_stranded: com += ' -s'
+                if args.underconversion_sequence: com += ' -u ' + args.underconversion_sequence
+                if args.overconversion_sequence: com += ' -u ' + args.overconversion_sequence
+                print(com)
+            else:
+                ret = mapping(name=fli,index=self.index,fliInfo=fliInfo,inputFiles=inputFiles,ftype=ftype,
+                              read_non_stranded=self.read_non_stranded,
+                              outfile=outfile,paired=self.paired,tmpDir=self.tmp_dir,threads=self.threads,
+                              under_conversion=self.underconversion_sequence,over_conversion=self.overconversion_sequence) 
         
-            if ret:
-                logging.gemBS.gt("Bisulfite Mapping done. Output File: %s" %(ret))            
+                if ret:
+                    logging.gemBS.gt("Bisulfite Mapping done. Output File: %s" %(ret))
+                    
             if filetype == 'SINGLE_BAM':
                 self.do_merge(smp, [], outfile)
             c = self.db.cursor()
             c.execute("BEGIN IMMEDIATE")
             c.execute("UPDATE mapping SET status = 1 WHERE filepath = ?", (outfile,))
-            del_db_com(outfile)
+            database.del_db_com(outfile)
             
         c.execute("COMMIT")
         self.db.isolation_level = 'DEFERRED'
@@ -430,24 +485,54 @@ class Mapping(BasicPipeline):
                         odir = os.path.dirname(outfile)
                         ixfile = os.path.join(odir, smp + '.bai')
                         md5file = outfile + '.md5'
-                        reg_db_com(outfile, "UPDATE mapping SET status = 0 WHERE filepath = '{}'".format(outfile), self.db_name, [outfile, ixfile, md5file]) 
-                        ret = merging(inputs = inputs, sample = sample, threads = self.threads, outname = outfile)
-                        if ret:
-                            logging.gemBS.gt("Merging process done for {}. Output files generated: {}".format(sample, ','.join(ret)))
+                        database.reg_db_com(outfile, "UPDATE mapping SET status = 0 WHERE filepath = '{}'".format(outfile), [outfile, ixfile, md5file])
+                        if self.dry_run:
+                            args = self.args
+                            com = 'gemBS'
+                            if self.mem_db:
+                                if Mapping.gemBS_json != 'gemBS.json':
+                                    com += ' -f ' + Mapping.gemBS_json
+                            else:
+                                if Mapping.gemBS_json != '.gemBS/gemBS.json':
+                                    com += ' -f ' + Mapping.gemBS_json
+                            com += ' merge-bams -b ' + sample
+                            if args.threads: com += ' -t ' + args.threads
+                            if args.remove: com += ' -r'
+                            print(com)
+                        else:
+                            ret = merging(inputs = inputs, sample = sample, threads = self.threads, outname = outfile)
+                            if ret:
+                                logging.gemBS.gt("Merging process done for {}. Output files generated: {}".format(sample, ','.join(ret)))
+                                
                         c.execute("BEGIN EXCLUSIVE")
                         if self.remove:
                             for f in inputs:
-                                if os.path.exists(f): os.remove(f)
+                                if not self.dry_run:
+                                    if os.path.exists(f): os.remove(f)
                                 c.execute("UPDATE mapping SET status = 2 WHERE filepath = ?", (f,))
                         c.execute("UPDATE mapping SET status = 1 WHERE filepath = ?", (outfile,))
-                        del_db_com(outfile)
+                        database.del_db_com(outfile)
             c.execute("COMMIT")
             self.db.isolation_level = 'DEFERRED'
         else:
             # No merging required - just create index
-            ret = merging(inputs = [], sample = sample, threads = self.threads, outname = fname)
-            if ret:
-                logging.gemBS.gt("Merging process done for {}. Output files generated: {}".format(sample, ','.join(ret)))
+            if self.dry_run:
+                args = self.args
+                com = 'gemBS'
+                if self.mem_db:
+                    if Mapping.gemBS_json != 'gemBS.json':
+                        com += ' -f ' + Mapping.gemBS_json
+                else:
+                    if Mapping.gemBS_json != '.gemBS/gemBS.json':
+                        com += ' -f ' + Mapping.gemBS_json
+                com += ' merge-bams -b ' + sample
+                if args.threads: com += ' -t ' + args.threads
+                if args.remove: com += ' -r'
+                print(com)
+            else:
+                ret = merging(inputs = [], sample = sample, threads = self.threads, outname = fname)
+                if ret:
+                    logging.gemBS.gt("Merging process done for {}. Output files generated: {}".format(sample, ','.join(ret)))
 
     def extra_log(self):
         """Extra Parameters to be printed"""
@@ -455,7 +540,10 @@ class Mapping(BasicPipeline):
         printer = logging.gemBS.gt
         
         printer("------------ Mapping Parameters ------------")
-        printer("Name             : %s", self.curr_fli)
+        printer("Sample barcode   : %s", self.name)
+        printer("Data set         : %s", self.curr_fli)
+        printer("No. threads      : %s", self.threads)
+        printer("Index            : %s", self.index)
         printer("Index            : %s", self.index)
         printer("Paired           : %s", self.paired)
         printer("Read non stranded: %s", self.read_non_stranded)
@@ -467,28 +555,58 @@ class Mapping(BasicPipeline):
         printer("")
 
 class Merging(Mapping):
-    title = "Merging bams"
+    title = "Merging BAMS"
     description = """Merges all bam alignments involved in a given Bisulfite project or for a given sample.
-                     Each bam alignment file belonging to a sample should be merged to perform the methylation calling.
-                     Only required if mapping is performed by individual file ID, otherwise this step is performed automatically"""
+  The resulting merged BAMs are then indexed and the MD5 singatures calculated.  This is normally performed 
+  automatically during the mapping stage, but may be required if gemBS is being run on a non-shared file system or the different
+  datasets for a given sample are mapped by different instances of gemBS in different directories.  If the option --remove is set or 'remove_individual_bams' is set 
+  to True in the  configuration file then the individual BAM files will be deleted after the merge step has been successfully completed.  
+
+  By default gemBS will attempt the merge for all samples, and can be restricted to a single sample using the options '-n <SAMPLE NAME>' or
+  '-b <SAMPLE_BARCODE>.
+
+  The --dry-run option will output a list of the merging operations that would be run by the merge-bam command without executing
+  any of the commands.
+
+
+
+    """
                      
     def register(self,parser):
         ## required parameters                     
         parser.add_argument('-t', '--threads', dest="threads", metavar="THREADS", help='Number of threads, Default: %s' %self.threads)
-        parser.add_argument('-n', '--sample',dest="sample",metavar="SAMPLE",help="Sample to be merged",required=False) 
+        parser.add_argument('-n', '--sample_name',dest="sample_name",metavar="SAMPLE",help="Sample to be merged",required=False) 
+        parser.add_argument('-b', '--barcode',dest="sample",metavar="SAMPLE",help="Sample to be merged",required=False) 
         parser.add_argument('-r', '--remove', dest="remove", action="store_true", help='Remove individual BAM files after merging.', required=False)
+        parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
         
     def run(self, args):
+        self.command = 'merge-bams'
+        
         # JSON data
-        json_file = '.gemBS/gemBS.json'
-        self.jsonData = JSONdata(json_file)
+        self.jsonData = JSONdata(Mapping.gemBS_json)
         self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
         self.remove = self.jsonData.check(section='mapping',key='remove_individual_bams',arg=args.remove, boolean=True)
+        self.dry_run = args.dry_run
+        self.args = args
+        
+        sdata = self.jsonData.sampleData
+        if not args.sample and args.sample_name:
+            for k, v in sdata.items():
+                if v.sample_name == args.sample_name:
+                    args.sample = v.sample_barcode
+                    break
+                
+        # Create Dictionary of samples and bam files, checking everything required has already been made
+        
+        self.db = database(self.jsonData)
+        self.db.check_index()
+        self.mem_db = self.db.mem_db()
 
-        #Create Dictionary of samples and bam files, checking everything required has already been made        
-        self.db_name = '.gemBS/gemBS.db'
-        self.db = sqlite3.connect(self.db_name)
-        db_check_index(self.db, self.jsonData)
+        # If we are doing a dry-run we will use an in memory copy of db so the on disk db is not touched
+        if self.dry_run:
+            self.db.copy_to_mem()
+
         c = self.db.cursor()
         if args.sample:
             ret = c.execute("SELECT * from mapping WHERE sample = ?", (args.sample,))
@@ -520,7 +638,8 @@ class Merging(Mapping):
             if not (v[2] or v[3]):
                 logging.gemBS.gt("Not all BAM files for sample {} have been generated".format(smp))
             elif not v[0]:
-                logging.gemBS.gt("Nothing to be done for sample {}".format(smp))
+                if not self.dry_run:
+                    logging.gemBS.gt("Nothing to be done for sample {}".format(smp))
             else:
                 self.do_merge(smp, v[1], v[0])
                 
