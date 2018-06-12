@@ -568,8 +568,6 @@ class Merging(Mapping):
   The --dry-run option will output a list of the merging operations that would be run by the merge-bam command without executing
   any of the commands.
 
-
-
     """
                      
     def register(self,parser):
@@ -676,9 +674,10 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('-x','--concat-only', dest="concat", action="store_true", help="Only perform merging BCF files.")
         
     def run(self,args):
+        self.command = 'call'
+
         # JSON data
-        json_file = '.gemBS/gemBS.json'
-        self.jsonData = JSONdata(json_file)
+        self.jsonData = JSONdata(MethylationCall.gemBS_json)
 
         self.threads = self.jsonData.check(section='calling',key='threads',arg=args.threads,default='1')
         self.jobs = self.jsonData.check(section='calling',key='jobs',arg=args.jobs,default=1,int_type=True)
@@ -707,8 +706,7 @@ class MethylationCall(BasicPipeline):
                         self.contig_list = tmp_list
                         self.jsonData.config['calling']['contig_list'] = tmp_list
                         
-        db_name = '.gemBS/gemBS.db'
-        self.db = sqlite3.connect(db_name)
+        self.db = database(self.jsonData)
         c = self.db.cursor()
 
         self.dbSNP_index_file = args.dbSNP_index_file
@@ -856,7 +854,7 @@ class MethylationCall(BasicPipeline):
                 logging.gemBS.gt("Methylation Merging...")
             else:
                 logging.gemBS.gt("Methylation Calling...")
-            ret = methylationCalling(reference=self.fasta_reference,db_name=db_name,species=self.species,
+            ret = methylationCalling(reference=self.fasta_reference,species=self.species,
                                      right_trim=self.right_trim, left_trim=self.left_trim,concat=args.concat,
                                      sample_bam=self.sampleBam,output_bcf=self.outputBcf,remove=self.remove,
                                      keep_unmatched=self.keep_unmatched,samples=self.samples,
@@ -929,9 +927,10 @@ class MethylationFiltering(BasicPipeline):
         parser.add_argument('-w','--bigWig', dest="bigWig", action="store_true", help="Output bigWig file")
         
     def run(self,args):
+        self.command = 'filter'
+
         # JSON data
-        json_file = '.gemBS/gemBS.json'
-        self.jsonData = JSONdata(json_file)
+        self.jsonData = JSONdata(Mapping.gemBS_json)
 
         self.jobs = self.jsonData.check(section='filtering',key='jobs',arg=args.jobs,default=1,int_type=True)
         self.allow_het = self.jsonData.check(section='filtering',key='allow_het',arg=args.allow_het,boolean=True,default=False)
@@ -953,10 +952,9 @@ class MethylationFiltering(BasicPipeline):
         if self.non_cpg: self.mask |= 12
         if self.bedMethyl: self.mask |= 48
         
-        self.db_name = '.gemBS/gemBS.db'
-        db = sqlite3.connect(self.db_name)
-        db_check_index(db, self.jsonData)        
-        db_check_filtering(db, self.jsonData)
+        db = database(self.jsonData)
+        db.check_index()        
+        db.check_filtering()
         c = db.cursor()
         c.execute("SELECT * FROM indexing WHERE type = 'contig_sizes'")
         ret = c.fetchone()
@@ -1008,7 +1006,7 @@ class MethylationFiltering(BasicPipeline):
     def do_filter(self, v):
         sample, bcf_file = v
         self.bcf_file = bcf_file
-        db = sqlite3.connect(self.db_name)
+        db = database()
         db.isolation_level = None
         c = db.cursor()
         c.execute("BEGIN EXCLUSIVE")
@@ -1032,7 +1030,7 @@ class MethylationFiltering(BasicPipeline):
                         files.extend([filebase + "_{}.bed.gz".format(x), filebase + "_{}.bed.tmp".format(x),
                                       filebase + "_{}.bb".format(x)])
 
-                reg_db_com(filebase, "UPDATE filtering SET status = 0 WHERE filepath = '{}'".format(filebase), self.db_name, files)                
+                database.reg_db_com(filebase, "UPDATE filtering SET status = 0 WHERE filepath = '{}'".format(filebase), files)                
             
                 #Call methylation filtering
                 ret = methylationFiltering(bcfFile=bcf_file,outbase=filebase,name=sample,strand_specific=self.strand_specific,
@@ -1045,7 +1043,7 @@ class MethylationFiltering(BasicPipeline):
                 status1 = self.mask & 21
                 c.execute("BEGIN IMMEDIATE")
                 c.execute("UPDATE filtering SET status = ? WHERE filepath = ?", (status1, filebase))
-                del_db_com(filebase)
+                database.del_db_com(filebase)
                 
         c.execute("COMMIT")
         db.close()

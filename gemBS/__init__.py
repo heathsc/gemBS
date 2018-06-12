@@ -614,7 +614,7 @@ class BsCaller:
 
         parameters_bscall = ['%s' %(executables["bs_call"]),'-r',self.reference,'-n',sample,'--contig-bed',contig_bed,'--report-file',report_file]
     
-        parameters_bscall.extend(['--right-trim', self.right_trim, '--left-trim', self.left_trim])
+        parameters_bscall.extend(['--right-trim', str(self.right_trim), '--left-trim', str(self.left_trim)])
             
         if self.keep_unmatched:
             parameters_bscall.append('-k')
@@ -644,11 +644,10 @@ class BsCaller:
         return bsCall
 
 class MethylationCallIter:
-    def __init__(self, samples, sample_bam, output_bcf, db_name, jobs, concat):
+    def __init__(self, samples, sample_bam, output_bcf, jobs, concat):
         self.sample_bam = sample_bam
         self.sample_list = samples
         self.output_bcf = output_bcf
-        self.db_name = db_name
         self.sample_ix = 0
         self.pool_ix = 0
         self.output_list = []
@@ -667,7 +666,7 @@ class MethylationCallIter:
         return  self
 
     def __next__(self):
-        db = sqlite3.connect(self.db_name)
+        db = database()
         db.isolation_level = None
         c = db.cursor()
         c.execute("BEGIN EXCLUSIVE")
@@ -685,7 +684,7 @@ class MethylationCallIter:
                             c.execute("UPDATE calling SET status = 3 WHERE filepath = ?", (fname,))
                             base, ext = os.path.splitext(fname)
                             jfile = base + '.json'
-                            reg_db_com(fname, "UPDATE calling SET status = 0 WHERE filepath = '{}'".format(fname), self.db_name, [fname, jfile])
+                            database.reg_db_com(fname, "UPDATE calling SET status = 0 WHERE filepath = '{}'".format(fname), [fname, jfile])
                             break
                     elif status != 1:
                         mrg_ok = False
@@ -701,7 +700,7 @@ class MethylationCallIter:
                     c.execute("UPDATE calling SET status = 3 WHERE filepath = ?", (mrg_file,))
                     ixfile = mrg_file + '.csi'
                     md5file = mrg_file + '.md5'
-                    reg_db_com(mrg_file, "UPDATE calling SET status = 0 WHERE filepath = '{}'".format(mrg_file), self.db_name, [mrg_file, ixfile, md5file])
+                    database.reg_db_com(mrg_file, "UPDATE calling SET status = 0 WHERE filepath = '{}'".format(mrg_file), [mrg_file, ixfile, md5file])
                     ret = ('MRG_BCF', sample, mrg_file, list_bcfs)
             if ret != None:
                 break
@@ -713,7 +712,7 @@ class MethylationCallIter:
             return ret
 
     def finished(self, bcf_list, fname):
-        db = sqlite3.connect(self.db_name)
+        db = database()
         db.isolation_level = None
         c = db.cursor()
         c.execute("BEGIN EXCLUSIVE")
@@ -723,7 +722,7 @@ class MethylationCallIter:
                 if os.path.exists(f): os.remove(f)
                 c.execute("UPDATE calling SET status = 2 WHERE filepath = ?", (f,))
         c.execute("COMMIT")
-        del_db_com(fname)
+        database.del_db_com(fname)
         db.close()
           
 class MethylationCallThread(th.Thread):
@@ -769,14 +768,13 @@ class MethylationCallThread(th.Thread):
                 self.lock.release()
                 
                 
-def methylationCalling(reference=None,db_name=None,species=None,sample_bam=None,output_bcf=None,samples=None,right_trim=0,left_trim=5,
+def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=None,samples=None,right_trim=0,left_trim=5,
                        keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1",jobs=1,remove=False,concat=False,
                        mapq_threshold=None,bq_threshold=None,haploid=False,conversion=None,ref_bias=None,sample_conversion=None):
 
     """ Performs the process to make met5Bhylation calls.
     
     reference -- fasta reference file
-    db_name -- path to db file
     species -- species name
     sample -- list of samples for processing
     sample_bam -- sample dictionary where key is sample and value is bam aligned file 
@@ -803,7 +801,7 @@ def methylationCalling(reference=None,db_name=None,species=None,sample_bam=None,
             if not os.path.exists(odir):
                 os.makedirs(odir)
 
-    db = sqlite3.connect(db_name)
+    db = database()
     c = db.cursor()
     c.execute("SELECT * FROM indexing WHERE type = 'contig_sizes'")
     ret = c.fetchone()
@@ -821,7 +819,7 @@ def methylationCalling(reference=None,db_name=None,species=None,sample_bam=None,
                       dbSNP_index_file=dbSNP_index_file,threads=threads,mapq_threshold=mapq_threshold,bq_threshold=bq_threshold,
                       haploid=haploid,conversion=conversion,ref_bias=ref_bias,sample_conversion=sample_conversion)
 
-    methIter = MethylationCallIter(samples, sample_bam, output_bcf, db_name, jobs, concat)
+    methIter = MethylationCallIter(samples, sample_bam, output_bcf, jobs, concat)
     lock = th.Lock()
     if jobs < 1: jobs = 1
     thread_list = []
