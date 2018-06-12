@@ -377,12 +377,10 @@ def index(input_name, index_name, threads=None,tmpDir=None,list_dbSNP_files=[],d
 
     if tmpDir:
         tmpDir = tmpDir.rstrip('/') + '/'
-        indexer.append('--tmp-folder')
-        indexer.append(tmpDir)
+        indexer.extend(['--tmp-folder', tmpDir])
 
     if sampling_rate:
-        indexer.append('-s')
-        indexer.append(sampling_rate)
+        indexer.extend(['-s',sampling_rate])
 
     if threads is not None:
         indexer.extend(['-t', str(threads)])
@@ -600,8 +598,7 @@ class BsCaller:
 
         parameters_bscall = ['%s' %(executables["bs_call"]),'-r',self.reference,'-n',sample,'--contig-bed',contig_bed,'--report-file',report_file]
     
-        parameters_bscall.extend(['--right-trim','%i'%(self.right_trim)])
-        parameters_bscall.extend(['--left-trim','%i'%(self.left_trim)])
+        parameters_bscall.extend(['--right-trim', self.right_trim, '--left-trim', self.left_trim])
             
         if self.keep_unmatched:
             parameters_bscall.append('-k')
@@ -612,24 +609,18 @@ class BsCaller:
         if self.conversion != None:
             if self.conversion.lower() == "auto":
                 if sample in self.sample_conversion:
-                    parameters_bscall.append("--conversion")
-                    parameters_bscall.append('%s'%(self.sample_conversion[sample]))
+                    parameters_bscall.extend(['--conversion', self.sample_conversion[sample]])
                 else:
-                    parameters_bscall.append("--conversion")
-                    parameters_bscall.append('%s'%(self.conversion))
+                    parameters_bscall.extend(['--conversion', self.conversion])
         if self.ref_bias != None:
-            parameters_bscall.append("--reference_bias")
-            parameters_bscall.append('%s'%(self.ref_bias))
+            parameters_bscall.extend(['--reference_bias', self.ref_bias])
         #Thresholds
         if self.mapq_threshold != None:
-            parameters_bscall.append("--mapq-threshold")
-            parameters_bscall.append('%s'%(self.mapq_threshold))
+            parameters_bscall.extend(['--mapq-threshold', self.mapq_threshold])
         if self.bq_threshold != None:
-            parameters_bscall.append("--bq-threshold")
-            parameters_bscall.append('%s'%(self.bq_threshold))
+            parameters_bscall.extend(['--bq-threshold', self.bq_threshold])
         if self.dbSNP_index_file:
-            parameters_bscall.append('-D')
-            parameters_bscall.append('%s'%(self.dbSNP_index_file))
+            parameters_bscall.extend(['-D', self.dbSNP_index_file])
     
         bsCall.append(parameters_bscall)             
                 
