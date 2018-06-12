@@ -17,7 +17,7 @@ import json
 import gzip
 import pkg_resources
 
-from .utils import run_tools, CommandException
+from .utils import run_tools, CommandException, try_get_exclusive
 from .parser import gembsConfigParse
 from .database import *
 
@@ -107,6 +107,8 @@ class JSONdata:
         self.json_file = json_file
         self.sampleData = {}
         self.config = {}
+        self.contigs = {}
+        self.pools = {}
         if json_file != None:
             with open(self.json_file, 'r') as fileJson:
                 self.JSONprocess(json.load(fileJson))
@@ -114,6 +116,7 @@ class JSONdata:
             self.JSONprocess(jdict)
 
     def JSONprocess(self, jsconfig):
+        self.jsconfig = jsconfig
         try:
             conf = jsconfig['config']
             defaults = conf['DEFAULT']
@@ -127,6 +130,14 @@ class JSONdata:
                         self.config[sect][key] = val
         except KeyError:
             self.config = {}
+            
+        contigs=jsconfig['contigs']
+        for p, v in contigs.items():
+            self.contigs[p] = []
+            for ctg in v:
+                self.contigs[p].append(ctg)
+                self.pools[ctg]=p
+                
         data=jsconfig['sampleData']
         for fli in data:
             fliCommands = Fli()            
@@ -334,10 +345,6 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
                         break
             else:
                 raise ValueError('Could not parse config file')
-        with open(jsonOutput, 'w') as of:
-            json.dump(generalDictionary, of, indent=2)
-        if inputs_path != None:
-            shutil.copy(text_metadata, inputs_path)
             
     elif lims_cnag_json is not None:
         # Parses json from cnag lims
@@ -353,12 +360,9 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
                     sample["sample_name"] = element["sample_name"]
                     generalDictionary['sampleData'][fli] = sample
 
-        with open(jsonOutput, 'w') as of:
-            json.dump(generalDictionary, of, indent=2) 
-
-        if inputs_path != None:
-            shutil.copy(lims_cnag_json, inputs_path)
-    
+    if inputs_path != None:
+        shutil.copy(text_metadata, inputs_path)
+    generalDictionary['contigs']={}    
     js = JSONdata(jdict = generalDictionary)
     # Initialize or check database
     database.setup(js)
@@ -368,6 +372,9 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
     # Check and/or populate tables
     db.check()
     db.close()
+    generalDictionary['contigs']=js.contigs
+    with open(jsonOutput, 'w') as of:
+        json.dump(generalDictionary, of, indent=2)
 
 def index(input_name, index_name, threads=None,tmpDir=None,list_dbSNP_files=[],dbsnp_index="",sampling_rate=None):
     """Run the gem-indexer on the given input. Input has to be the path
@@ -669,7 +676,7 @@ class MethylationCallIter:
         db = database()
         db.isolation_level = None
         c = db.cursor()
-        c.execute("BEGIN EXCLUSIVE")
+        try_get_exclusive(c)
         ret = None
         for sample in self.sample_list:
             mrg_file = ""
@@ -715,7 +722,7 @@ class MethylationCallIter:
         db = database()
         db.isolation_level = None
         c = db.cursor()
-        c.execute("BEGIN EXCLUSIVE")
+        try_get_exclusive(c)
         c.execute("UPDATE calling SET status = 1 WHERE filepath = ?", (fname,))
         if bcf_list != None:
             for f in bcf_list:

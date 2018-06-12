@@ -6,12 +6,13 @@ import fnmatch
 import logging
 import json
 import sys
+import time
 import datetime
 from sys import exit
 import subprocess
 import threading as th
 
-from .utils import Command, CommandException
+from .utils import Command, CommandException, try_get_exclusive
 from .reportStats import LaneStats,SampleStats
 from .report import *
 from .sphinx import *
@@ -176,7 +177,7 @@ class Index(BasicPipeline):
             ret = index(fasta_input, index_name, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=os.path.dirname(index_name),list_dbSNP_files=args.list_dbSNP_files,dbsnp_index=args.dbsnp_index)
             if ret:
                 logging.gemBS.gt("Index done: {}".format(index))
-                db_check_index(db, jsonData)
+                db.check_index()
 
         if csizes_ok == 1:
             logging.warning("Contig sizes file {} already exists, skipping indexing".format(csizes))
@@ -184,8 +185,12 @@ class Index(BasicPipeline):
             ret = makeChromSizes(index_name, csizes)
             if ret:
                 logging.gemBS.gt("Contig sizes file done: {}".format(ret))
-                db_check_index(db, jsonData)
-                db_check_contigs(db, jsonData)
+                db.check()
+                jdict = jsonData.jsconfig
+                jdict['contigs'] = jsonData.contigs
+                with open(Index.gemBS_json, 'w') as of:
+                    json.dump(jdict, of, indent=2)
+                
        
 class Mapping(BasicPipeline):
     title = "Bisulphite mapping"
@@ -323,7 +328,8 @@ class Mapping(BasicPipeline):
         # Check if FLI still has status 0 (i.e. has not been claimed by another process)
         self.db.isolation_level = None
         c = self.db.cursor()
-        c.execute("BEGIN EXCLUSIVE")
+
+        try_get_exclusive(c)
         c.execute("SELECT * FROM mapping WHERE fileid = ? AND status = 0", (fli,))
         ret = c.fetchone()
         if ret:
@@ -468,7 +474,7 @@ class Mapping(BasicPipeline):
         if inputs:
             self.db.isolation_level = None
             c = self.db.cursor()
-            c.execute("BEGIN EXCLUSIVE")
+            try_get_exclusive(c)
             res = c.execute("SELECT * FROM mapping WHERE sample = ?", (sample,))
             if res:
                 mstat = 1
@@ -504,7 +510,7 @@ class Mapping(BasicPipeline):
                             if ret:
                                 logging.gemBS.gt("Merging process done for {}. Output files generated: {}".format(sample, ','.join(ret)))
                                 
-                        c.execute("BEGIN EXCLUSIVE")
+                        try_get_exclusive(c)
                         if self.remove:
                             for f in inputs:
                                 if not self.dry_run:
@@ -543,7 +549,6 @@ class Mapping(BasicPipeline):
         printer("Sample barcode   : %s", self.name)
         printer("Data set         : %s", self.curr_fli)
         printer("No. threads      : %s", self.threads)
-        printer("Index            : %s", self.index)
         printer("Index            : %s", self.index)
         printer("Paired           : %s", self.paired)
         printer("Read non stranded: %s", self.read_non_stranded)
@@ -776,19 +781,16 @@ class MethylationCall(BasicPipeline):
 
         if not sampleBam:
             raise CommandException("No available BAM files for calling")
-
+        
         # Get contig pools
-        pools = {}
-        for ctg, pool in c.execute("SELECT * from contigs"):
-            if not pool in pools:
-                pools[pool] = [ctg]
-            else:
-                pools[pool].append(ctg)
-
+        contigs = self.jsonData.contigs
+        print(contigs)
+        
         if self.contig_list:
             tmp_list = []
             ctg_pool = {}
-            for pl, v in pools.items():
+            for pl, v in contigs.items():
+                print(pl, v)
                 for ctg in v:
                     ctg_pool[ctg] = pl
             for ctg in self.contig_list:
@@ -797,7 +799,7 @@ class MethylationCall(BasicPipeline):
                     tmp_list.append(pl)
             self.contig_list = tmp_list
         else:
-            self.contig_list = list(pools.keys())
+            self.contig_list = list(contigs.keys())
             
         # Get output files
         ind_bcf = {}
@@ -808,7 +810,7 @@ class MethylationCall(BasicPipeline):
             if smp in sampleBam:
                 if ftype == 'POOL_BCF':
                     if pool in self.contig_list:
-                        ind_bcf[smp].append((fname, status, pool, pools[pool]))
+                        ind_bcf[smp].append((fname, status, pool, contigs[pool]))
                 else:
                     mrg_bcf[smp] = (fname, status)
 
@@ -848,8 +850,6 @@ class MethylationCall(BasicPipeline):
                     logging.gemBS.gt("No calling to be performed")
         if self.output or mrg:
             self.log_parameter()
-            self.db.close()
-            self.db = None
             if args.concat:
                 logging.gemBS.gt("Methylation Merging...")
             else:
@@ -951,10 +951,13 @@ class MethylationFiltering(BasicPipeline):
         if self.cpg: self.mask |= 3
         if self.non_cpg: self.mask |= 12
         if self.bedMethyl: self.mask |= 48
+        if self.bigWig: self.mask |= 192
+        self.mask1 = self.mask & 85
         
         db = database(self.jsonData)
-        db.check_index()        
-        db.check_filtering()
+        if not db.mem_db():
+            db.check_index()        
+            db.check_filtering()
         c = db.cursor()
         c.execute("SELECT * FROM indexing WHERE type = 'contig_sizes'")
         ret = c.fetchone()
@@ -969,8 +972,8 @@ class MethylationFiltering(BasicPipeline):
                     contig_size[fd[0]] = int(fd[1])
 
         self.contig_list = []
-        for ctg in c.execute("SELECT contig FROM contigs"):
-            self.contig_list.append((ctg[0], contig_size[ctg[0]]))
+        for ctg in self.jsonData.pools:
+            self.contig_list.append((ctg, contig_size[ctg]))
         self.contig_list.sort(key = lambda x: x[0])
         
         self.bcf_list = []
@@ -980,7 +983,6 @@ class MethylationFiltering(BasicPipeline):
             ret = c.execute("SELECT filepath, sample from calling WHERE type = 'MRG_BCF' AND status = 1")
         for fname, smp in ret:
             self.bcf_list.append((smp, fname))
-        db.close()
 
         if not self.bcf_list:
             logging.gemBS.gt("No BCF files are available for filtering.")
@@ -1009,12 +1011,15 @@ class MethylationFiltering(BasicPipeline):
         db = database()
         db.isolation_level = None
         c = db.cursor()
-        c.execute("BEGIN EXCLUSIVE")
+
+        try_get_exclusive(c)
+        
         c.execute("SELECT filepath, status FROM filtering WHERE sample = ?", (sample,))
         ret = c.fetchone()
         if ret:
             filebase, status = ret
-            if (status & self.mask) == 0:
+            sm = status & self.mask            
+            if not (sm == self.mask or sm == self.mask1):
                 status1 = status | self.mask
                 c.execute("UPDATE filtering SET status = ? WHERE filepath = ?", (status1, filebase))
                 c.execute("COMMIT")

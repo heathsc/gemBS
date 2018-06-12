@@ -14,6 +14,7 @@ import logging
 import json
 import signal
 import tempfile
+import time
 from io import IOBase
 
 class CommandException(Exception):
@@ -348,3 +349,17 @@ def uniqueList(seq):
     seen_add = seen.add
     return [ x for x in seq if not (x in seen or seen_add(x))]
 
+
+def try_get_exclusive(c):
+    # Sometimes (in particular with the in memory db) we get exceptions here due to
+    # multiple threads trying to get an exclusive lock at the same time.  If this
+    # happens we just sleep a little and try again
+    while(True):
+        try:
+            c.execute("BEGIN EXCLUSIVE")
+            break
+        except Exception as e:
+            if str(e).startswith('database'):
+                time.sleep(.1)
+            else:
+                break

@@ -70,7 +70,7 @@ class database(sqlite3.Connection):
             database.setup(json_data)
             newdb = True
         if database._mem_db:
-            sqlite3.Connection.__init__(self, database.db_name, uri = True)
+            sqlite3.Connection.__init__(self, database.db_name, uri = True, timeout = 5)
             if newdb:
                 self.create_tables()
                 self.check()
@@ -82,7 +82,6 @@ class database(sqlite3.Connection):
         c.execute("CREATE TABLE IF NOT EXISTS indexing (file text, type text PRIMARY KEY, status int)")
         c.execute("CREATE TABLE IF NOT EXISTS mapping (filepath text PRIMARY KEY, fileid text, sample text, type text, status int)")
         c.execute("CREATE TABLE IF NOT EXISTS calling (filepath test PRIMARY KEY, poolid text, sample text, type text, status int)")
-        c.execute("CREATE TABLE IF NOT EXISTS contigs (contig text PRIMARY KEY, output text)")
         c.execute("CREATE TABLE IF NOT EXISTS filtering (filepath test PRIMARY KEY, sample text, status int)")
         self.commit()
 
@@ -101,7 +100,7 @@ class database(sqlite3.Connection):
             self.create_tables()
             c_old = db.cursor()
             c = self.cursor()
-            for tab in ('indexing', 'mapping', 'calling', 'contigs', 'filtering'):
+            for tab in ('indexing', 'mapping', 'calling', 'filtering'):
                 for ret in c_old.execute("SELECT * FROM {}".format(tab)):
                     c.execute("INSERT INTO {} VALUES {}".format(tab, ret))
             self.commit()
@@ -202,8 +201,10 @@ class database(sqlite3.Connection):
                     ind_bam = os.path.join(bam, "{}.bam".format(k))
                     old1 = old_tab.get(ind_bam, (0,0,0,0,0))
                     if database._mem_db:
-                        if old[4] == 1 or os.path.isfile(ind_bam):
+                        if os.path.isfile(ind_bam):
                             old1 = (0,0,0,0,1)                    
+                        elif old[4] == 1:
+                            old1 = (0,0,0,0,2)
                     mapping_tab[ind_bam] = (ind_bam, k, bc, 'MULTI_BAM', old1[4])
                     key_used[ind_bam] = True
                     if old1 != mapping_tab[ind_bam]:
@@ -262,9 +263,9 @@ class database(sqlite3.Connection):
             ctg_flag[ctg] = [0, None]
 
         
-        # Make list of contig pools already described in db
+        # Make list of contig pools already described in JSON file
         rebuild = 0;
-        for ctg, pool in c.execute("SELECT * FROM contigs"):
+        for ctg, pool in js.pools.items():
             if ctg not in contig_size:
                 rebuild |= 1
             else:
@@ -295,7 +296,7 @@ class database(sqlite3.Connection):
         pools_used = {}
         
         if rebuild != 0:
-            # If this happens then the database contigs and calling tables are not
+            # If this happens then the JSON contigs and calling tables are not
             # in sync (which should mean that the db has been altered outside of
             # gemBS) and we can not be confident in the makeup of the pools
             logging.gemBS.gt("db tables have been altered and do not correspond - rebuilding")
@@ -352,24 +353,32 @@ class database(sqlite3.Connection):
         bc_list = {}
         for k, v in sdata.items():
             bc_list[v.sample_barcode] = v.sample_name
-        c.execute("DELETE FROM contigs")
         c.execute("DELETE FROM calling")
+        js.pools = {}
+        js.contigs = {}
         for bc,sample in bc_list.items():
             bcf = bcf_dir.replace('@BARCODE', bc).replace('@SAMPLE', sample)
             bcf_file = os.path.join(bcf, "{}.bcf".format(bc, ))
             st = mrg_list.get(bc, 0)
+            if database._mem_db:
+                if os.path.isfile(bcf_file): st = 1            
             c.execute("INSERT INTO calling VALUES (?, ?, ?, 'MRG_BCF', ?)", (bcf_file, '' , bc, st))
             for pl in pool_list:
+                bcf_file = os.path.join(bcf, "{}_{}.bcf".format(bc, pl[0]))
                 if pl[0] in ctg_pools:
                     v = ctg_pools[pl[0]][2]
-                    st = v.get(bc, 0)
+                    st1 = v.get(bc, 0)
+                    if database._mem_db:
+                        if os.path.isfile(bcf_file): st1 = 1
+                    elif st == 1: st1 = 2
                 else:
-                    st = 0
-                bcf_file = os.path.join(bcf, "{}_{}.bcf".format(bc, pl[0]))
-                c.execute("INSERT INTO calling VALUES (?, ?, ?, 'POOL_BCF', ?)", (bcf_file, pl[0], bc, st))
+                    st1 = 0
+                c.execute("INSERT INTO calling VALUES (?, ?, ?, 'POOL_BCF', ?)", (bcf_file, pl[0], bc, st1))
         for pl in pool_list:
+            js.contigs[pl[0]] = []
             for ctg in pl[1]:
-                c.execute("INSERT INTO contigs VALUES (?, ?)",(ctg, pl[0]))
+                js.contigs[pl[0]].append(ctg)
+                js.pools[ctg]=pl[0]
         self.commit()
 
     def check_filtering(self):
@@ -398,6 +407,13 @@ class database(sqlite3.Connection):
             sample_cpg = os.path.join(cpg, bc)
             key_used[sample_cpg] = True
             old = old_tab.get(sample_cpg, ("","",0))
+            if database._mem_db:
+                st = 0
+                if os.path.isfile(sample_cpg + '_cpg.txt.gz.tbi'): st |= 1
+                if os.path.isfile(sample_cpg + '_non_cpg.txt.gz.tbi'): st |= 4
+                if os.path.isfile(sample_cpg + '_chh.bb'): st |= 16
+                if os.path.isfile(sample_cpg + '.bw'): st |= 64
+                old = (old[0], old[1], st)
             filter_tab[sample_cpg] = (sample_cpg, bc, old[2])
             if old != filter_tab[sample_cpg]:
                 changed = True
