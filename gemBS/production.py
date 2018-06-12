@@ -437,10 +437,10 @@ class Mapping(BasicPipeline):
                 com = 'gemBS'
                 if self.mem_db:
                     if Mapping.gemBS_json != 'gemBS.json':
-                        com += ' -f ' + Mapping.gemBS_json
+                        com += ' -j ' + Mapping.gemBS_json
                 else:
                     if Mapping.gemBS_json != '.gemBS/gemBS.json':
-                        com += ' -f ' + Mapping.gemBS_json
+                        com += ' -j ' + Mapping.gemBS_json
                 com += ' map -D ' + fli
                 if args.ftype: com += ' -T ' + args.ftype
                 if args.paired_end: com += ' -p'
@@ -497,10 +497,10 @@ class Mapping(BasicPipeline):
                             com = 'gemBS'
                             if self.mem_db:
                                 if Mapping.gemBS_json != 'gemBS.json':
-                                    com += ' -f ' + Mapping.gemBS_json
+                                    com += ' -j ' + Mapping.gemBS_json
                             else:
                                 if Mapping.gemBS_json != '.gemBS/gemBS.json':
-                                    com += ' -f ' + Mapping.gemBS_json
+                                    com += ' -j ' + Mapping.gemBS_json
                             com += ' merge-bams -b ' + sample
                             if args.threads: com += ' -t ' + args.threads
                             if args.remove: com += ' -r'
@@ -527,10 +527,10 @@ class Mapping(BasicPipeline):
                 com = 'gemBS'
                 if self.mem_db:
                     if Mapping.gemBS_json != 'gemBS.json':
-                        com += ' -f ' + Mapping.gemBS_json
+                        com += ' -j ' + Mapping.gemBS_json
                 else:
                     if Mapping.gemBS_json != '.gemBS/gemBS.json':
-                        com += ' -f ' + Mapping.gemBS_json
+                        com += ' -j ' + Mapping.gemBS_json
                 com += ' merge-bams -b ' + sample
                 if args.threads: com += ' -t ' + args.threads
                 if args.remove: com += ' -r'
@@ -660,8 +660,9 @@ class MethylationCall(BasicPipeline):
                                    
     def register(self, parser):
 
-        parser.add_argument('-l','--contig-list',dest="contig_list",nargs="+",metavar="CONTIGS",help="List of contigs to perform the methylation pipeline.")
-        parser.add_argument('-n','--sample',dest="sample",metavar="SAMPLE",help="Sample to be called")  
+        parser.add_argument('-l','--contig-list',dest="contig_list",nargs="+",metavar="CONTIGS",help="List of contigs on which to perform the methylation calling.")
+        parser.add_argument('-n','--sample-name',dest="sample_name",metavar="SAMPLE",help="Name of sample to be called")  
+        parser.add_argument('-b','--barcode',dest="sample",metavar="BARCODE",help="Barcode of sample to be called")  
         parser.add_argument('-q','--mapq-threshold', dest="mapq_threshold", type=int, help="Threshold for MAPQ scores")
         parser.add_argument('-Q','--qual-threshold', dest="qual_threshold", type=int, help="Threshold for base quality scores")
         parser.add_argument('-g','--right-trim', dest="right_trim", metavar="BASES",type=int, help='Bases to trim from right of read pair, Default: 0')
@@ -670,13 +671,15 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('-j','--jobs', dest="jobs", type=int, help='Number of parallel jobs')
         parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", help="Do not merge duplicate reads.")    
         parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", help="Do not discard reads that do not form proper pairs.")
-        parser.add_argument('-e','--species',dest="species",metavar="SPECIES",default="HomoSapiens",help="Sample species name. Default: %s" %self.species)
+        parser.add_argument('-e','--species',dest="species",metavar="SPECIES",help="Sample species name. Default: %s" %self.species)
         parser.add_argument('-r','--remove', dest="remove", action="store_true", help='Remove individual BCF files after merging.')
         parser.add_argument('-1','--haploid', dest="haploid", action="store", help="Force genotype calls to be homozygous")
         parser.add_argument('-C','--conversion', dest="conversion", help="Set under and over conversion rates (under,over)")
         parser.add_argument('-B','--reference_bias', dest="ref_bias", help="Set bias to reference homozygote")
-        parser.add_argument('-b','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.")
+        parser.add_argument('-d','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.")
         parser.add_argument('-x','--concat-only', dest="concat", action="store_true", help="Only perform merging BCF files.")
+        parser.add_argument('--pool',dest="req_pool",metavar="POOL",help="Contig pool on which to perform the methylation calling.")
+        parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
         
     def run(self,args):
         self.command = 'call'
@@ -698,7 +701,17 @@ class MethylationCall(BasicPipeline):
         self.contig_list = self.jsonData.check(section='calling',key='contig_list',arg=args.contig_list,list_type=True, default = [])
         self.conversion = self.jsonData.check(section='calling',key='conversion',arg=args.conversion)
         self.remove = self.jsonData.check(section='calling',key='remove_individual_bcfs',arg=args.remove, boolean=True)
+
+        self.dry_run = args.dry_run
+        self.args = args
         
+        sdata = self.jsonData.sampleData
+        if not args.sample and args.sample_name:
+            for k, v in sdata.items():
+                if v.sample_name == args.sample_name:
+                    args.sample = v.sample_barcode
+                    break
+
         if self.contig_list != None:
             if len(self.contig_list) == 1:
                 if os.path.isfile(self.contig_list[0]):
@@ -712,6 +725,12 @@ class MethylationCall(BasicPipeline):
                         self.jsonData.config['calling']['contig_list'] = tmp_list
                         
         self.db = database(self.jsonData)
+        self.mem_db = self.db.mem_db()
+
+        # If we are doing a dry-run we will use an in memory copy of the db so the on disk db is not touched
+        if self.dry_run:
+            self.db.copy_to_mem()
+
         c = self.db.cursor()
 
         self.dbSNP_index_file = args.dbSNP_index_file
@@ -784,13 +803,11 @@ class MethylationCall(BasicPipeline):
         
         # Get contig pools
         contigs = self.jsonData.contigs
-        print(contigs)
         
         if self.contig_list:
             tmp_list = []
             ctg_pool = {}
             for pl, v in contigs.items():
-                print(pl, v)
                 for ctg in v:
                     ctg_pool[ctg] = pl
             for ctg in self.contig_list:
@@ -800,6 +817,12 @@ class MethylationCall(BasicPipeline):
             self.contig_list = tmp_list
         else:
             self.contig_list = list(contigs.keys())
+
+        if args.req_pool:
+            if args.req_pool in self.contig_list:
+                self.contig_list = [args.req_pool]
+            else:
+                self.contig_list = []
             
         # Get output files
         ind_bcf = {}
@@ -844,25 +867,54 @@ class MethylationCall(BasicPipeline):
                     mrg = True
                     break
             else:
-                if args.concat:
-                    logging.gemBS.gt("No merging to be performed")
-                else:
-                    logging.gemBS.gt("No calling to be performed")
+                if not self.dry_run:
+                    if args.concat:
+                        logging.gemBS.gt("No merging to be performed")
+                    else:
+                        logging.gemBS.gt("No calling to be performed")
         if self.output or mrg:
-            self.log_parameter()
-            if args.concat:
-                logging.gemBS.gt("Methylation Merging...")
+            if self.dry_run:
+                com = "gemBS"
+                if self.mem_db:
+                    if Mapping.gemBS_json != 'gemBS.json':
+                        com += ' -j ' + MethylationCall.gemBS_json
+                else:
+                    if Mapping.gemBS_json != '.gemBS/gemBS.json':
+                        com += ' -j ' + MethylationCall.gemBS_json
+                com1 = ""
+                if args.threads: com1 += ' -t' + args.threads
+                if args.remove: com1 += ' -r'
+                com2 = ""
+                if args.mapq_threshold: com2 += ' -q ' + str(args.mapq_threshold)
+                if args.qual_threshold: com2 += ' -Q ' + str(args.mapq_threshold)
+                if args.right_trim: com2 += ' --right-trim ' + str(args.right_trim)
+                if args.left_trim: com2 += ' --left-trim ' + str(args.left_trim)
+                if args.keep_duplicates: com2 += ' -u'
+                if args.keep_unmatched: com2 += ' -k'
+                if args.haploid: com2 += ' --haploid'
+                if args.species: com2 += ' --species ' + args.species
+                if args.ref_bias: com2 += ' -B' + args.ref_bias 
+                if args.dbSNP_index_file: com2 += ' -d' + args.dbSNP_index_file
+            #                    if self.conversion and smp in self.sample_conversion:
+            #                        com += ' --conversion ' + self.sample_conversion[smp]
+                dry_run_com = [com, com1, com2]
+                
             else:
-                logging.gemBS.gt("Methylation Calling...")
+                dry_run_com = None
+                self.log_parameter()
+                if args.concat:
+                    logging.gemBS.gt("Methylation Merging...")
+                else:
+                    logging.gemBS.gt("Methylation Calling...")
             ret = methylationCalling(reference=self.fasta_reference,species=self.species,
                                      right_trim=self.right_trim, left_trim=self.left_trim,concat=args.concat,
                                      sample_bam=self.sampleBam,output_bcf=self.outputBcf,remove=self.remove,
-                                     keep_unmatched=self.keep_unmatched,samples=self.samples,
+                                     keep_unmatched=self.keep_unmatched,samples=self.samples,dry_run_com=dry_run_com,
                                      keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads,jobs=self.jobs,
                                      mapq_threshold=self.mapq_threshold,bq_threshold=self.qual_threshold,
                                      haploid=self.haploid,conversion=self.conversion,ref_bias=self.ref_bias,sample_conversion=self.sample_conversion)
                 
-            if ret:
+            if ret and not self.dry_run:
                 if args.concat:
                     logging.gemBS.gt("Methylation merging done, samples performed: %s" %(ret))
                 else:
@@ -1065,7 +1117,8 @@ class BsCallConcatenate(MethylationCall):
     
     def register(self,parser):
 
-        parser.add_argument('-n', '--sample',dest="sample",metavar="SAMPLE",help="Sample to be merged",required=False)
+        parser.add_argument('-n', '--sample-name',dest="sample_name",metavar="SAMPLE",help="Nmae of sample to be merged",required=False)
+        parser.add_argument('-b', '--sample-barcode',dest="sample",metavar="BARCODE",help="Barcode of sample to be merged",required=False)
         parser.add_argument('-t', '--threads', dest="threads", metavar="THREADS", help='Number of threads, Default: %s' %self.threads)
         parser.add_argument('-r', '--remove', dest="remove", action="store_true", help='Remove individual BAM files after merging.', required=False)
         parser.add_argument('-j', '--jobs', dest="jobs", type=int, help='Number of parallel jobs')

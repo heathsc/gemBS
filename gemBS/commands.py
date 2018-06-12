@@ -112,7 +112,7 @@ def gemBS_main():
             "map" : Mapping,
             "merge-bams" : Merging,
             "call" : MethylationCall,
-            "merge-calls" : BsCallConcatenate,
+            "merge-bcfs" : BsCallConcatenate,
             "filter": MethylationFiltering,
             "map-report" : MappingReports,
             "variants-report" : VariantsReports,

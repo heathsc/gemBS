@@ -733,13 +733,16 @@ class MethylationCallIter:
         db.close()
           
 class MethylationCallThread(th.Thread):
-    def __init__(self, threadID, methIter, bsCall, lock, remove):
+    def __init__(self, threadID, methIter, bsCall, lock, remove, dry_run_com, conversion, sample_conversion):
         th.Thread.__init__(self)
         self.threadID = threadID
         self.methIter = methIter
         self.bsCall = bsCall
         self.lock = lock
         self.remove = remove
+        self.dry_run_com = dry_run_com
+        self.conversion = conversion
+        self.sample_conversion = sample_conversion
 
     def run(self):
         while True:
@@ -753,20 +756,34 @@ class MethylationCallThread(th.Thread):
             if ret[0] == 'POOL_BCF':
                 (sample, input_bam, pool) = ret[1:]
                 bcf_file, pool, chrom_list = pool
-                output = os.path.dirname(bcf_file)
-                log_file = os.path.join(output,"bs_call_{}_{}.err".format(sample, pool))
-                report_file = os.path.join(output,"{}_{}.json".format(sample, pool))
-                contig_bed = os.path.join(output,"contigs_{}_{}.bed".format(sample, pool))
-                bsCallCommand = self.bsCall.prepare(sample, input_bam, chrom_list, bcf_file, report_file, contig_bed)
-                process = run_tools(bsCallCommand, name="bscall", logfile=log_file)
-                if process.wait() != 0:
-                    raise ValueError("Error while executing the bscall process.")
+                if self.dry_run_com:
+                    com = self.dry_run_com[0] + ' call' + self.dry_run_com[1] + "-b {} --pool {}".format(sample, pool) + self.dry_run_com[2]
+                    if self.conversion != None:
+                        if self.conversion.lower() == "auto":
+                            if sample in self.sample_conversion:
+                                com += ' --conversion ' + self.sample_conversion[sample]
+                            else:
+                                com += ' --conversion ' + self.conversion
+                    print(com)
+                else:
+                    output = os.path.dirname(bcf_file)
+                    log_file = os.path.join(output,"bs_call_{}_{}.err".format(sample, pool))
+                    report_file = os.path.join(output,"{}_{}.json".format(sample, pool))
+                    contig_bed = os.path.join(output,"contigs_{}_{}.bed".format(sample, pool))
+                    bsCallCommand = self.bsCall.prepare(sample, input_bam, chrom_list, bcf_file, report_file, contig_bed)
+                    process = run_tools(bsCallCommand, name="bscall", logfile=log_file)
+                    if process.wait() != 0:
+                        raise ValueError("Error while executing the bscall process.")
                 self.lock.acquire()
                 self.methIter.finished(None, bcf_file)
                 self.lock.release()
             else:
                 (sample, fname, list_bcfs) = ret[1:]
-                bsConcat(list_bcfs, sample, fname)
+                if self.dry_run_com:
+                    com = self.dry_run_com[0] + ' merge-bcfs' + self.dry_run_com[1] + " -b {}".format(sample)
+                    print(com)
+                else:
+                    bsConcat(list_bcfs, sample, fname)
                 self.lock.acquire()
                 if self.remove:
                     self.methIter.finished(list_bcfs, fname)
@@ -775,7 +792,7 @@ class MethylationCallThread(th.Thread):
                 self.lock.release()
                 
                 
-def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=None,samples=None,right_trim=0,left_trim=5,
+def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=None,samples=None,right_trim=0,left_trim=5,dry_run_com=None,
                        keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1",jobs=1,remove=False,concat=False,
                        mapq_threshold=None,bq_threshold=None,haploid=False,conversion=None,ref_bias=None,sample_conversion=None):
 
@@ -788,6 +805,7 @@ def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=No
     output_bcf -- sample dictionary where key is sample and value is list of tuples (output file, pool, list of contigs in pool)
     right_trim --  Bases to trim from right of read pair 
     left_trim -- Bases to trim from left of read pair
+    dry_run_com -- Partial command for dry-run
     keep_unmatched -- Do not discard reads that do not form proper pairs
     keep_duplicates -- Do not merge duplicate reads  
     dbSNP_index_file -- dbSNP Index File            
@@ -826,12 +844,15 @@ def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=No
                       dbSNP_index_file=dbSNP_index_file,threads=threads,mapq_threshold=mapq_threshold,bq_threshold=bq_threshold,
                       haploid=haploid,conversion=conversion,ref_bias=ref_bias,sample_conversion=sample_conversion)
 
+    if dry_run_com != None:
+        jobs = 1
+        
     methIter = MethylationCallIter(samples, sample_bam, output_bcf, jobs, concat)
     lock = th.Lock()
     if jobs < 1: jobs = 1
     thread_list = []
     for ix in range(jobs):
-        thread = MethylationCallThread(ix, methIter, bsCall, lock, remove)
+        thread = MethylationCallThread(ix, methIter, bsCall, lock, remove, dry_run_com, conversion, sample_conversion)
         thread.start()
         thread_list.append(thread)
     for thread in thread_list:
