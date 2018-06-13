@@ -87,7 +87,7 @@ class gembsConfigParse:
                         v = ''
                         if curr_sect in self.var and sub_key in self.var[curr_sect]: v = self.var[curr_sect][sub_key]
                         elif curr_sect != 'default' and sub_key in self.var['default']: v = self.var['default'][sub_key]
-                    elif key in os.environ: v = os.environ[key]
+                        elif key in os.environ: v = os.environ[key]
                     repl[key] = v
                 for k,v in repl.items():
                     tok = tok.replace("${{{}}}".format(k),v)
