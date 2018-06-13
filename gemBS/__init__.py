@@ -120,7 +120,7 @@ class JSONdata:
         try:
             conf = jsconfig['config']
             defaults = conf['DEFAULT']
-            for sect in ['mapping', 'calling', 'filtering', 'bigwig', 'index', 'DEFAULT']:
+            for sect in ['mapping', 'calling', 'filtering', 'report', 'index', 'DEFAULT']:
                 self.config[sect] = {}
                 if sect in conf:
                     for key,val in conf[sect].items():
@@ -196,7 +196,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
         for key,val in config['default'].items():
             def_dict[key] = val
         config_dict['DEFAULT'] = def_dict
-        sections = ['mapping', 'calling', 'filtering', 'bigwig', 'index']
+        sections = ['mapping', 'calling', 'filtering', 'report', 'index']
         for sect in sections:
             config_dict[sect] = {}
             if sect in config:
@@ -362,7 +362,11 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
 
     if inputs_path != None:
         shutil.copy(text_metadata, inputs_path)
-    generalDictionary['contigs']={}    
+    if os.path.exists(jsonOutput):
+        js = JSONdata(jsonOutput)
+        generalDictionary['contigs']=js.contigs
+    else:
+        generalDictionary['contigs']={}    
     js = JSONdata(jdict = generalDictionary)
     # Initialize or check database
     database.setup(js)

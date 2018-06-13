@@ -300,6 +300,7 @@ class database(sqlite3.Connection):
             # in sync (which should mean that the db has been altered outside of
             # gemBS) and we can not be confident in the makeup of the pools
             logging.gemBS.gt("db tables have been altered and do not correspond - rebuilding")
+            print(rebuild)
             for ctg in contig_size:
                 ctg_flag[ctg] = [0, None]
         else:

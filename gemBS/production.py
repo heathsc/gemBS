@@ -14,8 +14,8 @@ import threading as th
 
 from .utils import Command, CommandException, try_get_exclusive
 from .reportStats import LaneStats,SampleStats
-from .report import *
-from .sphinx import *
+from .report import buildReport as htmlBuildReport
+from .sphinx import buildReport as sphinxBuildReport
 from .bsCallReports import *
 from .__init__ import *
 
@@ -1148,53 +1148,53 @@ class MappingReports(BasicPipeline):
     
     def register(self,parser):
         ## Mapping report stats parameters
-        parser.add_argument('-j', '--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.',required=True)
-        parser.add_argument('-i', '--input-dir', dest="input_dir",metavar="PATH", help='Path where to the JSON stat files.', required=True)
-        parser.add_argument('-n', '--name', dest="name", metavar="NAME", help='Output basic name',required=True)
-        parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",help='Output directory to store html report.',required=True)
+        parser.add_argument('-p', '--project', dest="project", metavar="PROJECT", help='Output title for report (project name)')
+        parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",help='Output directory to store html mapping report.')
          
          
     def run(self, args):
-        self.name = args.name
-        self.output_dir = args.output_dir
+        self.command = 'mapping-report'
+
+        # JSON data
+        self.jsonData = JSONdata(MethylationCall.gemBS_json)
         
-        #Recover json files from input-dir according to json file
-        self.sample_lane_files = {}   
-      
-        self.records = 0
-        for k,v in JSONdata(args.json_file).sampleData.items():
-            self.records = self.records + 1
-            fileJson = os.path.join(args.input_dir,"{}.json".format(v.getFli()))
+        self.project = self.jsonData.check(section='report',key='project',arg=args.project, default='gemBS')
+        self.output_dir = self.jsonData.check(section='report',key='report_dir',arg=args.output_dir,dir_type=True,default='gemBS_reports')
+
+        # Make list of mapping json files from db
+        
+        db = database(self.jsonData)
+        sample_files = {}   
+        c = db.cursor()
+
+        for fname, fli, smp in c.execute("SELECT filepath, fileid, sample FROM MAPPING WHERE type != 'MRG_BAM' and status != 0"):
+            
+            fileJson = os.path.join(os.path.dirname(fname), "{}.json".format(fli))
             if os.path.isfile(fileJson):
-                if v.sample_barcode not in self.sample_lane_files: 
-                   newFli = {}
-                   newFli[v.getFli()] = [fileJson]
-                   self.sample_lane_files[v.sample_barcode] = newFli
-                elif v.getFli() not in self.sample_lane_files[v.sample_barcode]:
-                   newFli = {}
-                   newFli[v.getFli()] = [fileJson]
-                   self.sample_lane_files[v.sample_barcode].update(newFli)
-                elif v.getFli() in self.sample_lane_files[v.sample_barcode]:
-                    self.sample_lane_files[v.sample_barcode][v.getFli()].append(fileJson)     
+                if smp not in sample_files: 
+                   sample_files[smp] = [(fli,fileJson)]
+                else:
+                    sample_files[smp].append((fli,fileJson))
                
-        #Check list of files
-        if len(self.sample_lane_files) < 1:
-            raise CommandException("Sorry no json files were found!!")
+        # Check list of files
+        if len(sample_files) < 1:
+            raise CommandException("Sorry no JSON files were found")
 
         self.log_parameter()
         logging.gemBS.gt("Building html reports...")
-        report.buildReport(inputs=self.sample_lane_files,output_dir=self.output_dir,name=self.name)
+        htmlBuildReport(inputs=sample_files,output_dir=self.output_dir,name=self.project)
         logging.gemBS.gt("Building sphinx reports...")
-        sphinx.buildReport(inputs=self.sample_lane_files,output_dir="%s/SPHINX/" %(self.output_dir),name=self.name)
+        sphinxBuildReport(inputs=sample_files,output_dir="%s/SPHINX/" %(self.output_dir),name=self.project)
         logging.gemBS.gt("Report Done.")
          
     def extra_log(self):
         """Extra Parameters to be printed"""
-        #Virtual methos, to be define in child class
+        #Virtual methods, to be define in child class
         printer = logging.gemBS.gt
         
         printer("------- Mapping Report ----------")
-        printer("Name            : %s", self.name)
+        printer("Title            : %s", self.project)
+        printer("Output dir       : %s", self.output_dir)
         printer("")             
         
 class VariantsReports(BasicPipeline):

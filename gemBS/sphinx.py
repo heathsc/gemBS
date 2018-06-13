@@ -1039,15 +1039,14 @@ def buildReport(inputs=None,output_dir=None,name=None):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)      
       
-    #Proces list Lane files
+    #Process list Lane files
     vector_samples = []
     for sample,fli_json in inputs.items():
         list_stats_lanes = []
-        for fli,json_files in fli_json.items():  
-            for json_file in json_files:
-                lane = LaneStats(name=fli,json_file=json_file)
-                list_stats_lanes.append(lane)
-            
+        for fli, json_file in fli_json:
+            lane = LaneStats(name=fli,json_file=json_file)
+            list_stats_lanes.append(lane)
+
         vector_samples.append(SampleStats(name=sample,list_lane_stats=list_stats_lanes))    
 
     #SumupSphinx object
