@@ -66,27 +66,27 @@ Changelog:
     3.0 Update help text to match new functions
     3.0 Introduce standard analysis configurations stored within distribution
     3.0 Switch gem3-mapper distribution to gembs branch on official gem3-mapper repo
-	 3.0 Removal of incomplete files and roll back of db in the event of pipeline failure
-	 3.0 Automatic removal of individual BAMs and BCFs after successful merging
-	 3.0 Prevent pipelines hanging in event of failure
+    3.0 Removal of incomplete files and roll back of db in the event of pipeline failure
+    3.0 Automatic removal of individual BAMs and BCFs after successful merging
+    3.0 Prevent pipelines hanging in event of failure
     3.0 Generate ENCODE bed and bigbed files
     3.0 Switch to python 3
-	 3.0 Switch to mextr for BCF filtering
+    3.0 Switch to mextr for BCF filtering
     3.0 Include fetch and build of samtools / bcftools during build process
     3.0 Add dry-run capability to map and call commands
     3.0 Introduce contig pools to automatically group small contigs
-	 3.0 Automatic generation of contig.size files from index build
+    3.0 Automatic generation of contig.size files from index build
     3.0 Allow use of in memory sqlite3 db as an option
-	 3.0 Allow multiple instances of gemBS (possible on different hosts) to work 
-	     simultaneously on the same analysis
+    3.0 Allow multiple instances of gemBS (possible on different hosts) to work 
+        simultaneously on the same analysis
     3.0 Reduce and simply commands
-	 3.0 Add Dockerfile
+    3.0 Add Dockerfile
     3.0 Add multi-threading and multi-processing options for most commands
     3.0 Use sqlite3 to track progress of analyses, file paths etc.
     3.0 Added more flexible configuration options (new csv format + new configuration file)
-	 3.0 Remove test dataset from distribution (distribute from web site)
+    3.0 Remove test dataset from distribution (distribute from web site)
     2.1.0 Ensure commands run during pipeline come from installation
-	 2.1.0 Added Singularity build recipe
+    2.1.0 Added Singularity build recipe
     2.1.0 Add new command gemBS direct-mapping
     2.1.0 Fixed Makefile clean in tools
     2.0.2 Fixed bug related with the percentage of High Quality Variant in Variants summary report.
