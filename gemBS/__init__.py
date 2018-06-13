@@ -375,7 +375,16 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
     db.create_tables()
     # Check and/or populate tables
     db.check()
+    c = db.cursor()
+    ix_files = {}
+    for fname, ftype, status in c.execute("SELECT * FROM indexing"):
+        ix_files[ftype]=(fname, status)
     db.close()
+    printer = logging.gemBS.gt
+    for x in ('Reference','Index','Contig_sizes'):
+        v = ix_files[x.lower()]
+        st = 'OK' if v[1] == 1 else 'Missing'
+        printer("{} file '{}': Status {}".format(x, v[0], st))
     generalDictionary['contigs']=js.contigs
     with open(jsonOutput, 'w') as of:
         json.dump(generalDictionary, of, indent=2)
