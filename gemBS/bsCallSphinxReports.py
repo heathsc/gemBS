@@ -5,6 +5,7 @@ Created on Tue Dec 19 12:11:17 2017
 @author: marcos
 """
 
+import os
 from .sphinx import ConfigSphinx
 
 class SphinxBsCallReport:
@@ -597,7 +598,7 @@ class SphinxIndexBsCall(SphinxBsCallReport):
             sample_mapping_coverage.createPage()
 
             #2.2 Create Bs-Genotype Calls Report
-            variantsSphinx = os.path.join(self.output_dur,"{}_variants.rst".format(sample))
+            variantsSphinx = os.path.join(self.output_dir,"{}_variants.rst".format(sample))
             sample_variants = SphinxBsGenotypeCalls(sphinx_file_name=variantsSphinx,current_name=sample)
             #2.2.1 Setup Variants Report
             sample_variants.configureStats(stats_vector=self.samples_stats[sample]["calls"])

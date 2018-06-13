@@ -1153,7 +1153,7 @@ class MappingReports(BasicPipeline):
          
          
     def run(self, args):
-        self.command = 'mapping-report'
+        self.command = 'map-report'
 
         # JSON data
         self.jsonData = JSONdata(MethylationCall.gemBS_json)
@@ -1161,21 +1161,35 @@ class MappingReports(BasicPipeline):
         self.project = self.jsonData.check(section='report',key='project',arg=args.project, default='gemBS')
         self.output_dir = self.jsonData.check(section='report',key='report_dir',arg=args.output_dir,dir_type=True,default='gemBS_reports')
 
-        # Make list of mapping json files from db
+        self.output_dir = os.path.join(self.output_dir, 'mapping')
+
+        # Make list of JSON mapping report files from db
         
         db = database(self.jsonData)
         sample_files = {}   
         c = db.cursor()
-
-        for fname, fli, smp in c.execute("SELECT filepath, fileid, sample FROM MAPPING WHERE type != 'MRG_BAM' and status != 0"):
-            
+        sample_missing = {}
+        for fname, fli, smp, status in c.execute("SELECT filepath, fileid, sample, status FROM MAPPING WHERE type != 'MRG_BAM'"):
+            ok = False
             fileJson = os.path.join(os.path.dirname(fname), "{}.json".format(fli))
-            if os.path.isfile(fileJson):
-                if smp not in sample_files: 
-                   sample_files[smp] = [(fli,fileJson)]
+            if status != 0:
+                if os.path.isfile(fileJson):
+                    ok = True
+                    if smp not in sample_files: 
+                        sample_files[smp] = [(fli,fileJson)]
+                    else:
+                        sample_files[smp].append((fli,fileJson))
+            if not ok:
+                if not smp in sample_missing:
+                    sample_missing[smp] = [fileJson]
                 else:
-                    sample_files[smp].append((fli,fileJson))
-               
+                    sample_missing[smp].append(fileJson)
+
+        if sample_missing:
+            logging.gemBS.gt("The following samples have some JSON report files missing so the report will not be complete:")
+            for smp, v in sample_missing.items():
+                logging.gemBS.gt("{}: {}".format(smp, v))
+                
         # Check list of files
         if len(sample_files) < 1:
             raise CommandException("Sorry no JSON files were found")
@@ -1193,8 +1207,8 @@ class MappingReports(BasicPipeline):
         printer = logging.gemBS.gt
         
         printer("------- Mapping Report ----------")
-        printer("Title            : %s", self.project)
-        printer("Output dir       : %s", self.output_dir)
+        printer("Title           : %s", self.project)
+        printer("Output dir      : %s", self.output_dir)
         printer("")             
         
 class VariantsReports(BasicPipeline):
@@ -1203,39 +1217,51 @@ class VariantsReports(BasicPipeline):
 
     def register(self,parser):
         ## variants reports stats parameters
-        parser.add_argument('-j','--json',dest="json_file",metavar="JSON_FILE",help='JSON file configuration.',required=True)
-        parser.add_argument('-i', '--input-dir', dest="input_dir",metavar="PATH", help='Path were are located the JSON variants stats files.', required=True)
-        parser.add_argument('-n', '--name', dest="name", metavar="NAME", help='Output basic name',required=True)
-        parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",help='Output directory to store html and Sphinx Variants report.',required=True)
-        parser.add_argument('-t', '--threads', dest="threads", type=int, default=1,help='Number of jobs to run in parallel.',required=False)
+        parser.add_argument('-p', '--project', dest="project", metavar="PROJECT", help='Output title for report (project name)')
+        parser.add_argument('-o', '--output-dir', dest="output_dir", metavar="PATH",help='Output directory to store html and Sphinx Variants report.')
+        parser.add_argument('-t', '--threads', dest="threads", type=int,help='Number of jobs to run in parallel.')
         
     def run(self, args):
-        self.name = args.name
-        self.output_dir = args.output_dir
-        self.json_file = args.json_file
-       
-        #Recover json files from input-dir according to json file
-        self.json_files = []
-        for file in os.listdir(args.input_dir):
-            if file.endswith(".json"):
-                self.json_files.append(file)
-            
-        self.sample_chr_files = {}
-        self.sample_list = {}
-        
-        for k,v in JSONdata(args.json_file).sampleData.items():
-            self.sample_list[v.sample_barcode] = 0
+        self.command = 'variants-report'
 
-        for sample,num in self.sample_list.items():
-            for fileJson in self.json_files:
-                if fileJson.startswith(sample):
-                    self.sample_chr_files[sample] = []
-                    self.sample_chr_files[sample].append(args.input_dir + '/' + fileJson)
-            
-                
+        # JSON data
+        self.jsonData = JSONdata(MethylationCall.gemBS_json)
+        
+        self.project = self.jsonData.check(section='report',key='project',arg=args.project, default='gemBS')
+        self.output_dir = self.jsonData.check(section='report',key='report_dir',arg=args.output_dir,dir_type=True,default='gemBS_reports')
+        self.threads = self.jsonData.check(section='calling',key='threads',arg=args.threads,default='1')
+
+        self.output_dir = os.path.join(self.output_dir, 'variant_calling')
+
+        # Get list of JSON variant calling report files from db
+        db = database(self.jsonData)
+        c = db.cursor()
+        sample_files = {}
+        sample_missing = {}
+        for fname, fli, smp, status in c.execute("SELECT filepath, poolid, sample, status FROM CALLING WHERE type == 'POOL_BCF'"):
+            fileJson = os.path.splitext(fname)[0] + '.json'
+            ok = False
+            if status != 0:
+                if os.path.isfile(fileJson):
+                    ok = True
+                    if not smp in sample_files:
+                        sample_files[smp] = [fileJson]
+                    else:
+                        sample_files[smp].append(fileJson)
+            if not ok:
+                if not smp in sample_missing:
+                    sample_missing[smp] = [fileJson]
+                else:
+                    sample_missing[smp].append(fileJson)
+
+        if sample_missing:
+            logging.gemBS.gt("The following samples have some JSON report files missing so the report will not be complete:")
+            for smp, v in sample_missing.items():
+                logging.gemBS.gt("{}: {}".format(smp, v))                        
+
         self.log_parameter()
-        logging.gemBS.gt("Building Bs Calls html and sphinx reports...")
-        bsCallReports.buildBscallReports(inputs=self.sample_chr_files,output_dir=self.output_dir,name=self.name,threads=args.threads)
+        logging.gemBS.gt("Building variant calls html and sphinx reports...")
+        buildBscallReports(inputs=sample_files,output_dir=self.output_dir,name=self.project,threads=int(self.threads))
         logging.gemBS.gt("Report Done.")                         
 
     def extra_log(self):
@@ -1243,8 +1269,8 @@ class VariantsReports(BasicPipeline):
         #Virtual methos, to be define in child class
         printer = logging.gemBS.gt
         
-        printer("------- Variants Reports ----------")
-        printer("Name            : %s", self.name)
-        printer("Json            : %s", self.json_file)
+        printer("------- Variants Report ----------")
+        printer("Title           : %s", self.project)
+        printer("Output dir      : %s", self.output_dir)
         printer("")   
         

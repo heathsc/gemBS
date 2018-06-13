@@ -744,7 +744,7 @@ def buildBscallReports(inputs=None,output_dir=None,name=None,threads=1):
     cssBuilder = BasicHtml()
     vector_css = []
     cssBuilder.buildStyleSheet(vector_css)
-    RunBasicStats.saveDocument(file_name=os.path.join(output_dir,'style.css'))
+    RunBasicStats.saveDocument(file_name=os.path.join(output_dir,'style.css'),vectorContent=vector_css)
     
     #Create Index BSCall Report
     sphinxIndexBsCall = SphinxIndexBsCall(output_dir=os.path.join(output_dir,'SPHINX'),name_project=name,samples_stats=dict_samples)

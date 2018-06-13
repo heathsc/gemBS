@@ -444,8 +444,7 @@ class DistributionPlot(PlotMother,StatsMother):
                          maximumX = 1
                      break
         else:
-            list_keys = self.value_locations.keys()
-            list_keys.sort()        
+            list_keys = sorted(self.value_locations.keys())
             maximumX = list_keys[-1]
                    
         for x in range(0,(maximumX+1)):
@@ -1050,8 +1049,7 @@ class GCcoverage(StatsMother,PlotMother):
         #1.Vector To Represent X axis. GC Coverage From 0% to 100%
         x_gc_percentage = range(101)
         #2.Vector to Represent Y axis. Coverage From 0 to len keys on coverage_gc_bases
-        list_keys = self.coverage_gc_bases.keys()
-        list_keys.sort()        
+        list_keys = sorted(self.coverage_gc_bases.keys())
         maximumCoverage = list_keys[-1]
         y_coverage = range(maximumCoverage + 1)
         #3.Form matrix for the Heatmap
