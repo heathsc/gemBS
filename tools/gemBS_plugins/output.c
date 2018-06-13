@@ -177,21 +177,19 @@ void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt
 	gt_meth *g = sample_gt[idx ^ pos] + ix;
 	if(!g->skip) {
 	  double m = get_meth(g, pos);
-	  if(m > 0.0) {
-	    if(!pos) {
-	      if(g->counts[5] >= args->min_nc && (g->counts[5] + g->counts[7] >= args->min_inform)) {
-		if(args->sel_mode == SELECT_HOM) z = exp(g->gt_prob[4]);
-		else z = exp(g->gt_prob[1]) + exp(g->gt_prob[4]) + exp(g->gt_prob[5]) + exp(g->gt_prob[6]);
-		gt_meth *g2 = sample_gt[idx ^ 1] + ix;
-		z *= 1.0 - (exp(g2->gt_prob[2]) + exp(g2->gt_prob[5]) + exp(g2->gt_prob[7]) + exp(g2->gt_prob[8]));
-	      }
-	    } else {
-	      if(g->counts[6] >= args->min_nc && (g->counts[6] + g->counts[4] >= args->min_inform)) {
-		if(args->sel_mode == SELECT_HOM) z = exp(g->gt_prob[7]);
-		else z = exp(g->gt_prob[2]) + exp(g->gt_prob[5]) + exp(g->gt_prob[7]) + exp(g->gt_prob[8]);
-		gt_meth *g2 = sample_gt[idx] + ix;
-		z *= 1.0 - (exp(g2->gt_prob[1]) + exp(g2->gt_prob[4]) + exp(g2->gt_prob[5]) + exp(g2->gt_prob[6]));
-	      }
+	  if(!pos) {
+	    if(g->counts[5] >= args->min_nc && (g->counts[5] + g->counts[7] >= args->min_inform)) {
+	      if(args->sel_mode == SELECT_HOM) z = exp(g->gt_prob[4]);
+	      else z = exp(g->gt_prob[1]) + exp(g->gt_prob[4]) + exp(g->gt_prob[5]) + exp(g->gt_prob[6]);
+	      gt_meth *g2 = sample_gt[idx ^ 1] + ix;
+	      z *= 1.0 - (exp(g2->gt_prob[2]) + exp(g2->gt_prob[5]) + exp(g2->gt_prob[7]) + exp(g2->gt_prob[8]));
+	    }
+	  } else {
+	    if(g->counts[6] >= args->min_nc && (g->counts[6] + g->counts[4] >= args->min_inform)) {
+	      if(args->sel_mode == SELECT_HOM) z = exp(g->gt_prob[7]);
+	      else z = exp(g->gt_prob[2]) + exp(g->gt_prob[5]) + exp(g->gt_prob[7]) + exp(g->gt_prob[8]);
+	      gt_meth *g2 = sample_gt[idx] + ix;
+	      z *= 1.0 - (exp(g2->gt_prob[1]) + exp(g2->gt_prob[4]) + exp(g2->gt_prob[5]) + exp(g2->gt_prob[6]));
 	    }
 	  }
 	}
