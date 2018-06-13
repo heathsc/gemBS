@@ -62,7 +62,7 @@ def _install_bundle(install_dir):
     bins = [x for x in os.listdir("tools/bin")]
     for file in bins:
         if not file.endswith("gz"):
-            print ("Copy binary: %s to %s" % (file, gemBSbin_dir))
+            # print ("Copy binary: %s to %s" % (file, gemBSbin_dir))
             result_file = os.path.join(gemBSbin_dir, file)
             if os.path.exists(result_file):
                 os.remove(result_file)
@@ -72,7 +72,7 @@ def _install_bundle(install_dir):
     # copy compiled bs_call tools
     bins = [x for x in os.listdir("tools/bs_call/bin")]
     for file in bins:
-        print ("Copy binary: %s to %s" % (file, gemBSbin_dir))
+        # print ("Copy binary: %s to %s" % (file, gemBSbin_dir))
         result_file = os.path.join(gemBSbin_dir, file)
         if os.path.exists(result_file):
             os.remove(result_file)
@@ -82,7 +82,7 @@ def _install_bundle(install_dir):
     # copy compiled gem3 tools
     bins = [x for x in os.listdir("tools/gem3-mapper/bin")]
     for file in bins:
-        print ("Copy binary: %s to %s" % (file, gemBSbin_dir))
+        # print ("Copy binary: %s to %s" % (file, gemBSbin_dir))
         result_file = os.path.join(install_dir, file)
         if os.path.exists(result_file):
             os.remove(result_file)
@@ -100,42 +100,42 @@ def _install_bundle(install_dir):
         if not os.path.exists(dir):
             os.makedirs(dir)
     if os.path.exists("tools/samtools/samtools"):
-        print ("Copy binary: samtools to {}".format(bin_dir))
+        # print ("Copy binary: samtools to {}".format(bin_dir))
         shutil.copy("tools/samtools/samtools", bin_dir)
         os.chmod(os.path.join(bin_dir, "samtools"), 0o755)
     for htslib in glob.glob("tools/samtools/htslib*"):
         if os.path.isdir(htslib):
             for file in ["htsfile", "tabix", "bgzip"]:
                 if os.path.exists(os.path.join(htslib,file)):
-                    print ("Copy binary: {} to {}".format(file, bin_dir))
+                    # print ("Copy binary: {} to {}".format(file, bin_dir))
                     shutil.copy(os.path.join(htslib,file), bin_dir)
                     os.chmod(os.path.join(bin_dir, file), 0o755)
             for file in ["libhts.a", "libhts.so"]:
                 if os.path.exists(os.path.join(htslib,file)):
-                    print ("Copy library: {} to {}".format(file, lib_dir))
+                    # print ("Copy library: {} to {}".format(file, lib_dir))
                     shutil.copy(os.path.join(htslib,file), lib_dir)
                     os.chmod(os.path.join(lib_dir, file), 0o755)
                                 
     if os.path.exists("tools/bcftools/bcftools"):
-        print ("Copy binary: bcftools to {}".format(bin_dir))
+        # print ("Copy binary: bcftools to {}".format(bin_dir))
         shutil.copy("tools/bcftools/bcftools", bin_dir)
         os.chmod(os.path.join(bin_dir, "bcftools"), 0o755)
     plugins = [x for x in glob.glob("tools/bcftools/plugins/*.so")]
     for file in plugins:
-        print ("Copy plugin: {} to {}".format(file, plugins_dir))
+        # print ("Copy plugin: {} to {}".format(file, plugins_dir))
         shutil.copy(file, plugins_dir)
         os.chmod(os.path.join(plugins_dir,os.path.basename(file)), 0o755)
 
     files = [x for x in os.listdir("gemBS/etc")]
     for file in files:
         if os.path.isfile(os.path.join("gemBS/etc",file)):
-            print ("Copy {} to {}".format(file, etc_dir))
+            # print ("Copy {} to {}".format(file, etc_dir))
             shutil.copy(os.path.join("gemBS/etc",file), etc_dir)
             os.chmod(os.path.join(etc_dir, file), 0o644)
     
     files = [x for x in os.listdir("gemBS/etc/gemBS_configs")]
     for file in files:
-        print ("Copy {} to {}".format(file, config_dir))
+        # print ("Copy {} to {}".format(file, config_dir))
         shutil.copy(os.path.join("gemBS/etc/gemBS_configs",file), config_dir)
         os.chmod(os.path.join(config_dir, file), 0o644)
         
@@ -143,8 +143,9 @@ def _install_bundle(install_dir):
 class install(_install):
 
     def run(self):
-        _install.run(self)
         
+        _install.run(self)
+
         # find target folder
         install_dir = os.path.join(gemBS_install_dir,"gemBS")
         _install_bundle(install_dir)
@@ -197,9 +198,6 @@ setup(cmdclass=_commands,
       url='http://statgen.cnag.cat/gemBS/',
       packages=['gemBS'],
       package_data={"": [os.path.join("gemBS/gemBSbinaries", x) for x in ["readNameClean",
-                                                                      "filter_vcf",
-                                                                      "cpgToWig",
-                                                                      "align_stats",
                                                                       "gem-constructor",
                                                                       "gem-indexer",
                                                                       "gem-mapper",
