@@ -371,7 +371,7 @@ class database(sqlite3.Connection):
                     st1 = v.get(bc, 0)
                     if database._mem_db:
                         if os.path.isfile(bcf_file): st1 = 1
-                    elif st == 1: st1 = 2
+                        elif st == 1: st1 = 2
                 else:
                     st1 = 0
                 c.execute("INSERT INTO calling VALUES (?, ?, ?, 'POOL_BCF', ?)", (bcf_file, pl[0], bc, st1))
