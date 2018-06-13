@@ -210,7 +210,6 @@ class Mapping(BasicPipeline):
 
   The --dry-run option will output a list of the mapping / merging operations that would be run by the map command without executing
   any of the commands.
-
     """   
  
     def register(self,parser):
@@ -560,19 +559,19 @@ class Mapping(BasicPipeline):
         printer("")
 
 class Merging(Mapping):
-    title = "Merging BAMS"
+    title = "Merging BAMs"
     description = """Merges all bam alignments involved in a given Bisulfite project or for a given sample.
   The resulting merged BAMs are then indexed and the MD5 singatures calculated.  This is normally performed 
   automatically during the mapping stage, but may be required if gemBS is being run on a non-shared file system or the different
-  datasets for a given sample are mapped by different instances of gemBS in different directories.  If the option --remove is set or 'remove_individual_bams' is set 
-  to True in the  configuration file then the individual BAM files will be deleted after the merge step has been successfully completed.  
+  datasets for a given sample are mapped by different instances of gemBS in different directories.  If the option --remove is set or 
+  'remove_individual_bams' is set to True in the  configuration file then the individual BAM files will be deleted after the merge step
+   has been successfully completed.  
 
   By default gemBS will attempt the merge for all samples, and can be restricted to a single sample using the options '-n <SAMPLE NAME>' or
   '-b <SAMPLE_BARCODE>.
 
   The --dry-run option will output a list of the merging operations that would be run by the merge-bam command without executing
   any of the commands.
-
     """
                      
     def register(self,parser):
@@ -648,11 +647,25 @@ class Merging(Mapping):
                 
 class MethylationCall(BasicPipeline):
     title = "Methylation Calling"
-    description = """Performs a methylation calling from a bam aligned file.
-                     This process is performed over a list of chromosomes in a sequentially way.
-                     If you prefer to run the methylation calls in parallel you should consider bscall
-                     command.
-                  """
+    description = """Performs a methylation and SNV calling from bam aligned files. This process is performed (optionally in parallel)
+   over contigs.  Smaller contigs are processed together in pools to increaes efficiency.  By default gemBS will analyze all contigs 
+  / contig pools for all samples that have not already been processed. After all contigs have been processed for one sample, the
+  resulting BCFs are merged into a single BCF for the sample.  This sample BCF is then indexed and the md5 signature calculated.
+  If the option --remove is set or 'remove_individual_bcfs' is set to True in the configuration file then the individual BAM files will
+  be deleted after the merge step has been successfully completed.  If no disk based database is being used for gemBS and separate
+  instances of gemBS are being run on non-shared file systems then the merging will not always be performed automatically and may have
+  to be invoked manually using the merge-bcfs command.
+
+  The calling process can be restricted to a single sample using the option '-n <SAMPLE NAME>' or '-b <SAMPLE BARCODE>'.  The mapping
+  can also be restricted to a list of contigs or contig pool using the option '-l <contig1, contig2, ...>' or '--pool <pool>'.  The 
+  --list-pools option will list the available contig pools and exit.  More information on how contig pools are determined is given in
+  the gemBS documentation.
+
+  The locations of the input and output data are given by the configuration files; see the gemBS documentation for details.
+
+  The --dry-run option will output a list of the calling / merging operations that would be run by the call command without executing
+  any of the commands. 
+    """
     def membersInitiation(self):
         self.species = None
         self.chroms = None
@@ -679,6 +692,7 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('-d','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.")
         parser.add_argument('-x','--concat-only', dest="concat", action="store_true", help="Only perform merging BCF files.")
         parser.add_argument('--pool',dest="req_pool",metavar="POOL",help="Contig pool on which to perform the methylation calling.")
+        parser.add_argument('--list-pools',dest="list_pools",metavar="LEVEL",type=int,nargs='?',help="List contig pools and exit. Level 1 - list names, level > 1 - list pool composition", default=0, const=1)
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
         
     def run(self,args):
@@ -687,6 +701,15 @@ class MethylationCall(BasicPipeline):
         # JSON data
         self.jsonData = JSONdata(MethylationCall.gemBS_json)
 
+        if args.list_pools > 0:
+            ctgs = self.jsonData.contigs
+            for pool, v in ctgs.items():
+                if args.list_pools == 1:
+                    print(pool)
+                else:
+                    print(pool, v)
+            return
+                    
         self.threads = self.jsonData.check(section='calling',key='threads',arg=args.threads,default='1')
         self.jobs = self.jsonData.check(section='calling',key='jobs',arg=args.jobs,default=1,int_type=True)
         self.mapq_threshold = self.jsonData.check(section='calling',key='mapq_threshold',arg=args.mapq_threshold)
@@ -922,7 +945,7 @@ class MethylationCall(BasicPipeline):
                 
     def extra_log(self):
         """Extra Parameters to be printed"""
-        #Virtual methos, to be define in child class
+        #Virtual methods, to be define in child class
         printer = logging.gemBS.gt
         
         printer("----------- Methylation Calling --------")
@@ -938,6 +961,48 @@ class MethylationCall(BasicPipeline):
             printer("Sample: %s    Bam: %s" %(sample,input_bam))
         printer("")
 
+class BsCallConcatenate(MethylationCall):
+    title = "Merging BCFs."  
+    description = """Merges all BCF call files involved in a given Bisulfite project or for a given sample. The resulting merged BCFs are 
+  then indexed and the MD5 singatures calculated.  This is normally performed automatically during the calling stage, but may be required
+  if gemBS is being run on a non-shared file system or the different datasets for a given sample  are mapped by different instances of gemBS
+  in different directories.  If the option --remove is set or 'remove_individual_bams' is set to True in the  configuration file then the 
+  individual BAM files will be deleted after the merge step  has been successfully completed.  
+
+  By default gemBS will attempt the merge for all samples, and can be restricted to a single sample using the options '-n <SAMPLE NAME>' or
+  '-b <SAMPLE_BARCODE>.
+
+  The --dry-run option will output a list of the merging operations that would be run by the merge-bcfs command without executing
+  any of the commands.
+    """
+    
+    def register(self,parser):
+
+        parser.add_argument('-n', '--sample-name',dest="sample_name",metavar="SAMPLE",help="Nmae of sample to be merged",required=False)
+        parser.add_argument('-b', '--sample-barcode',dest="sample",metavar="BARCODE",help="Barcode of sample to be merged",required=False)
+        parser.add_argument('-t', '--threads', dest="threads", metavar="THREADS", help='Number of threads')
+        parser.add_argument('-r', '--remove', dest="remove", action="store_true", help='Remove individual BAM files after merging.', required=False)
+        parser.add_argument('-j', '--jobs', dest="jobs", type=int, help='Number of parallel jobs')
+        parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
+    
+    def run(self,args):
+
+        args.concat = True
+        args.req_pool = None
+        args.mapq_threshold = None
+        args.qual_threshold = None
+        args.contig_list = None
+        args.right_trim = None
+        args.left_trim = None
+        args.keep_duplicates = None
+        args.keep_unmatched = None
+        args.species = None
+        args.haploid = None
+        args.conversion = None
+        args.ref_bias = None
+        args.dbSNP_index_file = None
+        MethylationCall.run(self, args)
+      
 class MethylationFilteringThread(th.Thread):
     def __init__(self, threadID, methFilt, lock):
         th.Thread.__init__(self)
@@ -957,17 +1022,32 @@ class MethylationFilteringThread(th.Thread):
                 self.lock.release()
             
 class MethylationFiltering(BasicPipeline):
-    title = "Filtering of the output generated by the Methylation Calling."
-    description = """ Filters all sites called as homozygous CC or GG with a 
-                      probability of genotyping error <= 0.01
-                      
-                      Subset of dinucleotides called as CC/GG
-                  """
+    title = "BCF Filtering."
+    description = """ 
+  Filters BCF files generated for all or a subset of samples to produce a series of summary output files.  The detailed formats of the 
+  output files are given in the gemBS docuemntation.
+
+  The default output are CpG files.  These are BED3+8 format files with information on methylation and genotypes.  A list of non-CpG sites
+  in the same basic format can also be produced.  Various options on filtering these files on genotype quality and coverage  are
+  available.  By default the CpG files have 1 output line per CpG (so the information from the two strands is combined).  This can be changed
+  to give strand specific information using the -s option.  Standard filtering strategy is to only output sites where the sample genotype is 
+  called as being homozygous CG/CG with a phred score >= to the theshold set using the -q option (default 20).  Using the --allow-het option 
+  will allow heterozygous CpG sites to be included in the output.  The sitest can also be filtered on minimum informative coverage using the 
+  -I option (default = 1).  For non-CpG sites the strategy is to only output sites with a minimum number of non-converted reads.  This level
+  can be set using the --min-nc option (default = 1).
+
+  A second set of filtered output that correspond to the ENCODE WGBS pipeline are also available using the --bed-methyl and --bigwig options.
+  The --bed-methyl option will produce three files per sample for all covered sites in CpG, CHG and CHH context in BED9+5 format.  Each of 
+  the files will also be generated in bigBed format for display in genome browsers.  The --bigwig option will produce a bigWig file giving
+  the methylation percentage at all covered cytosine sites (informative coverage > 0).  For the ENCODE output files, not further filtering 
+  is performed.
+    """
                   
     def register(self,parser):
         ## required parameters
         parser.add_argument('-j','--jobs', dest="jobs", type=int, help='Number of parallel jobs')
-        parser.add_argument('-n','--sample',dest="sample",metavar="SAMPLE",help="Sample to be called")  
+        parser.add_argument('-n','--sample-name',dest="sample_name",metavar="SAMPLE_NAME",help="Name of sample to be filtered")  
+        parser.add_argument('-b','--barcode',dest="sample",metavar="SAMPLE_BARCODE",help="Barcode of sample to be filtered")  
         parser.add_argument('-s','--strand-specific', dest="strand_specific", action="store_true", default=False, help="Output separate lines for each strand.")
         parser.add_argument('-q','--phred-threshold', dest="phred", help="Min threshold for genotype phred score.")
         parser.add_argument('-I','--min-inform', dest="inform", help="Min threshold for informative reads.")
@@ -975,8 +1055,8 @@ class MethylationFiltering(BasicPipeline):
         parser.add_argument('-H','--allow-het', dest="allow_het", action="store_true", help="Allow both heterozygous and homozgyous sites.")
         parser.add_argument('-c','--cpg', dest="cpg", action="store_true", help="Output gemBS bed with cpg sites.")
         parser.add_argument('-N','--non-cpg', dest="non_cpg", action="store_true", help="Output gemBS bed with non-cpg sites.")
-        parser.add_argument('-b','--bed-methyl', dest="bedMethyl", action="store_true", help="Output bedMethyl files (bed and bigBed)")
-        parser.add_argument('-w','--bigWig', dest="bigWig", action="store_true", help="Output bigWig file")
+        parser.add_argument('-B','--bed-methyl', dest="bedMethyl", action="store_true", help="Output bedMethyl files (bed and bigBed)")
+        parser.add_argument('-w','--bigwig', dest="bigWig", action="store_true", help="Output bigWig file")
         
     def run(self,args):
         self.command = 'filter'
@@ -1006,6 +1086,13 @@ class MethylationFiltering(BasicPipeline):
         if self.bigWig: self.mask |= 192
         self.mask1 = self.mask & 85
         
+        sdata = self.jsonData.sampleData
+        if not args.sample and args.sample_name:
+            for k, v in sdata.items():
+                if v.sample_name == args.sample_name:
+                    args.sample = v.sample_barcode
+                    break
+                
         db = database(self.jsonData)
         if not db.mem_db():
             db.check_index()        
@@ -1109,42 +1196,9 @@ class MethylationFiltering(BasicPipeline):
         """Extra Parameters to be printed"""
         #Virtual methods, to be define in child class
         
-class BsCallConcatenate(MethylationCall):
-    title = "Concatenation of methylation calls for different chromosomes for a given sample."  
-    description = """ Concatenates bcf files comming from different methylation calls of 
-                      different chromosomes.
-                  """
-    
-    def register(self,parser):
-
-        parser.add_argument('-n', '--sample-name',dest="sample_name",metavar="SAMPLE",help="Nmae of sample to be merged",required=False)
-        parser.add_argument('-b', '--sample-barcode',dest="sample",metavar="BARCODE",help="Barcode of sample to be merged",required=False)
-        parser.add_argument('-t', '--threads', dest="threads", metavar="THREADS", help='Number of threads, Default: %s' %self.threads)
-        parser.add_argument('-r', '--remove', dest="remove", action="store_true", help='Remove individual BAM files after merging.', required=False)
-        parser.add_argument('-j', '--jobs', dest="jobs", type=int, help='Number of parallel jobs')
-        parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
-    
-    def run(self,args):
-
-        args.concat = True
-        args.req_pool = None
-        args.mapq_threshold = None
-        args.qual_threshold = None
-        args.contig_list = None
-        args.right_trim = None
-        args.left_trim = None
-        args.keep_duplicates = None
-        args.keep_unmatched = None
-        args.species = None
-        args.haploid = None
-        args.conversion = None
-        args.ref_bias = None
-        args.dbSNP_index_file = None
-        MethylationCall.run(self, args)
-      
 class MappingReports(BasicPipeline):
-    title = "Bisulfite Mapping reports. Builds a HTML and SPHINX report per lane and Sample."
-    description = """ From json files lane stats, builds a HTML and SPHINX report per lane and sample """
+    title = "Bisulfite Mapping reports"
+    description = """Bisulfite mapping report generation.  Builds a HTML and SPHINX report per dataset and sample """
     
     def register(self,parser):
         ## Mapping report stats parameters
@@ -1212,8 +1266,8 @@ class MappingReports(BasicPipeline):
         printer("")             
         
 class VariantsReports(BasicPipeline):
-    title = "BS Calls reports. Builds a HTML and SPHINX report per Sample."
-    description = """ From chromosome stats json files, builds a HTML and SPHINX report per Sample """
+    title = "BS Calls reports"
+    description = """BS call report generation.  Builds a HTML and SPHINX report per Sample"""
 
     def register(self,parser):
         ## variants reports stats parameters

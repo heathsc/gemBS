@@ -13,7 +13,6 @@ From: ubuntu:bionic   # This is a comment
     apt-get install -y python3 build-essential git python3-pip wget pigz
     apt-get install -y zlib1g-dev libbz2-dev gsl-bin libgsl0-dev
     apt-get install -y libncurses5-dev liblzma-dev libssl-dev libcurl4-openssl-dev
-    (cd /usr/local/bin; \
     pip3 install matplotlib multiprocess
     mkdir /usr/local/build; cd /usr/local/build
 	 git clone --recursive https://github.com/heathsc/gemBS.git -b development

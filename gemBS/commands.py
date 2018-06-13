@@ -115,7 +115,7 @@ def gemBS_main():
             "merge-bcfs" : BsCallConcatenate,
             "filter": MethylationFiltering,
             "map-report" : MappingReports,
-            "variants-report" : VariantsReports,
+            "call-report" : VariantsReports,
         }
         instances = {}
 
