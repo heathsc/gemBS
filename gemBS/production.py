@@ -128,7 +128,7 @@ class Index(BasicPipeline):
   Generates by default a file called reference.BS.gem (GEM Index), reference.BS.info (Information about the index process) and
   reference.chrom.sizes (a list of contigs and sizes).  Optionally the index command will also take a list of bed files with SNP names 
   and locations (such as can be downloaded from dbSNP) and make an indexed file that can be used during the calling process to add SNP 
-  names into the output VCF/BCF file.
+  names into the output VCF/BCF file.  The list of input files for thed dbSNP index generation can include shell wildcards (*, ? etc.)
 
   PLEASE NOTE!  If bisulfite conversion control sequences have been added to the sequencing libraries then their sequences should be 
   added to the fasta reference file, and gemBS should be told the names of these sequences.

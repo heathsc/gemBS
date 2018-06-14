@@ -122,7 +122,7 @@ def gemBS_main():
         subparsers = parser.add_subparsers(title="commands", metavar="<command>", description="Available commands", dest="command")
         
         for name, cmdClass in commands.items():
-            p = subparsers.add_parser(name, help=cmdClass.title, description=cmdClass.description, formatter_class = argparse.RawDescriptionHelpFormatter)
+            p = subparsers.add_parser(name, help=cmdClass.title, description=cmdClass.description)
             instances[name] = cmdClass()
             instances[name].register(p)
 
