@@ -79,10 +79,10 @@ class gembsConfigParse:
                     m1 = self.reg1.match(key)
                     if m1:
                         curr_sect = m1.group(1)
-                        sub_key = m1.group(2)
+                        sub_key = m1.group(2).lower()
                     else:
                         curr_sect = section
-                        sub_key = key
+                        sub_key = key.lower()
                     if not key in repl:
                         v = ''
                         if curr_sect in self.var and sub_key in self.var[curr_sect]: v = self.var[curr_sect][sub_key]
