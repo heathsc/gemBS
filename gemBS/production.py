@@ -380,7 +380,13 @@ class Mapping(BasicPipeline):
                         if not (files.get('1') and files.get('2')):
                             ftype = 'INTERLEAVED'
                     if ftype == 'PAIRED':
-                        inputFiles = [os.path.join(input_dir,files['1']), os.path.join(input_dir,files['2'])]
+                        f1 = files['1']
+                        f2 = files['2']
+                        if not f1.endswith('|'):
+                            f1 = os.path.join(input_dir,f1)
+                        if not f2.endswith('|'):
+                            f2 = os.path.join(input_dir,f2)
+                        inputFiles = [f1, f2]
                     else:
                         for k,v in files.items():
                             if ftype is None:
