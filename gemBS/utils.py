@@ -259,22 +259,20 @@ class ProcessWrapper:
             exit_value = 0
             for process in reversed(self.processes):
                 ev = process.wait()
-                if exit_value is not 0:
+                if ev is not 0:
                     exit_value = ev
             self.exit_value = exit_value
-            return ev
-        except Exception as e:
-            if isinstance(e, OSError) and e.errno == 10:
-                pass
-            else:
-                print ("An error occured while waiting for one the child processes:", e)
-                self.exit_value = 1
+            if exit_value is not 0:
+                return exit_value
+        except:
+            self.exit_value = 1
         finally:
             if not self.keep_logfiles:
                 for p in self.processes:
                     if p.logfile is not None and isinstance(p.logfile, str) and os.path.exists(p.logfile):
                         logging.debug("Removing log file: %s" % (p.logfile))
                         os.remove(p.logfile)
+            return self.exit_value
 
     def to_bash_pipe(self):
         return " | ".join([p.to_bash() for p in self.processes])
