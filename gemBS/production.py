@@ -238,9 +238,10 @@ class Mapping(BasicPipeline):
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
                     
     def run(self, args):     
-        self.all_types = ['PAIRED', 'SINGLE', 'INTERLEAVED', 'BAM', 'SAM', 'STREAM', 'SINGLE_STREAM', 'PAIRED_STREAM']
-        self.paired_types = ['PAIRED', 'INTERLEAVED', 'PAIRED_STREAM']
+        self.all_types = ['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM', 'COMMAND', 'SINGLE_COMMAND', 'PAIRED_COMMAND']
+        self.paired_types = ['PAIRED', 'INTERLEAVED', 'PAIRED_STREAM', 'PAIRED_COMMAND']
         self.stream_types = ['STREAM', 'SINGLE_STREAM', 'PAIRED_STREAM']
+        self.command_types = ['COMMAND', 'SINGLE_COMMAND', 'PAIRED_COMMAND']
 
         self.args = args
         self.ftype = args.ftype
@@ -375,7 +376,10 @@ class Mapping(BasicPipeline):
                 files = fliInfo.file
                 if files:            
                     # If filenames were specified in configuration file then use them
-                    if(ftype == 'PAIRED'):
+                    if ftype == 'PAIRED':
+                        if not (files.get('1') and files.get('2')):
+                            ftype = 'INTERLEAVED'
+                    if ftype == 'PAIRED':
                         inputFiles = [os.path.join(input_dir,files['1']), os.path.join(input_dir,files['2'])]
                     else:
                         for k,v in files.items():
@@ -386,7 +390,11 @@ class Mapping(BasicPipeline):
                                     ftype = 'SAM'
                                 else:
                                     ftype = 'INTERLEAVED' if self.paired else 'SINGLE'
-                            inputFiles.append(os.path.join(input_dir,v))
+                            if ftype in self.command_types:
+                                inputFiles.append(v)
+                            else:
+                                inputFiles.append(os.path.join(input_dir,v))
+                                
                             break
                 else:
                     # Otherwise search in input directory for possible data files

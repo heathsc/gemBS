@@ -241,14 +241,16 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
             'fileid': 'fli', 'fli': 'fli', 'dataset': 'fli', 
             'type': 'type', 'filetype': 'type', 
             'readend': 'end', 'end': 'end',
-            'file': 'file', 'location' : 'file',
+            'file': 'file', 'location' : 'file', 'command' : 'file',
             'read1': 'file1', 'end1': 'file1', 'file1': 'file1', 'location1': 'file1',
             'read2': 'file2', 'end2': 'file2', 'file2': 'file2', 'location2': 'file2',
             'description': 'description', 'desc': 'description',
             'centre': 'centre', 'center': 'centre',
             'platform': 'platform'
             }
-        data_types = ['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM']
+        data_types = ['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM', 'COMMAND', 'SINGLE_COMMAND', 'PAIRED_COMMAND']
+        paired_types = ['PAIRED', 'INTERLEAVED', 'PAIRED_STREAM', 'PAIRED_COMMAND']
+        single_types = ['SINGLE', 'SINGLE_STREAM', 'SINGLE_COMMAND']
         with open(text_metadata, 'r') as f:
             reader = csv.reader(f)
             try:
@@ -296,10 +298,26 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
                                     raise ValueError('Data type {} not recognized'.format(line[i].strip()))
                             elif head != None:
                                 sampleDirectory[head] = field
-                    if end == None:
+                    if not end:
                         end = "NA"
-                    if file1 != None or file2 != None:
+                    if file1 or file2:
                         filename = None
+                    if filename:
+                        if filename.endswith('|'):
+                            ft = sampleDirectory.get('type')
+                            filename = filename[:-1]
+                            if ft:
+                                if ft in paired_types:
+                                    ft = 'PAIRED_COMMAND'
+                                elif ft in single_types:
+                                    ft = 'SINGLE_COMMAND'
+                                else:
+                                    ft = 'COMMAND'
+                            else:
+                                ft = 'COMMAND'
+                            sampleDirectory['type'] = ft
+                            filename = filename.strip()
+                        
                     if fli in generalDictionary:
                         prev = generalDictionary[fli]
                         for key, val in sampleDirectory.items():
@@ -514,7 +532,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
     over_conversion -- Over conversion sequence
     """        
     ## prepare the input
-    bamToFastq = []  
+    input_pipe = []  
     mapping = [executables['gem-mapper'], '-I', index]
      
     outputDir = os.path.dirname(outfile)
@@ -526,7 +544,9 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
         mapping.extend(["--i1",inputFiles[0],"--i2",inputFiles[1]])
     elif len(inputFiles) == 1:
         if ftype in ['SAM', 'BAM']:
-            bamToFastq.extend([executables['samtools'],"bam2fq", inputFiles[0]])
+            input_pipe.extend([executables['samtools'],"bam2fq", inputFiles[0]])
+        elif ftype in ['COMMAND', 'SINGLE_COMMAND', 'PAIRED_COMMAND']:
+            input_pipe.extend(['/bin/sh','-c',inputFiles[0]])            
         else:
             mapping.extend(["-i",inputFiles[0]])
         
@@ -567,7 +587,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
     
     tools = [mapping,readNameClean,bamSort]
     
-    if bamToFastq: tools.insert(0, bamToFastq)
+    if input_pipe: tools.insert(0, input_pipe)
     process = run_tools(tools, name="bisulfite-mapping", logfile=logfile)
     if process.wait() != 0:
         raise ValueError("Error while executing the Bisulfite bisulphite-mapping")
