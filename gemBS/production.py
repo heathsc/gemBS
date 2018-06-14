@@ -221,7 +221,7 @@ class Mapping(BasicPipeline):
  
     def register(self,parser):
         ## required parameters
-        parser.add_argument('-D', '--dataset', dest="fli", metavar="DATA_FILE", help='Data file ID to be mapped.', required=False)
+        parser.add_argument('-D', '--dataset', dest="fli", metavar="DATASET", help='Dataset to be mapped.', required=False)
         parser.add_argument('-n', '--sample-name', dest="sample_name", metavar="SAMPLE", help='Name of sample to be mapped.', required=False)
         parser.add_argument('-b', '--barcode', dest="sample", metavar="BARCODE", help='Barcode of sample to be mapped.', required=False)
         parser.add_argument('-d', '--tmp-dir', dest="tmp_dir", metavar="PATH", help='Temporary folder to perform sorting operations. Default: /tmp')      
@@ -276,7 +276,7 @@ class Mapping(BasicPipeline):
                                 
         self.name = args.sample
         
-        self.tmp_dir = self.jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,default='/tmp',dir_type=True)
+        self.tmp_dir = self.jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,dir_type=True)
         self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
         self.read_non_stranded = self.jsonData.check(section='mapping',key='non_stranded',arg=args.read_non_stranded, boolean=True)
         self.remove = self.jsonData.check(section='mapping',key='remove_individual_bams',arg=args.remove, boolean=True)
@@ -301,7 +301,7 @@ class Mapping(BasicPipeline):
         self.index = index_name
 
         #Check Temp Directory
-        if not os.path.isdir(self.tmp_dir):
+        if self.tmp_dir and not os.path.isdir(self.tmp_dir):
             raise CommandException("Temporary directory %s does not exists or is not a directory." %(self.tmp_dir))
 
         if args.sample:
@@ -472,9 +472,13 @@ class Mapping(BasicPipeline):
                 if args.overconversion_sequence: com += ' -u ' + args.overconversion_sequence
                 print(com)
             else:
+                tmp = self.tmp_dir
+                if not tmp:
+                    tmp = os.path.dirname(outfile)
+                    
                 ret = mapping(name=fli,index=self.index,fliInfo=fliInfo,inputFiles=inputFiles,ftype=ftype,
                               read_non_stranded=self.read_non_stranded,
-                              outfile=outfile,paired=self.paired,tmpDir=self.tmp_dir,threads=self.threads,
+                              outfile=outfile,paired=self.paired,tmpDir=tmp,threads=self.threads,
                               under_conversion=self.underconversion_sequence,over_conversion=self.overconversion_sequence) 
         
                 if ret:
