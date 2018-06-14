@@ -124,6 +124,9 @@ class database(sqlite3.Connection):
         index = cdef.get('index', None)
         csizes = cdef.get('contig_sizes', None)
         index_dir = cdef.get('index_dir', None)
+        dbSNP_idx = cdef.get('dbsnp_index', None)
+        dbSNP_ok = 0
+        if dbSNP_idx != None and os.path.exists(dbSNP_idx): dbSNP_ok = 1
         reference_basename = cdef.get('reference_basename', None)
         if reference_basename == None:
             # No base name supplied so we derive it from input file
@@ -159,6 +162,8 @@ class database(sqlite3.Connection):
         csizes_ok = 1 if os.path.exists(csizes) else 0
         c.execute("REPLACE INTO indexing VALUES (?, 'index', ?)",(index, index_ok))
         c.execute("REPLACE INTO indexing VALUES (?, 'contig_sizes', ?)",(csizes,csizes_ok))
+        if dbSNP_idx != None:
+            c.execute("REPLACE INTO indexing VALUES (?, 'dbsnp_idx', ?)",(dbSNP_idx,dbSNP_ok))
         self.commit()
 
     def check_mapping(self):

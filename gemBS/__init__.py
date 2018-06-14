@@ -16,6 +16,7 @@ import sqlite3
 import json
 import gzip
 import pkg_resources
+import glob
 
 from .utils import run_tools, CommandException, try_get_exclusive
 from .parser import gembsConfigParse
@@ -381,15 +382,16 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
         ix_files[ftype]=(fname, status)
     db.close()
     printer = logging.gemBS.gt
-    for x in ('Reference','Index','Contig_sizes'):
-        v = ix_files[x.lower()]
-        st = 'OK' if v[1] == 1 else 'Missing'
-        printer("{} file '{}': Status {}".format(x, v[0], st))
+    for x in ('Reference','Index','Contig_sizes','dbSNP_idx'):
+        v = ix_files.get(x.lower())
+        if v:
+            st = 'OK' if v[1] == 1 else 'Missing'
+            printer("{} file '{}': Status {}".format(x, v[0], st))
     generalDictionary['contigs']=js.contigs
     with open(jsonOutput, 'w') as of:
         json.dump(generalDictionary, of, indent=2)
 
-def index(input_name, index_name, threads=None,tmpDir=None,list_dbSNP_files=[],dbsnp_index="",sampling_rate=None):
+def index(input_name, index_name, threads=None,tmpDir=None,sampling_rate=None):
     """Run the gem-indexer on the given input. Input has to be the path
     to a single fasta file that contains the genome to be indexed.
     Output should be the path to the target index file. Note that
@@ -404,7 +406,9 @@ def index(input_name, index_name, threads=None,tmpDir=None,list_dbSNP_files=[],d
     
     index_base = index_name[:-4] if index_name.endswith('.gem') else index_name
     output_dir, base = os.path.split(index_name)
+
     logfile = os.path.join(output_dir,"gem_indexer_" + base + ".err")
+    logging.gemBS.gt("Creating index")
                            
     indexer = [
         executables['gem-indexer'],
@@ -432,11 +436,24 @@ def index(input_name, index_name, threads=None,tmpDir=None,list_dbSNP_files=[],d
         os.rename(index_base + ".gem", index_name)
         os.rename(index_base + ".info", index_name + ".info")
 
+    return os.path.abspath(index_name)
+
+def dbSNP_index(list_dbSNP_files=[],dbsnp_index=""):
+    """Run ddbSNP_idx on the given input files. Input is a list of
+    compressed BED3+ files with a SNP public identifier in the 4th
+    column and the name of the output file.  The list of input files 
+    can contain wildcards (i.e., * or ?).  Rhe returned path will be 
+    the abolute path to the output index.
+    """
+    
     #Index list_dbSNP_files
     if len(list_dbSNP_files)>0:
         db_snp_index = [executables['dbSNP_idx']]
         for dbSnpFile in list_dbSNP_files:
-            db_snp_index.append(dbSnpFile)
+            print (dbSnpFile)
+            files = glob.glob(dbSnpFile)
+            if files:
+                db_snp_index.extend(files)
         #Pigz pipe            
         pigz = ["pigz"]
         #Create Pipeline            
@@ -445,9 +462,11 @@ def index(input_name, index_name, threads=None,tmpDir=None,list_dbSNP_files=[],d
         #Process dbSNP
         process_dbsnp = run_tools(tools,name="dbSNP-indexer",output=dbsnp_index)
         if process_dbsnp.wait() != 0:
+            if os.path.isfile(dbsnp_index):
+                os.remove(dbsnp_index)
             raise ValueError("Error while executing the dbSNP-indexer")
-
-    return os.path.abspath(index_name)
+    
+    return os.path.abspath(dbsnp_index)
 
 def makeChromSizes(index_name=None,output=None):
 

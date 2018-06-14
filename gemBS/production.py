@@ -143,7 +143,6 @@ class Index(BasicPipeline):
         parser.add_argument('-s', '--sampling-rate', dest="sampling_rate", help='Text sampling rate.  Increasing will decrease index size at the expense of slower mapping performance.',default=None)
         parser.add_argument('-d', '--list-dbSNP-files',dest="list_dbSNP_files",nargs="+",metavar="FILES",
                             help="List of dbSNP files (can be compressed) to create an index to later use it at the bscall step. The bed files should have the name of the SNP in column 4.",default=[])
-        parser.add_argument('-x', '--dbsnp-index', dest="dbsnp_index", help='dbSNP output index file name.')
 
     def run(self, args):
         self.command = 'index'
@@ -158,26 +157,34 @@ class Index(BasicPipeline):
         fasta_input, fasta_input_ok = db_data['reference']
         index_name, index_ok = db_data['index']
         csizes, csizes_ok = db_data['contig_sizes']
+        dbsnp_index, dbsnp_ok = db_data.get('dbsnp_idx',(None, 0))
         self.threads = jsonData.check(section='index',key='threads',arg=args.threads)
         args.sampling_rate = jsonData.check(section='index',key='sampling_rate',arg=args.sampling_rate)
-        args.list_dbSNP_files = jsonData.check(section='index',key='dbsnp_files',arg=args.list_dbSNP_files,default=[])
-        args.dbsnp_index = jsonData.check(section='index',key='dbsnp_index',arg=args.dbsnp_index,default=None)
+        args.list_dbSNP_files = jsonData.check(section='index',key='dbsnp_files',arg=args.list_dbSNP_files,list_type=True,default=[])
         if not fasta_input: raise ValueError('No input reference file specified for Index command')
 
-        if len(args.list_dbSNP_files) > 0:     
-            if args.dbsnp_index == None:
-                raise CommandException("dbSNP Index file must be specified through --dbsnp-index parameter.")
-        
-        self.log_parameter()
-        
         if index_ok == 1:
             logging.warning("Bisulphite Index {} already exists, skipping indexing".format(index_name))
         else:
-            logging.gemBS.gt("Creating index")
-            ret = index(fasta_input, index_name, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=os.path.dirname(index_name),list_dbSNP_files=args.list_dbSNP_files,dbsnp_index=args.dbsnp_index)
+            self.log_parameter()
+        
+            ret = index(fasta_input, index_name, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=os.path.dirname(index_name))
             if ret:
                 logging.gemBS.gt("Index done: {}".format(index))
                 db.check_index()
+
+        if dbsnp_index != None:
+            if args.list_dbSNP_files:
+                if dbsnp_ok:
+                    logging.warning("dbSNP Index {} already exists, skipping indexing".format(dbsnp_index))
+                else:
+                    ret = dbSNP_index(list_dbSNP_files=args.list_dbSNP_files,dbsnp_index=dbsnp_index)
+                    if ret:
+                        logging.gemBS.gt("dbSNP index done: {}".format(ret))
+            else:
+                raise CommandException("No inputs files for dbSNP index must be specified using the -d option or the dbsnp_files configuration key.")
+        elif args.list_dbSNP_files:
+            raise CommandException("The dbSNP Index file must be specified using the configuration parameter dbSNP_index.")
 
         if csizes_ok == 1:
             logging.warning("Contig sizes file {} already exists, skipping indexing".format(csizes))
@@ -661,7 +668,10 @@ class MethylationCall(BasicPipeline):
   --list-pools option will list the available contig pools and exit.  More information on how contig pools are determined is given in
   the gemBS documentation.
 
-  The locations of the input and output data are given by the configuration files; see the gemBS documentation for details.
+  If the dbSNP_index key has been set in the configuration file (and the index has been gemerated) then this will be used by the
+  caller to add public IDs in the BCF file where available.
+
+  The locations of the input and output data are given by the configuration file; see the gemBS documentation for details.
 
   The --dry-run option will output a list of the calling / merging operations that would be run by the call command without executing
   any of the commands. 
@@ -689,7 +699,6 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('-1','--haploid', dest="haploid", action="store", help="Force genotype calls to be homozygous")
         parser.add_argument('-C','--conversion', dest="conversion", help="Set under and over conversion rates (under,over)")
         parser.add_argument('-B','--reference_bias', dest="ref_bias", help="Set bias to reference homozygote")
-        parser.add_argument('-d','--dbSNP-index-file', dest="dbSNP_index_file", metavar="FILE", help="dbSNP index file.")
         parser.add_argument('-x','--concat-only', dest="concat", action="store_true", help="Only perform merging BCF files.")
         parser.add_argument('--pool',dest="req_pool",metavar="POOL",help="Contig pool on which to perform the methylation calling.")
         parser.add_argument('--list-pools',dest="list_pools",metavar="LEVEL",type=int,nargs='?',help="List contig pools and exit. Level 1 - list names, level > 1 - list pool composition", default=0, const=1)
@@ -749,14 +758,15 @@ class MethylationCall(BasicPipeline):
                         
         self.db = database(self.jsonData)
         self.mem_db = self.db.mem_db()
-
+        if not self.mem_db:
+            self.db.check_index()
+            
         # If we are doing a dry-run we will use an in memory copy of the db so the on disk db is not touched
         if self.dry_run:
             self.db.copy_to_mem()
 
         c = self.db.cursor()
 
-        self.dbSNP_index_file = args.dbSNP_index_file
         self.sample_conversion = {}
         
         if self.conversion != None and self.conversion.lower() == "auto" and not args.concat:
@@ -800,12 +810,19 @@ class MethylationCall(BasicPipeline):
                         oc = 0.2
                     self.sample_conversion[sample] = "{:.4f},{:.4f}".format(1-uc,oc)
 
-        # Get fasta reference
-        c.execute("SELECT file, status FROM indexing WHERE type = 'reference'")
-        self.fasta_reference, status = c.fetchone()
-        if status != 1:
-            raise CommandException("Fasta reference {} not found.  Run 'gemBS index' or correct configuration file and rerun".format(fasta_reference)) 
-
+        # Get fasta reference && dbSNP index if supplied
+        for fname, ftype, status in c.execute("SELECT * FROM indexing"):
+            if ftype == 'reference':
+                if status != 1:
+                    raise CommandException("Fasta reference {} not found.  Run 'gemBS index' or correct configuration file and rerun".format(fname))
+                else:
+                    self.fasta_reference = fname            
+            elif ftype == 'dbsnp_idx':
+                if status != 1:
+                    raise CommandException("dbSNP index {} not found.  Run 'gemBS index' or correct configuration file and rerun".format(fname))
+                else:
+                    self.dbSNP_index_file = fname
+                
         #Check input bam existance
         
         sampleBam = {}
@@ -917,7 +934,6 @@ class MethylationCall(BasicPipeline):
                 if args.haploid: com2 += ' --haploid'
                 if args.species: com2 += ' --species ' + args.species
                 if args.ref_bias: com2 += ' -B' + args.ref_bias 
-                if args.dbSNP_index_file: com2 += ' -d' + args.dbSNP_index_file
             #                    if self.conversion and smp in self.sample_conversion:
             #                        com += ' --conversion ' + self.sample_conversion[smp]
                 dry_run_com = [com, com1, com2]
