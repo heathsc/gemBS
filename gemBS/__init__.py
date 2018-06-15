@@ -92,12 +92,15 @@ class Fli:
     def __init__(self):
         #fli Members
         self.fli = None
+        self.alt_fli = None
         self.sample_name = None
         self.sample_barcode = None
         self.description = None
         self.library = None
         self.type = None
         self.file = None
+        self.centre = None
+        self.platform = None
     def getFli(self):
         #Get FLI (flowcell lane index)
         return self.fli
@@ -148,6 +151,8 @@ class JSONdata:
                     fliCommands.sample_barcode = value    
                 elif key == "library_barcode":
                     fliCommands.library = value    
+                elif key == "alt_fli":
+                    fliCommands.alt_fli = value
                 elif key == "description":
                     fliCommands.description = value    
                 elif key == "sample_name":
@@ -357,6 +362,8 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
                     lane = line[3].strip()
                     index = line[4].strip()
                     fli = "{}_{}_{}".format(flowcell, lane, index)
+                    fli1 = "{}_{}_0".format(flowcell, lane)
+                    sampleDirectory["alt_fli"] = fli1
                     generalDictionary['sampleData'][fli] = sampleDirectory
                     try:
                         line = reader.next()
@@ -376,6 +383,8 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
                 fli = "{}_{}_{}".format(element["flowcell_name"],element["lane_number"],element["index_name"])
                 if element["passfail"] == "pass":
                     sample = {}
+                    fli1 = "{}_{}_0".format(element["flowcell_name"],element["lane_number"])
+                    sample["alt_fli"] = fli1
                     sample["sample_barcode"] = element["sample_barcode"]
                     sample["library_barcode"] = element["library_barcode"]
                     sample["sample_name"] = element["sample_name"]

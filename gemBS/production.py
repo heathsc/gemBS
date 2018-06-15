@@ -408,40 +408,44 @@ class Mapping(BasicPipeline):
                         raise ValueError("Input directory {} does not exist".format(input_dir))
 
                     # Look for likely data files in input_dir
-                    reg = re.compile("(.*){}(.*)(.)[.](fastq|fq|fasta|fa|bam|sam)([.][^.]+)?$".format(fliInfo.getFli()), re.I)
-                    mlist = []
-                    for file in os.listdir(input_dir):
-                        m = reg.match(file)
-                        if m: 
-                            if m.group(5) in [None, '.gz', '.xz', 'bz2', 'z']: 
-                                if ftype == 'PAIRED' and (m.group(3) not in ['1', '2'] or m.group(4).lower() not in ['fasta', 'fa', 'fastq', 'fq']): continue
-                                if ftype in ['SAM', 'BAM'] and m.group(4).lower() not in ['sam', 'bam']: continue
-                                mlist.append((file, m))
+                    for fli in (fliInfo.getFli(),fliInfo.alt_fli):
+                        if fli == None:
+                            continue
+                        reg = re.compile("(.*){}(.*)(.)[.](fastq|fq|fasta|fa|bam|sam)([.][^.]+)?$".format(fli, re.I))
+                        mlist = []
+                        for file in os.listdir(input_dir):
+                            m = reg.match(file)
+                            if m: 
+                                if m.group(5) in [None, '.gz', '.xz', 'bz2', 'z']: 
+                                    if ftype == 'PAIRED' and (m.group(3) not in ['1', '2'] or m.group(4).lower() not in ['fasta', 'fa', 'fastq', 'fq']): continue
+                                    if ftype in ['SAM', 'BAM'] and m.group(4).lower() not in ['sam', 'bam']: continue
+                                    mlist.append((file, m))
                             
-                    if len(mlist) == 1:
-                        (file, m) = mlist[0]
-                        skip = false
-                        if ftype is None:
-                            if m.group(4).lower() in ['SAM', 'BAM']:
-                                ftype = 'BAM' if m.group(4).lower == 'BAM' else 'SAM'
+                        if len(mlist) == 1:
+                            (file, m) = mlist[0]
+                            skip = false
+                            if ftype is None:
+                                if m.group(4).lower() in ['SAM', 'BAM']:
+                                    ftype = 'BAM' if m.group(4).lower == 'BAM' else 'SAM'
+                                else:
+                                    ftype = 'INTERLEAVED' if self.paired else 'SINGLE'
+                            elif ftype == 'PAIRED' or (ftype == 'SAM' and m.group(4).lower != 'sam') or (ftype == 'BAM' and m.group(4).lower() != 'bam'): skip = True
+                            if not skip: inputFiles.append(file)
+                        elif len(mlist) == 2:
+                            (file1, m1) = mlist[0]
+                            (file2, m2) = mlist[1]
+                            for ix in [1, 2, 4]:
+                                if m1.group(ix) != m2.group(ix): break
                             else:
-                                ftype = 'INTERLEAVED' if self.paired else 'SINGLE'
-                        elif ftype == 'PAIRED' or (ftype == 'SAM' and m.group(4).lower != 'sam') or (ftype == 'BAM' and m.group(4).lower() != 'bam'): skip = True
-                        if not skip: inputFiles.append(file)
-                    elif len(mlist) == 2:
-                        (file1, m1) = mlist[0]
-                        (file2, m2) = mlist[1]
-                        for ix in [1, 2, 4]:
-                            if m1.group(ix) != m2.group(ix): break
-                        else:
-                            if (ftype == None or ftype == 'PAIRED') and m1.group(4) in ['fastq', 'fq', 'fasta', 'fa']:
-                                if m1.group(3) == '1' and m2.group(3) == '2':
-                                    inputFiles = [os.path.join(input_dir,file1), os.path.join(input_dir,file2)]
-                                elif m1.group(3) == '2' and m2.group(3) == '1':
-                                    inputFiles = [os.path.join(input_dir,file2), os.path.join(input_dir,file1)]
-                                self.ftype = 'PAIRED'
-                                self.paired = True
-
+                                if (ftype == None or ftype == 'PAIRED') and m1.group(4) in ['fastq', 'fq', 'fasta', 'fa']:
+                                    if m1.group(3) == '1' and m2.group(3) == '2':
+                                        inputFiles = [os.path.join(input_dir,file1), os.path.join(input_dir,file2)]
+                                    elif m1.group(3) == '2' and m2.group(3) == '1':
+                                        inputFiles = [os.path.join(input_dir,file2), os.path.join(input_dir,file1)]
+                                    self.ftype = 'PAIRED'
+                                    self.paired = True
+                        if inputFiles:
+                            break
                 if not inputFiles:
                     raise ValueError('Could not find input files for {} in {}'.format(fliInfo.getFli(),input_dir))
 
