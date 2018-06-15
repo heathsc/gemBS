@@ -365,6 +365,8 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
             else:
                 raise ValueError('Could not parse config file')
             
+        if inputs_path != None:
+            shutil.copy(text_metadata, inputs_path)
     elif lims_cnag_json is not None:
         # Parses json from cnag lims
         with open(lims_cnag_json) as jsonFile:
@@ -379,8 +381,8 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
                     sample["sample_name"] = element["sample_name"]
                     generalDictionary['sampleData'][fli] = sample
 
-    if inputs_path != None:
-        shutil.copy(text_metadata, inputs_path)
+        if inputs_path != None:
+            shutil.copy(lims_cnag_json, inputs_path)
     if os.path.exists(jsonOutput):
         js = JSONdata(jsonOutput)
         generalDictionary['contigs']=js.contigs
