@@ -206,9 +206,12 @@ class Mapping(BasicPipeline):
   By default the map command will try and perform mapping on all datafiles that it knows about that have not already been mapped.
   If all datafiles for a sample have been mapped then the map command will merge the BAM files if multiple BAMs exist for the sample.
   The resulting BAM will then be indexed and the md5 sum calculated. If the option --remove is set or 'remove_individual_bams' is set 
-  to True in the  configuration file then the individual BAM files will be deleted after the merge step has been successfully completed.  
-  If no disk based database is being used for gemBS and separate instances of gemBS are being run on non-shared file systems then the merging will 
-  not always be performed automatically and may have to be invoked manually using the merge-bams command.
+  to True in the  configuration file then the individual BAM files will be deleted after the merge step has been successfully completed. 
+  The --no-merge options will prevent this automatic merging - this can be useful for batch processing.
+
+  Aside from the --no-merge option, if no disk based database is being used for gemBS and separate instances of gemBS are being run on 
+  non-shared file systems then the merging will not always be performed automatically.  When the merging is not performed automatically
+  for whatever reason, it can be invoked manually using the merge-bams command.
 
   The mapping process can be restricted to a single sample using the option '-n <SAMPLE NAME>' or '-b <SAMPLE BARCODE>'.  The mapping can 
   also be restricted to a single dataset ID using the option '-D <DATASET>'
@@ -216,7 +219,8 @@ class Mapping(BasicPipeline):
   The locations of the input and output data are given by the configuration files; see the gemBS documentation for details.
 
   The --dry-run option will output a list of the mapping / merging operations that would be run by the map command without executing
-  any of the commands.
+  any of the commands.  The --json <JSON OUTPUT> options is similar to --dry-run, but writes the commands to be executed in JSON
+  format to the supplied output file, including information about the input and output files for the commands.
     """   
  
     def register(self,parser):
@@ -235,7 +239,9 @@ class Mapping(BasicPipeline):
                               deaminated and thus appears to be Methylated.', default=None,required=False)
         parser.add_argument('-v', '--overconversion-sequence', dest="overconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control methylated cytosines which are\
                               deaminated and thus appears to be Unmethylated.', default=None,required=False)
+        parser.add_argument('--no-merge', dest="no_merge", action="store_true", help="Do not automatically merge BAMs")
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
+        parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
                     
     def run(self, args):     
         self.all_types = ['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM', 'COMMAND', 'SINGLE_COMMAND', 'PAIRED_COMMAND']
@@ -258,7 +264,10 @@ class Mapping(BasicPipeline):
             else:
                 raise ValueError('Invalid type specified {}'.format(self.ftype))
         self.dry_run = args.dry_run
-        
+        self.dry_run_json = args.dry_run_json
+        self.no_merge = args.no_merge
+        if self.dry_run_json:
+            self.json_commands = {}
         self.command = 'map'
         
         # JSON data
@@ -273,7 +282,9 @@ class Mapping(BasicPipeline):
                 if v.sample_name == args.sample_name:
                     args.sample = v.sample_barcode
                     break
-                                
+            else:
+                raise ValueError("Sample name '{}' not found".format(args.sample_name))
+            
         self.name = args.sample
         
         self.tmp_dir = self.jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,dir_type=True)
@@ -290,7 +301,7 @@ class Mapping(BasicPipeline):
         self.mem_db = self.db.mem_db()
 
         # If we are doing a dry-run we will use an in memory copy of the db so the on disk db is not touched
-        if self.dry_run:
+        if self.dry_run or self.dry_run_json:
             self.db.copy_to_mem()
             
         c = self.db.cursor()
@@ -328,9 +339,13 @@ class Mapping(BasicPipeline):
                         self.do_mapping(fl)
                 if ftype != 'SINGLE_BAM':
                     bamlist.append(fname)
-            if not skipped and v[0] != None:                    
+            if not skipped and v[0] != None and not self.no_merge:                    
                 self.do_merge(smp, bamlist, v[0])
                     
+        if self.dry_run_json and self.json_commands:
+            with open(self.dry_run_json, 'w') as of:
+                json.dump(self.json_commands, of, indent = 2)
+            
     def do_mapping(self, fli):
         # Check if FLI still has status 0 (i.e. has not been claimed by another process)
         self.db.isolation_level = None
@@ -453,28 +468,37 @@ class Mapping(BasicPipeline):
             self.curr_ftype = ftype
             self.inputFiles = inputFiles
             self.curr_output_dir = os.path.dirname(outfile)
-            if not self.dry_run:
+            if not (self.dry_run or self.dry_run_json):
                 self.log_parameter()
                 logging.gemBS.gt("Bisulfite Mapping...")
-            if self.dry_run:
+            if self.dry_run or self.dry_run_json:
                 args = self.args
-                com = 'gemBS'
+                com = ['gemBS']
                 if self.mem_db:
                     if Mapping.gemBS_json != 'gemBS.json':
-                        com += ' -j ' + Mapping.gemBS_json
+                        com.extend(['-j',Mapping.gemBS_json])
                 else:
                     if Mapping.gemBS_json != '.gemBS/gemBS.json':
-                        com += ' -j ' + Mapping.gemBS_json
-                com += ' map -D ' + fli
-                if args.ftype: com += ' -T ' + args.ftype
-                if args.paired_end: com += ' -p'
-                if args.remove: com += ' -r'
-                if args.threads: com += ' -t ' + args.threads
-                if args.tmp_dir: com += ' -d ' + args.tmp_dir
-                if args.read_non_stranded: com += ' -s'
-                if args.underconversion_sequence: com += ' -u ' + args.underconversion_sequence
-                if args.overconversion_sequence: com += ' -u ' + args.overconversion_sequence
-                print(com)
+                        com.extend(['-j',Mapping.gemBS_json])
+                com.extend(['map','--no-merge','-D',fli])
+                
+                if args.ftype: com.extend(['-T',args.ftype])
+                if args.paired_end: com.append('-p')
+                if args.remove: com.append('-r')
+                if args.threads: com.extend(['-t',args.threads])
+                if args.tmp_dir: com.extend(['-d',args.tmp_dir])
+                if args.read_non_stranded: com.append('-s')
+                if args.underconversion_sequence: com.extend(['-u',args.underconversion_sequence])
+                if args.overconversion_sequence: com.extend(['-v',args.overconversion_sequence])
+                if self.dry_run:
+                    print(" ".join(com))
+                if self.dry_run_json:
+                    task = {}
+                    task['command'] = com
+                    task['inputs'] = inputFiles
+                    task['outputs'] = [outfile]
+                    desc = "map {}".format(fli)
+                    self.json_commands[desc] = task
             else:
                 tmp = self.tmp_dir
                 if not tmp:
@@ -520,19 +544,27 @@ class Mapping(BasicPipeline):
                         ixfile = os.path.join(odir, smp + '.bai')
                         md5file = outfile + '.md5'
                         database.reg_db_com(outfile, "UPDATE mapping SET status = 0 WHERE filepath = '{}'".format(outfile), [outfile, ixfile, md5file])
-                        if self.dry_run:
+                        if self.dry_run or self.dry_run_json:
                             args = self.args
-                            com = 'gemBS'
+                            com = ['gemBS']
                             if self.mem_db:
                                 if Mapping.gemBS_json != 'gemBS.json':
-                                    com += ' -j ' + Mapping.gemBS_json
+                                    com.extend(['-j',Mapping.gemBS_json])
                             else:
                                 if Mapping.gemBS_json != '.gemBS/gemBS.json':
-                                    com += ' -j ' + Mapping.gemBS_json
-                            com += ' merge-bams -b ' + sample
-                            if args.threads: com += ' -t ' + args.threads
-                            if args.remove: com += ' -r'
-                            print(com)
+                                    com.extend(['-j',Mapping.gemBS_json])
+                            com.extend(['merge-bams','-b',sample])
+                            if args.threads: com.extend(['-t',args.threads])
+                            if args.remove: com.append('-r')
+                            if self.dry_run:
+                                print(" ".join(com))
+                            if self.dry_run_json:
+                                task = {}
+                                task['command'] = com
+                                task['inputs'] = inputs
+                                task['outputs'] = [outfile]
+                                desc = "merge {}".format(sample)
+                                self.json_commands[desc] = task
                         else:
                             ret = merging(inputs = inputs, sample = sample, threads = self.threads, outname = outfile)
                             if ret:
@@ -541,7 +573,7 @@ class Mapping(BasicPipeline):
                         try_get_exclusive(c)
                         if self.remove:
                             for f in inputs:
-                                if not self.dry_run:
+                                if not self.dry_run or self.dry_run_json:
                                     if os.path.exists(f): os.remove(f)
                                 c.execute("UPDATE mapping SET status = 2 WHERE filepath = ?", (f,))
                         c.execute("UPDATE mapping SET status = 1 WHERE filepath = ?", (outfile,))
@@ -550,19 +582,28 @@ class Mapping(BasicPipeline):
             self.db.isolation_level = 'DEFERRED'
         else:
             # No merging required - just create index
-            if self.dry_run:
+            if self.dry_run or self.dry_run_json:
                 args = self.args
-                com = 'gemBS'
+                com = ['gemBS']
                 if self.mem_db:
                     if Mapping.gemBS_json != 'gemBS.json':
-                        com += ' -j ' + Mapping.gemBS_json
+                        com.extend(['-j',Mapping.gemBS_json])
                 else:
                     if Mapping.gemBS_json != '.gemBS/gemBS.json':
-                        com += ' -j ' + Mapping.gemBS_json
-                com += ' merge-bams -b ' + sample
-                if args.threads: com += ' -t ' + args.threads
-                if args.remove: com += ' -r'
-                print(com)
+                        com.extend(['-j',Mapping.gemBS_json])
+                com.extend(['merge-bams','-b',sample])
+                if args.threads: com.extend(['-t',args.threads])
+                if args.remove: com.append('-r')
+                if self.dry_run:
+                    print(com)
+                if self.dry_run_json:
+                    task = {}
+                    task['desc'] = "merge {}".format(sample)
+                    task['command'] = com
+                    task['inputs'] = []
+                    task['outputs'] = [fname]
+                    desc = "merge {}".format(sample)
+                    self.json_commands[desc] = task
             else:
                 ret = merging(inputs = [], sample = sample, threads = self.threads, outname = fname)
                 if ret:
@@ -600,7 +641,9 @@ class Merging(Mapping):
   '-b <SAMPLE_BARCODE>.
 
   The --dry-run option will output a list of the merging operations that would be run by the merge-bam command without executing
-  any of the commands.
+  any of the commands.  The --json <JSON OUTPUT> options is similar to --dry-run, but writes the commands to be executed in JSON
+  format to the supplied output file, including information about the input and output files for the commands.
+
     """
                      
     def register(self,parser):
@@ -610,6 +653,7 @@ class Merging(Mapping):
         parser.add_argument('-b', '--barcode',dest="sample",metavar="SAMPLE",help="Sample to be merged",required=False) 
         parser.add_argument('-r', '--remove', dest="remove", action="store_true", help='Remove individual BAM files after merging.', required=False)
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
+        parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
         
     def run(self, args):
         self.command = 'merge-bams'
@@ -619,7 +663,10 @@ class Merging(Mapping):
         self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
         self.remove = self.jsonData.check(section='mapping',key='remove_individual_bams',arg=args.remove, boolean=True)
         self.dry_run = args.dry_run
+        self.dry_run_json = args.dry_run_json
         self.args = args
+        if self.dry_run_json:
+            self.json_commands = {}
         
         sdata = self.jsonData.sampleData
         if not args.sample and args.sample_name:
@@ -627,6 +674,8 @@ class Merging(Mapping):
                 if v.sample_name == args.sample_name:
                     args.sample = v.sample_barcode
                     break
+            else:
+                raise ValueError("Sample name '{}' not found".format(args.sample_name))
                 
         # Create Dictionary of samples and bam files, checking everything required has already been made
         
@@ -635,7 +684,7 @@ class Merging(Mapping):
         self.mem_db = self.db.mem_db()
 
         # If we are doing a dry-run we will use an in memory copy of db so the on disk db is not touched
-        if self.dry_run:
+        if self.dry_run or self.dry_run_json:
             self.db.copy_to_mem()
 
         c = self.db.cursor()
@@ -669,7 +718,7 @@ class Merging(Mapping):
             if not (v[2] or v[3]):
                 logging.gemBS.gt("Not all BAM files for sample {} have been generated".format(smp))
             elif not v[0]:
-                if not self.dry_run:
+                if not self.dry_run or self.dry_run_json:
                     logging.gemBS.gt("Nothing to be done for sample {}".format(smp))
             else:
                 self.do_merge(smp, v[1], v[0])
@@ -681,9 +730,12 @@ class MethylationCall(BasicPipeline):
   / contig pools for all samples that have not already been processed. After all contigs have been processed for one sample, the
   resulting BCFs are merged into a single BCF for the sample.  This sample BCF is then indexed and the md5 signature calculated.
   If the option --remove is set or 'remove_individual_bcfs' is set to True in the configuration file then the individual BAM files will
-  be deleted after the merge step has been successfully completed.  If no disk based database is being used for gemBS and separate
-  instances of gemBS are being run on non-shared file systems then the merging will not always be performed automatically and may have
-  to be invoked manually using the merge-bcfs command.
+  be deleted after the merge step has been successfully completed. The --no-merge options will prevent this automatic merging - this can be useful 
+  for batch processing.
+
+  Aside from the --no-merge option, if no disk based database is being used for gemBS and separate instances of gemBS are being run on 
+  non-shared file systems then the merging will not always be performed automatically.  When the merging is not performed automatically
+  for whatever reason, it can be invoked manually using the merge-bcfs command.
 
   The calling process can be restricted to a single sample using the option '-n <SAMPLE NAME>' or '-b <SAMPLE BARCODE>'.  The mapping
   can also be restricted to a list of contigs or contig pool using the option '-l <contig1, contig2, ...>' or '--pool <pool>'.  The 
@@ -696,7 +748,9 @@ class MethylationCall(BasicPipeline):
   The locations of the input and output data are given by the configuration file; see the gemBS documentation for details.
 
   The --dry-run option will output a list of the calling / merging operations that would be run by the call command without executing
-  any of the commands. 
+  any of the commands. The --json <JSON OUTPUT> options is similar to --dry-run, but writes the commands to be executed in JSON
+  format to the supplied output file, including information about the input and output files for the commands.
+
     """
     def membersInitiation(self):
         self.species = None
@@ -722,9 +776,11 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('-C','--conversion', dest="conversion", help="Set under and over conversion rates (under,over)")
         parser.add_argument('-B','--reference_bias', dest="ref_bias", help="Set bias to reference homozygote")
         parser.add_argument('-x','--concat-only', dest="concat", action="store_true", help="Only perform merging BCF files.")
+        parser.add_argument('--no-merge', dest="no_merge", action="store_true", help="Do not automatically merge BCFs")
         parser.add_argument('--pool',dest="req_pool",metavar="POOL",help="Contig pool on which to perform the methylation calling.")
         parser.add_argument('--list-pools',dest="list_pools",metavar="LEVEL",type=int,nargs='?',help="List contig pools and exit. Level 1 - list names, level > 1 - list pool composition", default=0, const=1)
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
+        parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
         
     def run(self,args):
         self.command = 'call'
@@ -758,13 +814,20 @@ class MethylationCall(BasicPipeline):
 
         self.dry_run = args.dry_run
         self.args = args
-        
+        self.dry_run_json = args.dry_run_json
+        self.no_merge = args.no_merge
+        if self.dry_run_json:
+            self.json_commands = {}
+        else:
+            self.json_commands = None
         sdata = self.jsonData.sampleData
         if not args.sample and args.sample_name:
             for k, v in sdata.items():
                 if v.sample_name == args.sample_name:
                     args.sample = v.sample_barcode
                     break
+            else:
+                raise ValueError("Sample name '{}' not found".format(args.sample_name))
 
         if self.contig_list != None:
             if len(self.contig_list) == 1:
@@ -784,7 +847,7 @@ class MethylationCall(BasicPipeline):
             self.db.check_index()
             
         # If we are doing a dry-run we will use an in memory copy of the db so the on disk db is not touched
-        if self.dry_run:
+        if self.dry_run or self.dry_run_json:
             self.db.copy_to_mem()
 
         c = self.db.cursor()
@@ -929,35 +992,33 @@ class MethylationCall(BasicPipeline):
                     mrg = True
                     break
             else:
-                if not self.dry_run:
+                if not (self.dry_run or self.dry_run_json):
                     if args.concat:
                         logging.gemBS.gt("No merging to be performed")
                     else:
                         logging.gemBS.gt("No calling to be performed")
         if self.output or mrg:
-            if self.dry_run:
-                com = "gemBS"
+            if self.dry_run or self.dry_run_json:
+                com = ['gemBS']
                 if self.mem_db:
                     if Mapping.gemBS_json != 'gemBS.json':
-                        com += ' -j ' + MethylationCall.gemBS_json
+                        com.extend(['-j',Mapping.gemBS_json])
                 else:
                     if Mapping.gemBS_json != '.gemBS/gemBS.json':
-                        com += ' -j ' + MethylationCall.gemBS_json
-                com1 = ""
-                if args.threads: com1 += ' -t' + args.threads
-                if args.remove: com1 += ' -r'
-                com2 = ""
-                if args.mapq_threshold: com2 += ' -q ' + str(args.mapq_threshold)
-                if args.qual_threshold: com2 += ' -Q ' + str(args.mapq_threshold)
-                if args.right_trim: com2 += ' --right-trim ' + str(args.right_trim)
-                if args.left_trim: com2 += ' --left-trim ' + str(args.left_trim)
-                if args.keep_duplicates: com2 += ' -u'
-                if args.keep_unmatched: com2 += ' -k'
-                if args.haploid: com2 += ' --haploid'
-                if args.species: com2 += ' --species ' + args.species
-                if args.ref_bias: com2 += ' -B' + args.ref_bias 
-            #                    if self.conversion and smp in self.sample_conversion:
-            #                        com += ' --conversion ' + self.sample_conversion[smp]
+                        com.extend(['-j',Mapping.gemBS_json])
+                com1 = []
+                if args.threads: com1.extend(['-t',args.threads])
+                if args.remove: com1.append('-r')
+                com2 = []
+                if args.mapq_threshold: com2.extend(['-q',str(args.mapq_threshold)])
+                if args.qual_threshold: com2.extend(['-Q',str(args.mapq_threshold)])
+                if args.right_trim: com2.extend(['--right-trim',str(args.right_trim)])
+                if args.left_trim: com2.extend(['--left-trim',str(args.left_trim)])
+                if args.keep_duplicates: com2.append('-u')
+                if args.keep_unmatched: com2.append('-k')
+                if args.haploid: com2.append('--haploid')
+                if args.species: com2.append('--species')
+                if args.ref_bias: com2.extend(['-B',args.ref_bias])
                 dry_run_com = [com, com1, com2]
                 
             else:
@@ -967,19 +1028,23 @@ class MethylationCall(BasicPipeline):
                     logging.gemBS.gt("Methylation Merging...")
                 else:
                     logging.gemBS.gt("Methylation Calling...")
-            ret = methylationCalling(reference=self.fasta_reference,species=self.species,
-                                     right_trim=self.right_trim, left_trim=self.left_trim,concat=args.concat,
-                                     sample_bam=self.sampleBam,output_bcf=self.outputBcf,remove=self.remove,
+            ret = methylationCalling(reference=self.fasta_reference,species=self.species,no_merge=self.no_merge,
+                                     right_trim=self.right_trim, left_trim=self.left_trim,concat=args.concat,json_commands=self.json_commands,
+                                     sample_bam=self.sampleBam,output_bcf=self.outputBcf,remove=self.remove,dry_run=self.dry_run,
                                      keep_unmatched=self.keep_unmatched,samples=self.samples,dry_run_com=dry_run_com,
                                      keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads,jobs=self.jobs,
-                                     mapq_threshold=self.mapq_threshold,bq_threshold=self.qual_threshold,
+                                     mapq_threshold=self.mapq_threshold,bq_threshold=self.qual_threshold,dry_run_json=self.dry_run_json,
                                      haploid=self.haploid,conversion=self.conversion,ref_bias=self.ref_bias,sample_conversion=self.sample_conversion)
                 
-            if ret and not self.dry_run:
+            if ret and not (self.dry_run or self.dry_run_json):
                 if args.concat:
                     logging.gemBS.gt("Methylation merging done, samples performed: %s" %(ret))
                 else:
                     logging.gemBS.gt("Methylation call done, samples performed: %s" %(ret))
+
+        if self.dry_run_json and self.json_commands:
+            with open(self.dry_run_json, 'w') as of:
+                json.dump(self.json_commands, of, indent = 2)
                 
     def extra_log(self):
         """Extra Parameters to be printed"""
@@ -1022,6 +1087,7 @@ class BsCallConcatenate(MethylationCall):
         parser.add_argument('-r', '--remove', dest="remove", action="store_true", help='Remove individual BAM files after merging.', required=False)
         parser.add_argument('-j', '--jobs', dest="jobs", type=int, help='Number of parallel jobs')
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
+        parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
     
     def run(self,args):
 
@@ -1130,6 +1196,8 @@ class MethylationFiltering(BasicPipeline):
                 if v.sample_name == args.sample_name:
                     args.sample = v.sample_barcode
                     break
+            else:
+                raise ValueError("Sample name '{}' not found".format(args.sample_name))
                 
         db = database(self.jsonData)
         if not db.mem_db():

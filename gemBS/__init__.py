@@ -714,7 +714,7 @@ class BsCaller:
         return bsCall
 
 class MethylationCallIter:
-    def __init__(self, samples, sample_bam, output_bcf, jobs, concat):
+    def __init__(self, samples, sample_bam, output_bcf, jobs, concat, no_merge):
         self.sample_bam = sample_bam
         self.sample_list = samples
         self.output_bcf = output_bcf
@@ -723,6 +723,7 @@ class MethylationCallIter:
         self.output_list = []
         self.plist = {}
         self.concat = concat
+        self.no_merge = no_merge
         
         for smp in self.sample_list:
             self.plist[smp] = {}
@@ -743,7 +744,7 @@ class MethylationCallIter:
         ret = None
         for sample in self.sample_list:
             mrg_file = ""
-            mrg_ok = True
+            mrg_ok = False if self.no_merge else True
             list_bcfs = []
             for fname, pool, ftype, status in c.execute("SELECT filepath, poolid, type, status FROM calling WHERE sample = ?", (sample,)):
                 if ftype == 'POOL_BCF':
@@ -796,7 +797,7 @@ class MethylationCallIter:
         db.close()
           
 class MethylationCallThread(th.Thread):
-    def __init__(self, threadID, methIter, bsCall, lock, remove, dry_run_com, conversion, sample_conversion):
+    def __init__(self, threadID, methIter, bsCall, lock, remove, dry_run_com, dry_run, dry_run_json, json_commands, conversion, sample_conversion):
         th.Thread.__init__(self)
         self.threadID = threadID
         self.methIter = methIter
@@ -804,6 +805,9 @@ class MethylationCallThread(th.Thread):
         self.lock = lock
         self.remove = remove
         self.dry_run_com = dry_run_com
+        self.dry_run_json = dry_run_json
+        self.dry_run = dry_run
+        self.json_commands = json_commands
         self.conversion = conversion
         self.sample_conversion = sample_conversion
 
@@ -820,14 +824,27 @@ class MethylationCallThread(th.Thread):
                 (sample, input_bam, pool) = ret[1:]
                 bcf_file, pool, chrom_list = pool
                 if self.dry_run_com:
-                    com = self.dry_run_com[0] + ' call' + self.dry_run_com[1] + "-b {} --pool {}".format(sample, pool) + self.dry_run_com[2]
+                    com = list(self.dry_run_com[0])
+                    com.extend(['call','-b',sample,'--pool',pool,'--no-merge'])
+                    if self.dry_run_com[1]:
+                        com.extend(self.dry_run_com[1])
+                    if self.dry_run_com[2]:
+                        com.extend(self.dry_run_com[2])
                     if self.conversion != None:
                         if self.conversion.lower() == "auto":
                             if sample in self.sample_conversion:
-                                com += ' --conversion ' + self.sample_conversion[sample]
+                                com.extend(['--conversion',self.sample_conversion[sample]])
                             else:
-                                com += ' --conversion ' + self.conversion
-                    print(com)
+                                com.extend(['--conversion',self.conversion])
+                    if self.dry_run:
+                        print(' '.join(com))
+                    if self.dry_run_json:
+                        task={}
+                        task['command']=com
+                        task['inputs']=[input_bam]
+                        task['outputs']=[bcf_file]
+                        desc="call {} {}".format(sample,pool)
+                        self.json_commands[desc]=task
                 else:
                     output = os.path.dirname(bcf_file)
                     log_file = os.path.join(output,"bs_call_{}_{}.err".format(sample, pool))
@@ -843,8 +860,20 @@ class MethylationCallThread(th.Thread):
             else:
                 (sample, fname, list_bcfs) = ret[1:]
                 if self.dry_run_com:
-                    com = self.dry_run_com[0] + ' merge-bcfs' + self.dry_run_com[1] + " -b {}".format(sample)
-                    print(com)
+                    com = list(self.dry_run_com[0])
+                    com.extend(['merge-bcfs','-b',sample])
+                    if self.dry_run_com[1]:
+                        com.extend(self.dry_run_com[1])
+                    if self.dry_run:
+                        print(' '.join(com))
+                    if self.dry_run_json:
+                        task={}
+                        task['command']=com
+                        task['inputs']=list_bcfs
+                        task['outputs']=[fname]
+                        desc="call {}".format(fname)
+                        self.json_commands[desc]=task
+                
                 else:
                     bsConcat(list_bcfs, sample, fname)
                 self.lock.acquire()
@@ -857,7 +886,8 @@ class MethylationCallThread(th.Thread):
                 
 def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=None,samples=None,right_trim=0,left_trim=5,dry_run_com=None,
                        keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1",jobs=1,remove=False,concat=False,
-                       mapq_threshold=None,bq_threshold=None,haploid=False,conversion=None,ref_bias=None,sample_conversion=None):
+                       mapq_threshold=None,bq_threshold=None,haploid=False,conversion=None,ref_bias=None,sample_conversion=None,
+                       no_merge=False,json_commands=None,dry_run=False,dry_run_json=None):
 
     """ Performs the process to make met5Bhylation calls.
     
@@ -910,12 +940,12 @@ def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=No
     if dry_run_com != None:
         jobs = 1
         
-    methIter = MethylationCallIter(samples, sample_bam, output_bcf, jobs, concat)
+    methIter = MethylationCallIter(samples, sample_bam, output_bcf, jobs, concat, no_merge)
     lock = th.Lock()
     if jobs < 1: jobs = 1
     thread_list = []
     for ix in range(jobs):
-        thread = MethylationCallThread(ix, methIter, bsCall, lock, remove, dry_run_com, conversion, sample_conversion)
+        thread = MethylationCallThread(ix, methIter, bsCall, lock, remove, dry_run_com, dry_run, dry_run_json, json_commands, conversion, sample_conversion)
         thread.start()
         thread_list.append(thread)
     for thread in thread_list:
