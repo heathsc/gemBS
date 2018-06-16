@@ -116,6 +116,7 @@ def gemBS_main():
             "extract": MethylationFiltering,
             "map-report" : MappingReports,
             "call-report" : VariantsReports,
+            "db-sync": dbSync
         }
         instances = {}
 

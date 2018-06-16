@@ -64,7 +64,7 @@ class database(sqlite3.Connection):
             cls._db_com_register = {}
                
 
-    def __init__(self, json_data = None):
+    def __init__(self, json_data = None, sync = False):
         newdb = False
         if json_data != None:
             database.setup(json_data)
@@ -76,6 +76,9 @@ class database(sqlite3.Connection):
                 self.check()
         else:
             sqlite3.Connection.__init__(self, database.db_name)
+            if sync:
+                self.create_tables()
+                self.check(sync)
             
     def create_tables(self):
         c = self.cursor()
@@ -106,11 +109,11 @@ class database(sqlite3.Connection):
             self.commit()
             db.close()
                     
-    def check(self):
+    def check(self, sync = False):
         self.check_index()
-        self.check_mapping()
-        self.check_contigs()
-        self.check_extract()
+        self.check_mapping(sync)
+        self.check_contigs(sync)
+        self.check_extract(sync)
     
     def check_index(self):
         config = database.json_data.config
@@ -166,7 +169,7 @@ class database(sqlite3.Connection):
             c.execute("REPLACE INTO indexing VALUES (?, 'dbsnp_idx', ?)",(dbSNP_idx,dbSNP_ok))
         self.commit()
 
-    def check_mapping(self):
+    def check_mapping(self, sync = False):
         js = database.json_data
         config = js.config
         sdata = js.sampleData
@@ -184,7 +187,7 @@ class database(sqlite3.Connection):
 
         old_tab = {}
         key_used = {}
-        if not database._mem_db:
+        if not sync:
             for ret in c.execute("SELECT * FROM mapping"):
                 old_tab[ret[0]] = ret
                 key_used[ret[0]] = False
@@ -197,7 +200,7 @@ class database(sqlite3.Connection):
             sample_bam = os.path.join(bam, "{}.bam".format(bc))
             key_used[sample_bam] = True
             old = old_tab.get(sample_bam, (0,0,0,0,0))
-            if database._mem_db:
+            if database._mem_db or sync:
                 if os.path.isfile(sample_bam):
                     old = (0,0,0,0,1)
             if len(fli) > 1:
@@ -205,7 +208,7 @@ class database(sqlite3.Connection):
                 for k in fli:
                     ind_bam = os.path.join(bam, "{}.bam".format(k))
                     old1 = old_tab.get(ind_bam, (0,0,0,0,0))
-                    if database._mem_db:
+                    if database._mem_db or sync:
                         if os.path.isfile(ind_bam):
                             old1 = (0,0,0,0,1)                    
                         elif old[4] == 1:
@@ -232,7 +235,7 @@ class database(sqlite3.Connection):
                 c.execute("INSERT INTO mapping VALUES(?, ?, ?, ?, ?)", tab)
             self.commit()
 
-    def check_contigs(self):
+    def check_contigs(self, sync = False):
 
         # First get list of contigs
         c = self.cursor()
@@ -282,18 +285,19 @@ class database(sqlite3.Connection):
                 ctg_pools[pool][0].append(ctg)
             
         # And make list of contigs already completed in table
-        for fname, pool, smp, ftype, status in c.execute("SELECT * FROM calling"):
-            if ftype == 'POOL_BCF' and status != 0:
-                if pool in ctg_pools:
-                    v = ctg_pools[pool]
-                    v[1] = True
-                    v[2][smp] = status
-                    for ctg in v[0]:
-                        ctg_flag[ctg][0] |= 2
+        if not sync:
+            for fname, pool, smp, ftype, status in c.execute("SELECT * FROM calling"):
+                if ftype == 'POOL_BCF' and status != 0:
+                    if pool in ctg_pools:
+                        v = ctg_pools[pool]
+                        v[1] = True
+                        v[2][smp] = status
+                        for ctg in v[0]:
+                            ctg_flag[ctg][0] |= 2
+                    else:
+                        rebuild |= 2
                 else:
-                    rebuild |= 2
-            else:
-                mrg_list[smp] = status
+                    mrg_list[smp] = status
             
         small_contigs = []
         total_small = 0
@@ -366,7 +370,7 @@ class database(sqlite3.Connection):
             bcf = bcf_dir.replace('@BARCODE', bc).replace('@SAMPLE', sample)
             bcf_file = os.path.join(bcf, "{}.bcf".format(bc, ))
             st = mrg_list.get(bc, 0)
-            if database._mem_db:
+            if database._mem_db or sync:
                 if os.path.isfile(bcf_file): st = 1            
             c.execute("INSERT INTO calling VALUES (?, ?, ?, 'MRG_BCF', ?)", (bcf_file, '' , bc, st))
             for pl in pool_list:
@@ -374,7 +378,7 @@ class database(sqlite3.Connection):
                 if pl[0] in ctg_pools:
                     v = ctg_pools[pl[0]][2]
                     st1 = v.get(bc, 0)
-                    if database._mem_db:
+                    if database._mem_db or sync:
                         if os.path.isfile(bcf_file): st1 = 1
                         elif st == 1: st1 = 2
                 else:
@@ -387,7 +391,7 @@ class database(sqlite3.Connection):
                 js.pools[ctg]=pl[0]
         self.commit()
 
-    def check_extract(self):
+    def check_extract(self, sync = False):
         js = database.json_data
         config = js.config
         sdata = js.sampleData
@@ -402,9 +406,10 @@ class database(sqlite3.Connection):
 
         old_tab = {}
         key_used = {}
-        for ret in c.execute("SELECT * FROM extract"):
-            old_tab[ret[0]] = ret
-            key_used[ret[0]] = False
+        if not sync:
+            for ret in c.execute("SELECT * FROM extract"):
+                old_tab[ret[0]] = ret
+                key_used[ret[0]] = False
 
         extract_tab = {}
         changed = False
@@ -413,7 +418,7 @@ class database(sqlite3.Connection):
             sample_cpg = os.path.join(cpg, bc)
             key_used[sample_cpg] = True
             old = old_tab.get(sample_cpg, ("","",0))
-            if database._mem_db:
+            if database._mem_db or sync:
                 st = 0
                 if os.path.isfile(sample_cpg + '_cpg.txt.gz.tbi'): st |= 1
                 if os.path.isfile(sample_cpg + '_non_cpg.txt.gz.tbi'): st |= 4

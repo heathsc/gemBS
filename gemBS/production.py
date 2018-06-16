@@ -1435,3 +1435,27 @@ class VariantsReports(BasicPipeline):
         printer("Output dir      : %s", self.output_dir)
         printer("")   
         
+class dbSync(BasicPipeline):
+    title = "Synchronize database"
+    description = """Synchronize database with filesystem"""
+
+    def register(self,parser):
+        ## variants reports stats parameters
+        parser.add_argument('-y', '--yes', action = 'store_true', dest="confirm", help='Confirm operation')
+        
+    def run(self, args):
+        self.command = 'synchromize database'
+
+        # JSON data
+        self.jsonData = JSONdata(MethylationCall.gemBS_json)
+
+        if not args.confirm:
+            print("Attention! This command must not be run if other gemBS commands are still running")
+            resp = input("Please enter 'y' to confirm: ")
+            if resp.lower().startswith('y'):
+                args.confirm = True
+
+        if args.confirm:
+            logging.gemBS.gt("Synchronizing database")
+            db = database(self.jsonData,sync = True)
+        
