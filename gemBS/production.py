@@ -896,6 +896,7 @@ class MethylationCall(BasicPipeline):
                     self.sample_conversion[sample] = "{:.4f},{:.4f}".format(1-uc,oc)
 
         # Get fasta reference && dbSNP index if supplied
+        self.dbSNP_index_file = None
         for fname, ftype, status in c.execute("SELECT * FROM indexing"):
             if ftype == 'reference':
                 if status != 1:
@@ -1058,7 +1059,7 @@ class MethylationCall(BasicPipeline):
         printer("Left Trim       : %i", self.left_trim)
         printer("Chromosomes     : %s", self.contig_list)
         printer("Threads         : %s", self.threads)
-        if self.dbSNP_index_file != "":
+        if self.dbSNP_index_file:
             printer("dbSNP File      : %s", self.dbSNP_index_file)
         for sample,input_bam in self.sampleBam.items():
             printer("Sample: %s    Bam: %s" %(sample,input_bam))
@@ -1126,7 +1127,7 @@ class MethylationFilteringThread(th.Thread):
                 self.lock.release()
             
 class MethylationFiltering(BasicPipeline):
-    title = "BCF Filtering."
+    title = "Methylation Extraction."
     description = """ 
   Filters BCF files generated for all or a subset of samples to produce a series of summary output files.  The detailed formats of the 
   output files are given in the gemBS docuemntation.
@@ -1163,21 +1164,21 @@ class MethylationFiltering(BasicPipeline):
         parser.add_argument('-w','--bigwig', dest="bigWig", action="store_true", help="Output bigWig file")
         
     def run(self,args):
-        self.command = 'filter'
+        self.command = 'extract'
 
         # JSON data
         self.jsonData = JSONdata(Mapping.gemBS_json)
 
-        self.jobs = self.jsonData.check(section='filtering',key='jobs',arg=args.jobs,default=1,int_type=True)
-        self.allow_het = self.jsonData.check(section='filtering',key='allow_het',arg=args.allow_het,boolean=True,default=False)
-        self.cpg = self.jsonData.check(section='filtering',key='make_cpg',arg=args.cpg,boolean=True,default=False)
-        self.non_cpg = self.jsonData.check(section='filtering',key='make_non_cpg',arg=args.non_cpg,boolean=True,default=False)
-        self.bedMethyl = self.jsonData.check(section='filtering',key='make_bedmethyl',arg=args.bedMethyl,boolean=True,default=False)
-        self.bigWig = self.jsonData.check(section='filtering',key='make_bigwig',arg=args.bigWig,boolean=True,default=False)
-        self.strand_specific = self.jsonData.check(section='filtering',key='strand_specific',arg=args.strand_specific,boolean=True,default=False)
-        self.phred = self.jsonData.check(section='filtering',key='phred_threshold',arg=args.phred, default = 20)
-        self.inform = self.jsonData.check(section='filtering',key='min_inform',arg=args.inform, default = 1, int_type=True)
-        self.min_nc = self.jsonData.check(section='filtering',key='min_nc',arg=args.inform, default = 1, int_type=True)
+        self.jobs = self.jsonData.check(section='extract',key='jobs',arg=args.jobs,default=1,int_type=True)
+        self.allow_het = self.jsonData.check(section='extract',key='allow_het',arg=args.allow_het,boolean=True,default=False)
+        self.cpg = self.jsonData.check(section='extract',key='make_cpg',arg=args.cpg,boolean=True,default=False)
+        self.non_cpg = self.jsonData.check(section='extract',key='make_non_cpg',arg=args.non_cpg,boolean=True,default=False)
+        self.bedMethyl = self.jsonData.check(section='extract',key='make_bedmethyl',arg=args.bedMethyl,boolean=True,default=False)
+        self.bigWig = self.jsonData.check(section='extract',key='make_bigwig',arg=args.bigWig,boolean=True,default=False)
+        self.strand_specific = self.jsonData.check(section='extract',key='strand_specific',arg=args.strand_specific,boolean=True,default=False)
+        self.phred = self.jsonData.check(section='extract',key='phred_threshold',arg=args.phred, default = 20)
+        self.inform = self.jsonData.check(section='extract',key='min_inform',arg=args.inform, default = 1, int_type=True)
+        self.min_nc = self.jsonData.check(section='extract',key='min_nc',arg=args.inform, default = 1, int_type=True)
         self.path_bcf = self.jsonData.check(section='calling',key='bcf_dir',arg=None, default = '.', dir_type=True)
 
         if not (self.cpg or self.non_cpg or self.bedMethyl):
@@ -1202,7 +1203,7 @@ class MethylationFiltering(BasicPipeline):
         db = database(self.jsonData)
         if not db.mem_db():
             db.check_index()        
-            db.check_filtering()
+            db.check_extract()
         c = db.cursor()
         c.execute("SELECT * FROM indexing WHERE type = 'contig_sizes'")
         ret = c.fetchone()
@@ -1230,13 +1231,13 @@ class MethylationFiltering(BasicPipeline):
             self.bcf_list.append((smp, fname))
 
         if not self.bcf_list:
-            logging.gemBS.gt("No BCF files are available for filtering.")
+            logging.gemBS.gt("No BCF files are available for methylation extraction.")
         else:
             if self.jobs > len(self.bcf_list):
                 self.jobs = len(self.bcf_list)
             self.threads = self.jobs
             self.log_parameter()
-            logging.gemBS.gt("Methylation Filtering...")
+            logging.gemBS.gt("Methylation Extraction...")
             if self.jobs > 1:
                 threads = []
                 lock = th.Lock()
@@ -1259,14 +1260,14 @@ class MethylationFiltering(BasicPipeline):
 
         try_get_exclusive(c)
         
-        c.execute("SELECT filepath, status FROM filtering WHERE sample = ?", (sample,))
+        c.execute("SELECT filepath, status FROM extract WHERE sample = ?", (sample,))
         ret = c.fetchone()
         if ret:
             filebase, status = ret
             sm = status & self.mask            
             if not (sm == self.mask or sm == self.mask1):
                 status1 = status | self.mask
-                c.execute("UPDATE filtering SET status = ? WHERE filepath = ?", (status1, filebase))
+                c.execute("UPDATE extract SET status = ? WHERE filepath = ?", (status1, filebase))
                 c.execute("COMMIT")
                 files = [filebase + "_contig_list.bed"]
                 if self.cpg:
@@ -1280,19 +1281,19 @@ class MethylationFiltering(BasicPipeline):
                         files.extend([filebase + "_{}.bed.gz".format(x), filebase + "_{}.bed.tmp".format(x),
                                       filebase + "_{}.bb".format(x)])
 
-                database.reg_db_com(filebase, "UPDATE filtering SET status = 0 WHERE filepath = '{}'".format(filebase), files)                
+                database.reg_db_com(filebase, "UPDATE extract SET status = 0 WHERE filepath = '{}'".format(filebase), files)                
             
-                #Call methylation filtering
+                #Call methylation extract
                 ret = methylationFiltering(bcfFile=bcf_file,outbase=filebase,name=sample,strand_specific=self.strand_specific,
                                            cpg=self.cpg,non_cpg=self.non_cpg,contig_list=self.contig_list,allow_het=self.allow_het,
                                            inform=self.inform,phred=self.phred,min_nc=self.min_nc,bedMethyl=self.bedMethyl,
                                            bigWig=self.bigWig,contig_size_file=self.contig_size_file)
                 if ret:
-                    logging.gemBS.gt("Methylation filtering of {} done, results located in: {}".format(bcf_file, ret))
+                    logging.gemBS.gt("Methylation extraction for {} done, results located in: {}".format(bcf_file, ret))
             
                 status1 = self.mask & 21
                 c.execute("BEGIN IMMEDIATE")
-                c.execute("UPDATE filtering SET status = ? WHERE filepath = ?", (status1, filebase))
+                c.execute("UPDATE extract SET status = ? WHERE filepath = ?", (status1, filebase))
                 database.del_db_com(filebase)
                 
         c.execute("COMMIT")

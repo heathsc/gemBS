@@ -82,7 +82,7 @@ class database(sqlite3.Connection):
         c.execute("CREATE TABLE IF NOT EXISTS indexing (file text, type text PRIMARY KEY, status int)")
         c.execute("CREATE TABLE IF NOT EXISTS mapping (filepath text PRIMARY KEY, fileid text, sample text, type text, status int)")
         c.execute("CREATE TABLE IF NOT EXISTS calling (filepath test PRIMARY KEY, poolid text, sample text, type text, status int)")
-        c.execute("CREATE TABLE IF NOT EXISTS filtering (filepath test PRIMARY KEY, sample text, status int)")
+        c.execute("CREATE TABLE IF NOT EXISTS extract (filepath test PRIMARY KEY, sample text, status int)")
         self.commit()
 
     def copy_to_mem(self):
@@ -100,7 +100,7 @@ class database(sqlite3.Connection):
             self.create_tables()
             c_old = db.cursor()
             c = self.cursor()
-            for tab in ('indexing', 'mapping', 'calling', 'filtering'):
+            for tab in ('indexing', 'mapping', 'calling', 'extract'):
                 for ret in c_old.execute("SELECT * FROM {}".format(tab)):
                     c.execute("INSERT INTO {} VALUES {}".format(tab, ret))
             self.commit()
@@ -110,7 +110,7 @@ class database(sqlite3.Connection):
         self.check_index()
         self.check_mapping()
         self.check_contigs()
-        self.check_filtering()
+        self.check_extract()
     
     def check_index(self):
         config = database.json_data.config
@@ -387,11 +387,11 @@ class database(sqlite3.Connection):
                 js.pools[ctg]=pl[0]
         self.commit()
 
-    def check_filtering(self):
+    def check_extract(self):
         js = database.json_data
         config = js.config
         sdata = js.sampleData
-        cpg_dir = config['filtering'].get('filter_dir', '.')
+        cpg_dir = config['extract'].get('extract_dir', '.')
 
         c = self.cursor()
         slist = {}
@@ -402,11 +402,11 @@ class database(sqlite3.Connection):
 
         old_tab = {}
         key_used = {}
-        for ret in c.execute("SELECT * FROM filtering"):
+        for ret in c.execute("SELECT * FROM extract"):
             old_tab[ret[0]] = ret
             key_used[ret[0]] = False
 
-        filter_tab = {}
+        extract_tab = {}
         changed = False
         for bc, sample in slist.items():
             cpg = cpg_dir.replace('@BARCODE', bc).replace('@SAMPLE', sample)
@@ -420,8 +420,8 @@ class database(sqlite3.Connection):
                 if os.path.isfile(sample_cpg + '_chh.bb'): st |= 16
                 if os.path.isfile(sample_cpg + '.bw'): st |= 64
                 old = (old[0], old[1], st)
-            filter_tab[sample_cpg] = (sample_cpg, bc, old[2])
-            if old != filter_tab[sample_cpg]:
+            extract_tab[sample_cpg] = (sample_cpg, bc, old[2])
+            if old != extract_tab[sample_cpg]:
                 changed = True
 
         if not changed:
@@ -431,10 +431,10 @@ class database(sqlite3.Connection):
                     break
             
         if changed:
-            logging.debug("Updating filtering table")
-            c.execute("DELETE FROM filtering")
-            for key, tab in filter_tab.items():
-                c.execute("INSERT INTO filtering VALUES(?, ?, ?)", tab)
+            logging.debug("Updating extract table")
+            c.execute("DELETE FROM extract")
+            for key, tab in extract_tab.items():
+                c.execute("INSERT INTO extract VALUES(?, ?, ?)", tab)
             self.commit()
 
     @staticmethod

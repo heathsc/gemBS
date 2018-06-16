@@ -124,7 +124,7 @@ class JSONdata:
         try:
             conf = jsconfig['config']
             defaults = conf['DEFAULT']
-            for sect in ['mapping', 'calling', 'filtering', 'report', 'index', 'DEFAULT']:
+            for sect in ['mapping', 'calling', 'extract', 'report', 'index', 'DEFAULT']:
                 self.config[sect] = {}
                 if sect in conf:
                     for key,val in conf[sect].items():
@@ -202,7 +202,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
         for key,val in config['default'].items():
             def_dict[key] = val
         config_dict['DEFAULT'] = def_dict
-        sections = ['mapping', 'calling', 'filtering', 'report', 'index']
+        sections = ['mapping', 'calling', 'extract', 'report', 'index']
         for sect in sections:
             config_dict[sect] = {}
             if sect in config:
@@ -998,9 +998,9 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         pipeline.append(wig2bigwig)
         
     logfile = os.path.join(output_dir,"mextr_{}.err".format(name))
-    process = run_tools(pipeline, name="Methylation Calls Filtering", logfile=logfile)
+    process = run_tools(pipeline, name="Methylation Extraction", logfile=logfile)
     if process.wait() != 0:
-        raise ValueError("Error while filtering bcf methylation calls.")
+        raise ValueError("Error while extracting methylation calls.")
 
     os.remove(contig_bed)
     
