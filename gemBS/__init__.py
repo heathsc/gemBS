@@ -823,6 +823,9 @@ class MethylationCallThread(th.Thread):
             if ret[0] == 'POOL_BCF':
                 (sample, input_bam, pool) = ret[1:]
                 bcf_file, pool, chrom_list = pool
+                output = os.path.dirname(bcf_file)
+                log_file = os.path.join(output,"bs_call_{}_{}.err".format(sample, pool))
+                report_file = os.path.join(output,"{}_{}.json".format(sample, pool))
                 if self.dry_run_com:
                     com = list(self.dry_run_com[0])
                     com.extend(['call','-b',sample,'--pool',pool,'--no-merge'])
@@ -842,13 +845,10 @@ class MethylationCallThread(th.Thread):
                         task={}
                         task['command']=com
                         task['inputs']=[input_bam]
-                        task['outputs']=[bcf_file]
+                        task['outputs']=[bcf_file, report_file, log_file]
                         desc="call {} {}".format(sample,pool)
                         self.json_commands[desc]=task
                 else:
-                    output = os.path.dirname(bcf_file)
-                    log_file = os.path.join(output,"bs_call_{}_{}.err".format(sample, pool))
-                    report_file = os.path.join(output,"{}_{}.json".format(sample, pool))
                     contig_bed = os.path.join(output,"contigs_{}_{}.bed".format(sample, pool))
                     bsCallCommand = self.bsCall.prepare(sample, input_bam, chrom_list, bcf_file, report_file, contig_bed)
                     process = run_tools(bsCallCommand, name="bscall", logfile=log_file)
@@ -870,7 +870,11 @@ class MethylationCallThread(th.Thread):
                         task={}
                         task['command']=com
                         task['inputs']=list_bcfs
-                        task['outputs']=[fname]
+                        odir = os.path.dirname(fname)
+                        bcfSampleMd5 = os.path.join(odir,"{}.bcf.md5".format(sample))
+                        idxfile = os.path.join(odir,"{}.bcf.csi".format(sample))
+                        logfile = os.path.join(odir,"bcf_concat_{}.err".format(sample))
+                        task['outputs']=[fname, idxfile, bcfSampleMd5, logfile]
                         desc="call {}".format(fname)
                         self.json_commands[desc]=task
                 

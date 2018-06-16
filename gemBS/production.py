@@ -496,7 +496,10 @@ class Mapping(BasicPipeline):
                     task = {}
                     task['command'] = com
                     task['inputs'] = inputFiles
-                    task['outputs'] = [outfile]
+                    odir = os.path.dirname(outfile)
+                    report_file = os.path.join(odir,fli + '.json')
+                    logfile = os.path.join(odir,'gem_mapper_' + fli + '.err')
+                    task['outputs'] = [outfile, report_file, logfile]
                     desc = "map {}".format(fli)
                     self.json_commands[desc] = task
             else:
@@ -562,8 +565,10 @@ class Mapping(BasicPipeline):
                                 task = {}
                                 task['command'] = com
                                 task['inputs'] = inputs
-                                task['outputs'] = [outfile]
-                                desc = "merge {}".format(sample)
+                                logfile1 = os.path.join(odir, 'bam_index_' + smp + '.err')
+                                logfile2 = os.path.join(odir, 'bam_merge_' + smp + '.err')
+                                task['outputs'] = [outfile, ixfile, md5file, logfile1, logfile2]
+                                desc = "merge {}".format(smp)
                                 self.json_commands[desc] = task
                         else:
                             ret = merging(inputs = inputs, sample = sample, threads = self.threads, outname = outfile)
@@ -595,13 +600,18 @@ class Mapping(BasicPipeline):
                 if args.threads: com.extend(['-t',args.threads])
                 if args.remove: com.append('-r')
                 if self.dry_run:
-                    print(com)
+                    print(' '.join(com))
                 if self.dry_run_json:
                     task = {}
                     task['desc'] = "merge {}".format(sample)
                     task['command'] = com
                     task['inputs'] = []
-                    task['outputs'] = [fname]
+                    odir = os.path.dirname(fname)
+                    ixfile = os.path.join(odir, sample + '.bai')
+                    md5file = fname + '.md5'
+                    logfile1 = os.path.join(odir, 'bam_index_' + sample + '.err')
+                    logfile2 = os.path.join(odir, 'bam_merge_' + sample + '.err')
+                    task['outputs'] = [fname, ixfile, md5file, logfile1, logfile2]
                     desc = "merge {}".format(sample)
                     self.json_commands[desc] = task
             else:
