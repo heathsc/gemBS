@@ -51,8 +51,8 @@ can install everything required with the followiwg commands:
 Check your installation
 -----------------------
 
-For checking your installation follow the worked example at
-[gemBS exampled](http://statgen.cnag.cat/GEMBS_devel/UserGuide/_build/html/example.html).
+For checking your installation follow this
+[worked example](http://statgen.cnag.cat/GEMBS_devel/UserGuide/_build/html/example.html).
 
 
 -------------
@@ -60,7 +60,7 @@ Documentation
 -------------
 
 Documentation can be found at
-[gemMBS](http://statgen.cnag.cat/GEMBS_devel/)
+[gemBS](http://statgen.cnag.cat/GEMBS_devel/)
 
 ----------
 Changelog:
