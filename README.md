@@ -51,14 +51,16 @@ can install everything required with the followiwg commands:
 Check your installation
 -----------------------
 
-For checking your installation follow the commands found at [README_TEST.md](test/README_TEST.md).
+For checking your installation follow the worked example at
+[gemBS exampled](http://statgen.cnag.cat/GEMBS_devel/UserGuide/_build/html/example.html).
 
 
 -------------
 Documentation
 -------------
 
-Documentation can be found at [GEMBS](http://statgen.cnag.cat/GEMBS/)
+Documentation can be found at
+[gemMBS](http://statgen.cnag.cat/GEMBS_devel/)
 
 ----------
 Changelog:
