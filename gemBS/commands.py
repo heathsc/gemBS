@@ -93,19 +93,20 @@ def gemBS_main():
         parser.add_argument('--loglevel', dest="loglevel", default=None, help="Log level (error, warn, info, debug)")
         parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __VERSION__)
         parser.add_argument('-j', '--json-file', dest="json", help="Location of gemBS JSON file")
+        parser.add_argument('-d', '--dir', dest="wd", metavar="DIR",help="Set working directory")
         
         if pkg_resources.resource_exists("gemBS", "libexec/bcftools"):
             f = pkg_resources.resource_filename("gemBS", "libexec/bcftools")
             os.environ["BCFTOOLS_PLUGINS"] = f
         if pkg_resources.resource_exists("gemBS", "bin"):
             f = pkg_resources.resource_filename("gemBS", "bin")
-        path = os.environ["PATH"]
+        path = os.environ.get("PATH")
         if path == None:
             path = f
         else:
             path = f + ":" + path
             os.environ["PATH"] = path
-
+            
         commands = {
             "prepare" : PrepareConfiguration,            
             "index" : Index,
@@ -133,16 +134,25 @@ def gemBS_main():
         else:
             sys.tracebacklimit = 0
 
+        if args.wd and os.path.isdir(args.wd):
+            os.chdir(args.wd)
+        else:
+            wd = os.environ.get("GEMBS_HOME")
+            if wd and os.path.isdir(wd):
+                os.chdir(wd)
+            
         if args.json == None:
             for x in ('.gemBS/gemBS.json', 'gemBS.json'):
                 if os.path.isfile(x):
                     args.json = x
                     break
-                
+
         BasicPipeline.gemBS_json = args.json
         if args.command == None:
             parser.print_help(sys.stderr)
         else:
+            if not (args.command == 'prepare' or args.json):
+                raise CommandException("gemBS JSON file not found.")
             try:
                 instances[args.command].run(args)
             except CommandException as e:
