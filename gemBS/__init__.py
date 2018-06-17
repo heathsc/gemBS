@@ -93,7 +93,7 @@ class Fli:
         #fli Members
         self.fli = None
         self.alt_fli = None
-        self.sample_name = None
+        self.sample_name = ""
         self.sample_barcode = None
         self.description = None
         self.library = None
