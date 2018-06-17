@@ -437,6 +437,8 @@ def index(input_name, index_name, threads=None,tmpDir=None,sampling_rate=None):
     
     index_base = index_name[:-4] if index_name.endswith('.gem') else index_name
     output_dir, base = os.path.split(index_name)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     logfile = os.path.join(output_dir,"gem_indexer_" + base + ".err")
     logging.gemBS.gt("Creating index")
