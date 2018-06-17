@@ -242,6 +242,7 @@ class Mapping(BasicPipeline):
         parser.add_argument('--no-merge', dest="no_merge", action="store_true", help="Do not automatically merge BAMs")
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
         parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
+        parser.add_argument('--ignore-db', dest="ignore_db", action="store_true",help="Ignore database for --dry-run and --json commands")
                     
     def run(self, args):     
         self.all_types = ['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM', 'COMMAND', 'SINGLE_COMMAND', 'PAIRED_COMMAND']
@@ -266,10 +267,14 @@ class Mapping(BasicPipeline):
         self.dry_run = args.dry_run
         self.dry_run_json = args.dry_run_json
         self.no_merge = args.no_merge
+        if self.dry_run or self.dry_run_json:
+            self.ignore_db = args.ignore_db
+        else:
+            self.ignore_db = False
+            
         if self.dry_run_json:
             self.json_commands = {}
         self.command = 'map'
-        
         # JSON data
         self.jsonData = JSONdata(Mapping.gemBS_json)
 
@@ -321,6 +326,8 @@ class Mapping(BasicPipeline):
             ret = c.execute("SELECT * from mapping")
         work_list = {}
         for fname, fl, smp, ftype, status in ret:
+            if self.ignore_db:
+                status = 0
             if not smp in work_list:
                 work_list[smp] = [None, []]
             if ftype == 'MRG_BAM':
@@ -352,7 +359,10 @@ class Mapping(BasicPipeline):
         c = self.db.cursor()
 
         try_get_exclusive(c)
-        c.execute("SELECT * FROM mapping WHERE fileid = ? AND status = 0", (fli,))
+        if self.ignore_db:
+            c.execute("SELECT * FROM mapping WHERE fileid = ?", (fli,))
+        else:
+            c.execute("SELECT * FROM mapping WHERE fileid = ? AND status = 0", (fli,))
         ret = c.fetchone()
         if ret:
             # Claim FLI by setting status to 3
@@ -664,6 +674,7 @@ class Merging(Mapping):
         parser.add_argument('-r', '--remove', dest="remove", action="store_true", help='Remove individual BAM files after merging.', required=False)
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
         parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
+        parser.add_argument('--ignore-db', dest="ignore_db", action="store_true",help="Ignore database for --dry-run and --json commands")
         
     def run(self, args):
         self.command = 'merge-bams'
@@ -674,7 +685,12 @@ class Merging(Mapping):
         self.remove = self.jsonData.check(section='mapping',key='remove_individual_bams',arg=args.remove, boolean=True)
         self.dry_run = args.dry_run
         self.dry_run_json = args.dry_run_json
+        if self.dry_run or self.dry_run_json:
+            self.ignore_db = args.ignore_db
+        else:
+            self.ignore_db = False
         self.args = args
+
         if self.dry_run_json:
             self.json_commands = {}
         
@@ -791,6 +807,7 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('--list-pools',dest="list_pools",metavar="LEVEL",type=int,nargs='?',help="List contig pools and exit. Level 1 - list names, level > 1 - list pool composition", default=0, const=1)
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
         parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
+        parser.add_argument('--ignore-db', dest="ignore_db", action="store_true",help="Ignore database for --dry-run and --json commands")
         
     def run(self,args):
         self.command = 'call'
@@ -826,6 +843,11 @@ class MethylationCall(BasicPipeline):
         self.args = args
         self.dry_run_json = args.dry_run_json
         self.no_merge = args.no_merge
+        if self.dry_run or self.dry_run_json:
+            self.jobs = 1
+            self.ignore_db = args.ignore_db
+        else:
+            self.ignore_db = False
         if self.dry_run_json:
             self.json_commands = {}
         else:
@@ -867,11 +889,11 @@ class MethylationCall(BasicPipeline):
         if self.conversion != None and self.conversion.lower() == "auto" and not args.concat:
             sample_lane_files = {}
             if args.sample:
-                ret = c.execute("SELECT * FROM mapping WHERE sample = ? AND type != 'MRG_BAM'", (args.sample,))
+                ret = c.execute("SELECT filepath, fileid, sample FROM mapping WHERE sample = ? AND type != 'MRG_BAM'", (args.sample,))
             else:
-                ret = c.execute("SELECT * FROM mapping WHERE type != 'MRG_BAM'")
+                ret = c.execute("SELECT filepath, fileid, sample FROM mapping WHERE type != 'MRG_BAM'")
                 
-            for fname, fli, smp, ftype, status in ret:
+            for fname, fli, smp in ret:
                 bam_dir = os.path.dirname(fname)
                 fileJson = os.path.join(bam_dir,"{}.json".format(fli))
                 if os.path.isfile(fileJson):
@@ -927,16 +949,17 @@ class MethylationCall(BasicPipeline):
         else:            
             ret = c.execute("SELECT * from mapping WHERE type != 'MULTI_BAM'")
         for fname, fli, smp, ftype, status in ret:
-            if status == 1:
+            if status == 1 or self.ignore_db:
                 if not os.path.isfile(fname):
-                    raise CommandException("Sorry file '{}' was not found".format(fname))
+                    if not self.ignore_db:
+                        raise CommandException("Sorry file '{}' was not found".format(fname))
                 sampleBam[smp] = fname
             else:
                 logging.gemBS.gt("Sample BAM file '{}' not ready".format(fname))
 
         if not sampleBam:
             raise CommandException("No available BAM files for calling")
-        
+
         # Get contig pools
         contigs = self.jsonData.contigs
         
@@ -966,6 +989,8 @@ class MethylationCall(BasicPipeline):
         for smp in sampleBam:
             ind_bcf[smp] = []
         for fname, pool, smp, ftype, status in c.execute("SELECT * from calling"):
+            if self.ignore_db:
+                status = 0
             if smp in sampleBam:
                 if ftype == 'POOL_BCF':
                     if pool in self.contig_list:
@@ -1039,7 +1064,7 @@ class MethylationCall(BasicPipeline):
                     logging.gemBS.gt("Methylation Merging...")
                 else:
                     logging.gemBS.gt("Methylation Calling...")
-            ret = methylationCalling(reference=self.fasta_reference,species=self.species,no_merge=self.no_merge,
+            ret = methylationCalling(reference=self.fasta_reference,species=self.species,no_merge=self.no_merge,ignore_db=self.ignore_db,
                                      right_trim=self.right_trim, left_trim=self.left_trim,concat=args.concat,json_commands=self.json_commands,
                                      sample_bam=self.sampleBam,output_bcf=self.outputBcf,remove=self.remove,dry_run=self.dry_run,
                                      keep_unmatched=self.keep_unmatched,samples=self.samples,dry_run_com=dry_run_com,
@@ -1099,6 +1124,7 @@ class BsCallConcatenate(MethylationCall):
         parser.add_argument('-j', '--jobs', dest="jobs", type=int, help='Number of parallel jobs')
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
         parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
+        parser.add_argument('--ignore-db', dest="ignore_db", action="store_true",help="Ignore database for --dry-run and --json commands")
     
     def run(self,args):
 

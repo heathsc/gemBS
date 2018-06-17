@@ -714,7 +714,7 @@ class BsCaller:
         return bsCall
 
 class MethylationCallIter:
-    def __init__(self, samples, sample_bam, output_bcf, jobs, concat, no_merge):
+    def __init__(self, samples, sample_bam, output_bcf, jobs, concat, no_merge, ignore_db):
         self.sample_bam = sample_bam
         self.sample_list = samples
         self.output_bcf = output_bcf
@@ -724,6 +724,8 @@ class MethylationCallIter:
         self.plist = {}
         self.concat = concat
         self.no_merge = no_merge
+        self.ignore_db = ignore_db
+        self.status = {}
         
         for smp in self.sample_list:
             self.plist[smp] = {}
@@ -731,7 +733,6 @@ class MethylationCallIter:
             for v in pl:
                 self.output_list.append(v[0])
                 self.plist[smp][v[1]] = v
-        
 
     def __iter__(self):
         return  self
@@ -747,12 +748,14 @@ class MethylationCallIter:
             mrg_ok = False if self.no_merge else True
             list_bcfs = []
             for fname, pool, ftype, status in c.execute("SELECT filepath, poolid, type, status FROM calling WHERE sample = ?", (sample,)):
+                if self.ignore_db:
+                    status = self.status.get(fname, 0)
                 if ftype == 'POOL_BCF':
                     if fname in self.output_list and status == 0:
-                        mrg_ok = False
                         if not self.concat:
                             ret = (ftype, sample, self.sample_bam[sample], self.plist[sample][pool])
                             c.execute("UPDATE calling SET status = 3 WHERE filepath = ?", (fname,))
+                            self.status[fname] = 1
                             base, ext = os.path.splitext(fname)
                             jfile = base + '.json'
                             database.reg_db_com(fname, "UPDATE calling SET status = 0 WHERE filepath = '{}'".format(fname), [fname, jfile])
@@ -769,6 +772,7 @@ class MethylationCallIter:
             else:
                 if mrg_ok and mrg_file != "":
                     c.execute("UPDATE calling SET status = 3 WHERE filepath = ?", (mrg_file,))
+                    self.status[mrg_file] = 1
                     ixfile = mrg_file + '.csi'
                     md5file = mrg_file + '.md5'
                     database.reg_db_com(mrg_file, "UPDATE calling SET status = 0 WHERE filepath = '{}'".format(mrg_file), [mrg_file, ixfile, md5file])
@@ -891,7 +895,7 @@ class MethylationCallThread(th.Thread):
 def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=None,samples=None,right_trim=0,left_trim=5,dry_run_com=None,
                        keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1",jobs=1,remove=False,concat=False,
                        mapq_threshold=None,bq_threshold=None,haploid=False,conversion=None,ref_bias=None,sample_conversion=None,
-                       no_merge=False,json_commands=None,dry_run=False,dry_run_json=None):
+                       no_merge=False,json_commands=None,dry_run=False,dry_run_json=None,ignore_db=None):
 
     """ Performs the process to make met5Bhylation calls.
     
@@ -915,7 +919,7 @@ def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=No
     ref_bias -- bias to reference homozygote
     sample_conversion - per sample conversion rates (calculated if conversion == 'auto')
     """
-
+    
     for snp, pl in output_bcf.items():
         for v in pl:
             odir = os.path.dirname(v[0])
@@ -944,7 +948,7 @@ def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=No
     if dry_run_com != None:
         jobs = 1
         
-    methIter = MethylationCallIter(samples, sample_bam, output_bcf, jobs, concat, no_merge)
+    methIter = MethylationCallIter(samples, sample_bam, output_bcf, jobs, concat, no_merge, ignore_db)
     lock = th.Lock()
     if jobs < 1: jobs = 1
     thread_list = []
