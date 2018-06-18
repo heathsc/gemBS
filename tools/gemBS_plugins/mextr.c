@@ -6,6 +6,7 @@
 #include <getopt.h>
 #include <math.h>
 #include <stdbool.h>
+#include <sys/wait.h>
 
 #include "mextr.h"
 #include "utils.h"
