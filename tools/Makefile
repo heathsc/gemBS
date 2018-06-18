@@ -37,17 +37,17 @@ all: release $(FOLDER_BIN)/wigToBigWig $(FOLDER_BIN)/bedToBigBed
 	$(MAKE) $(FOLDER_BIN)/bcftools
 
 static:	setup gem3-static $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
-	$(MAKE) --directory=readNameClean static
+	$(MAKE) --directory=utils static
 	$(MAKE) --directory=gen static
 	$(MAKE) --directory=bs_call static
 
 release: setup	gem3 $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
-	$(MAKE) --directory=readNameClean
+	$(MAKE) --directory=utils
 	$(MAKE) --directory=gen
 	$(MAKE) --directory=bs_call
 
 debug: setup gem3-debug $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
-	$(MAKE) --directory=readNameClean debug
+	$(MAKE) --directory=utils debug
 	$(MAKE) --directory=gen debug
 	$(MAKE) --directory=bs_call debug
 	cd gem3-mapper; ./configure;
