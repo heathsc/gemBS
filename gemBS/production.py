@@ -615,13 +615,13 @@ class Mapping(BasicPipeline):
                     task = {}
                     task['desc'] = "merge {}".format(sample)
                     task['command'] = com
-                    task['inputs'] = []
+                    task['inputs'] = [fname]
                     odir = os.path.dirname(fname)
                     ixfile = os.path.join(odir, sample + '.bai')
                     md5file = fname + '.md5'
                     logfile1 = os.path.join(odir, 'bam_index_' + sample + '.err')
                     logfile2 = os.path.join(odir, 'bam_merge_' + sample + '.err')
-                    task['outputs'] = [fname, ixfile, md5file, logfile1, logfile2]
+                    task['outputs'] = [ixfile, md5file, logfile1, logfile2]
                     desc = "merge {}".format(sample)
                     self.json_commands[desc] = task
             else:
