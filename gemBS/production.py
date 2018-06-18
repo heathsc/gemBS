@@ -155,6 +155,7 @@ class Index(BasicPipeline):
             db_data[ftype] = (fname, status)
 
         fasta_input, fasta_input_ok = db_data['reference']
+        extra_fasta_files = jsonData.check(section='index',key='extra_references',arg=None,list_type=True,default=[])
         index_name, index_ok = db_data['index']
         csizes, csizes_ok = db_data['contig_sizes']
         dbsnp_index, dbsnp_ok = db_data.get('dbsnp_idx',(None, 0))
@@ -162,13 +163,16 @@ class Index(BasicPipeline):
         args.sampling_rate = jsonData.check(section='index',key='sampling_rate',arg=args.sampling_rate)
         args.list_dbSNP_files = jsonData.check(section='index',key='dbsnp_files',arg=args.list_dbSNP_files,list_type=True,default=[])
         if not fasta_input: raise ValueError('No input reference file specified for Index command')
-
+            
         if index_ok == 1:
             logging.warning("Bisulphite Index {} already exists, skipping indexing".format(index_name))
         else:
             self.log_parameter()
         
-            ret = index(fasta_input, index_name, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=os.path.dirname(index_name))
+            ret = index(fasta_input, index_name, extra_fasta_files=extra_fasta_files, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=os.path.dirname(index_name))
+            if os.path.exists(csizes):
+                os.remove(csizes)
+                csizes_ok = 0
             if ret:
                 logging.gemBS.gt("Index done: {}".format(index))
                 db.check_index()

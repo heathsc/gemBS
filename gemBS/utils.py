@@ -117,8 +117,6 @@ class Process:
 
         logging.debug("Starting subprocess")
 
-        print (" ".join(self.commands))
-
         self.process = subprocess.Popen(self.commands, stdin=stdin, stdout=stdout, stderr=stderr, env=self.env, close_fds=False)
 
         if process_input is not None:

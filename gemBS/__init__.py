@@ -79,8 +79,7 @@ executables = execs_dict({
     "wigToBigWig": "wigToBigWig",
     "bedToBigBed": "bedToBigBed",
     "dbSNP_idx": "dbSNP_idx",
-    "filter_vcf": "filter_vcf",
-    "cpgToWig": "cpgToWig",
+    "gemBS_cat": "gemBS_cat",
     "samtools": "samtools",
     "bcftools": "bcftools",
     "bgzip": "bgzip",
@@ -195,7 +194,14 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
     generalDictionary = {}
     cpath = None
     inputs_path = None
-    
+
+    if no_db:
+        js = 'gemBS.json'
+    else:
+        js = '.gemBS/gemBS.json'
+    if os.path.exists(js):
+        os.remove(js)
+        
     if configFile is not None:
         config = gembsConfigParse()
         config.read(configFile)
@@ -215,13 +221,38 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
         elif dbfile == None:
             dbfile = def_dict.get('gembs_dbfile', '.gemBS/gemBS.db')
         config_dict['DEFAULT']['gembs_dbfile'] = dbfile
-        generalDictionary['config'] = config_dict
         if not 'reference' in config_dict['DEFAULT']:
             raise ValueError("No value for 'reference' given in main section of configuration file {}".format(configFile))
-            
         if not os.path.exists(config_dict['DEFAULT']['reference']):
             raise CommandException("Reference file '{}' does not exist".format(config_dict['DEFAULT']['reference']))
-
+        ex_fasta = config_dict['DEFAULT'].get('extra_references')
+        if ex_fasta:
+            if not isinstance(ex_fasta, list):
+                ex_fasta = [ex_fasta]
+        else:
+            ex_fasta = []
+        if ex_fasta:
+            omit = []
+            for f in ex_fasta:
+                if not os.path.exists(f):
+                    raise CommandException("Reference file '{}' does not exist".format(f))
+            gcat = [executables['gemBS_cat']]
+            gcat.extend(ex_fasta)
+            grep = ['grep','^>']
+            process = run_tools([gcat, grep], name='gemBS_cat', output = subprocess.PIPE)
+            p = process.processes[-1].process
+            while True:
+                line = p.stdout.readline().rstrip()
+                if not line:
+                    break
+                line = line[1:].decode('UTF-8').split(None,1)[0]
+                omit.append(line)
+            omit_old = config_dict['calling'].get('omit_contigs',[])
+            if not omit_old: omit_old = config_dict['DEFAULT'].get('omit_contigs',[])
+            omit_old.extend(omit)
+            config_dict['calling']['omit_contigs']=omit_old
+            
+        generalDictionary['config'] = config_dict
         if not no_db:
             cpath = os.path.dirname(dbfile)
             inputs_path = os.path.join(cpath,'gemBS_inputs')
@@ -237,7 +268,10 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
             jsonOutput = os.path.join(cpath, 'gemBS.json')
         else:
             jsonOutput = 'gemBS.json'
-    
+
+    if os.path.exists(jsonOutput):
+        os.remove(jsonOutput)
+
     generalDictionary['sampleData'] = {}
     if text_metadata is not None:
         #Parses Metadata coming from text file
@@ -390,6 +424,8 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
                     sample["sample_barcode"] = element["sample_barcode"]
                     sample["library_barcode"] = element["library_barcode"]
                     sample["sample_name"] = element["sample_name"]
+                    sample["platform"] = 'Illumina'
+                    sample["centre"] = 'CNAG'
                     generalDictionary['sampleData'][fli] = sample
 
         if inputs_path != None:
@@ -422,7 +458,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
     with open(jsonOutput, 'w') as of:
         json.dump(generalDictionary, of, indent=2)
 
-def index(input_name, index_name, threads=None,tmpDir=None,sampling_rate=None):
+def index(input_name, index_name, extra_fasta_files=None,threads=None,tmpDir=None,sampling_rate=None):
     """Run the gem-indexer on the given input. Input has to be the path
     to a single fasta file that contains the genome to be indexed.
     Output should be the path to the target index file. Note that
@@ -439,14 +475,30 @@ def index(input_name, index_name, threads=None,tmpDir=None,sampling_rate=None):
     output_dir, base = os.path.split(index_name)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-
+    if extra_fasta_files:
+        gcat = [executables['gemBS_cat'],input_name]
+        for f in extra_fasta_files:
+            if not os.path.exists(f):
+                raise CommandException("Reference file '{}' does not exist".format(f))
+            
+        gcat.extend(extra_fasta_files)
+        output = index_base + "_gemBS.tmp.gz"
+        process = run_tools([gcat,['pigz']], name='gemBS_cat', output = output)
+        if process.wait() != 0:
+            if os.path.exists(output):
+                os.remove(output)
+            raise ValueError("Error while concatenating input fasta files")
+        f_in = output
+    else:
+        f_in = input_name
+           
     logfile = os.path.join(output_dir,"gem_indexer_" + base + ".err")
     logging.gemBS.gt("Creating index")
                            
     indexer = [
         executables['gem-indexer'],
         '-b',
-        '-i',input_name,
+        '-i',f_in,
         '-o',index_base
     ]
 
@@ -462,9 +514,15 @@ def index(input_name, index_name, threads=None,tmpDir=None,sampling_rate=None):
 
     
     process = run_tools([indexer], name="gem-indexer", logfile=logfile)
+        
     if process.wait() != 0:
+        for f in (f_in, index_base + '.gem', index_base + '.info', index_base + '.sa.tmp'):
+            if os.path.exists(f):
+                os.remove(f)
         raise ValueError("Error while executing the Bisulphite gem-indexer")
     
+    if f_in != input_name:
+        os.remove(f_in)
     if index_name != index_base + ".gem":
         os.rename(index_base + ".gem", index_name)
         os.rename(index_base + ".info", index_name + ".info")
