@@ -1,7 +1,7 @@
-GEMBS
+gemBS
 =====
 
-GEMBS is a high performance bioinformatic pipeline designed for highthroughput analysis
+gemBS is a high performance bioinformatic pipeline designed for highthroughput analysis
 of DNA methylation data from whole genome bisulfites sequencing data
 (WGBS). It implements GEM3, a high performance read aligner and
 bs_call, a variant and methyation caller specifically for bisulfite sequencing data.
@@ -12,7 +12,7 @@ The manuscript describing the pipeline is available [here](https://www.biorxiv.o
 Licensing
 ---------
 
-GEMBS is licensed under GPL.
+gemBS is licensed under GPL.
 
 --------
 Download
@@ -26,7 +26,7 @@ Use ``git clone --recursive`` to retrieve the complete source code including the
 Installation
 ------------
 
-1) Before starting the installation of GEMBS, you will need to install
+1) Before starting the installation of gemBS, you will need to install
 or check the installation of several packages.
 
   a) gcc with development libraries
@@ -55,7 +55,7 @@ Check your installation
 -----------------------
 
 For checking your installation follow this
-[worked example](http://statgen.cnag.cat/GEMBS_devel/UserGuide/_build/html/example.html).
+[worked example](http://statgen.cnag.cat/gemBS_devel/UserGuide/_build/html/example.html).
 
 
 -------------
@@ -63,11 +63,16 @@ Documentation
 -------------
 
 Documentation can be found at
-[gemBS](http://statgen.cnag.cat/GEMBS_devel/)
+[gemBS](http://statgen.cnag.cat/gemBS_devel/)
 
 ----------
 Changelog:
 ----------
+    3.0 Add links to documentation
+	 3.0 Upload new yeast example and add documentation
+	 3.0 Add --dir option to gemBS
+	 3.0 Add --ignore-db options for --dry-run / --json
+	 3.0 Add --json output option for dry runs
     3.0 Update help text to match new functions
     3.0 Introduce standard analysis configurations stored within distribution
     3.0 Switch gem3-mapper distribution to gembs branch on official gem3-mapper repo
@@ -150,13 +155,14 @@ Changelog:
 Developers
 ----------
  
- GEMBS:
+ gemBS:
  * Marcos Fernandez-Callejo - marcos.fernandez@cnag.crg.eu
+ * Simon Heath - simon.heath@gmail.com
  
  gem mapper:
- * Santiago Marco-Sola - santiago.marco@cnag.crg.eu
+ * Santiago Marco-Sola - santiagomsola@gmail.com
 
  bisulfite caller and filtering:
- * Simon Heath - simon.heath@cnag.crg.eu
+ * Simon Heath - simon.heath@gmail.com
 
 
