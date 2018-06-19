@@ -8,26 +8,13 @@ From: ubuntu:bionic   # This is a comment
     gemBS singularity container
 	 
 %post
+	 (mkdir /ext && cd /ext && mkdir disk1 disk2 disk3 disk4 disk5 disk6 disk7 disk8 disk9)
     apt-get update
-    apt-get install -y python build-essential git python-pip wget pigz
+    apt-get install -y python3 build-essential git python3-pip wget pigz
     apt-get install -y zlib1g-dev libbz2-dev gsl-bin libgsl0-dev
     apt-get install -y libncurses5-dev liblzma-dev libssl-dev libcurl4-openssl-dev
-    (cd /usr/local/bin; \
-    wget http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/wigToBigWig \
-    && chmod 755 wigToBigWig)
-    pip install numpy
-    pip install matplotlib
+    pip3 install matplotlib multiprocess
     mkdir /usr/local/build; cd /usr/local/build
-    wget https://github.com/samtools/samtools/releases/download/1.8/samtools-1.8.tar.bz2
-    tar -jxf samtools-1.8.tar.bz2 && rm samtools-1.8.tar.bz2
-    (cd samtools-1.8; ./configure --prefix=/usr/local && \
-    make all all-htslib && make install install-htslib)
-    rm -rf samtools-1.8
-    wget https://github.com/samtools/bcftools/releases/download/1.8/bcftools-1.8.tar.bz2
-    tar -jxf bcftools-1.8.tar.bz2 && rm bcftools-1.8.tar.bz2
-    (cd bcftools-1.8; ./configure --prefix=/usr/local && make && make install)
-    rm -rf bcftools-1.8
 	 git clone --recursive https://github.com/heathsc/gemBS.git
-    (cd gemBS; python setup.py install && \
-	 cp extras/gemBS_singularity.py /usr/local/bin/gemBS && chmod 755 /usr/local/bin/gemBS)
+    (cd gemBS; python3 setup.py install)
     rm -rf gemBS && cd && rmdir /usr/local/build

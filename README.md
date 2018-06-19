@@ -1,8 +1,11 @@
-GEMBS
+gemBS
 =====
 
-GEMBS is a bioinformatic pipeline designed for hightroughput analysis of DNA methylation from whole genome bisulfites sequencing data (WGBS). It implements GEM3, a high performance read aligner and BScall, a variant caller specifically for bisulfite sequencing data.
-
+gemBS is a high performance bioinformatic pipeline designed for highthroughput analysis
+of DNA methylation data from whole genome bisulfites sequencing data
+(WGBS). It combines GEM3, a high performance read aligner and
+bs_call, a high performance variant and methyation caller, into a streamlined and efficient pipeline for
+bisulfite sueqnce analysis.
 
 The manuscript describing the pipeline is available [here](https://www.biorxiv.org/content/early/2017/10/11/201988)
 
@@ -10,7 +13,7 @@ The manuscript describing the pipeline is available [here](https://www.biorxiv.o
 Licensing
 ---------
 
-GEMBS is licensed under GPL.
+gemBS is licensed under GPL.
 
 --------
 Download
@@ -24,42 +27,81 @@ Use ``git clone --recursive`` to retrieve the complete source code including the
 Installation
 ------------
 
-1) Before starting the installation of GEMBS, please check if your system has the GSL library already installed.
+1) Before starting the installation of gemBS, you will need to install
+or check the installation of several packages.
 
-    If your system does not have GSL library then you can download it from [GSL](https://www.gnu.org/software/gsl/) and follow the installation steps. 
+  a) gcc with development libraries
+  b) python3, pip3, matplotlib, multiprocess
+  c) zlib, gsl, libncurses
+  
+If you are working on a clean (fairly recent) Ubuntu installation, you
+can install everything required with the followiwg commands:
 
-    Once GSL is already available on your system then you can compile and install GEMBS.
+    sudo apt-get update
+    sudo apt-get install -y python3 build-essential git python3-pip wget pigz
+    sudo apt-get install -y zlib1g-dev libbz2-dev gsl-bin libgsl0-dev
+    sudo apt-get install -y libncurses5-dev liblzma-dev libssl-dev libcurl4-openssl-dev
+    pip3 install matplotlib multiprocess
 
-2) Change GSL library paths. In order to compile bscall you must specify the GSL headers and library directories. 
-   To do that, edit file ./tools/bs_call/Gsl.mk file with the proper paths. Just modify two lines starting with GSL_LIB and GSL_INC.
+2) Download the gemBS distribution if you haven't already done so:
 
-    ./tools/bs_call/Gsl.mk:  
-
-        #1. MODIFY HERE THE GSL LIBRARY LOCATION. FOR Example: GSL_LIB = -L/path/to/gsl/lib
-        GSL_LIB = -L/path/to/GSL/lib/
-        #2. MODIFY HERE THE GSL HEADERS LOCATION. FOR Example: GSL_LIB = -L/path/to/gsl/include
-        GSL_INC = -I/path/to/GSL/include/ 
+    git clone --recursive https://github.com/heathsc/gemBS.git
 
 3) Use python install command:
 
-    ``python setup.py install --user``
+    ``python3 setup.py install --user``
 
 -----------------------
 Check your installation
 -----------------------
 
-For checking your installation follow the commands found at [README_TEST.md](test/README_TEST.md).
+For checking your installation follow this
+[worked example](http://statgen.cnag.cat/gemBS_devel/UserGuide/_build/html/example.html).
 
 
 -------------
 Documentation
 -------------
 
-Documentation can be found at [GEMBS](http://statgen.cnag.cat/GEMBS/)
+Documentation can be found at
+[gemBS](http://statgen.cnag.cat/gemBS_devel/)
 
 ----------
 Changelog:
 ----------
+    3.0 Merge with master branch.
+    3.0 Bump samtools sort memory limit to 2G
+    3.0 Add extra_references option for reference generation
+    3.0 Allow input files to mapping to be shell commands
+    3.0 Add links to documentation
+    3.0 Upload new yeast example and add documentation
+    3.0 Add --dir option to gemBS
+    3.0 Add --ignore-db options for --dry-run / --json
+    3.0 Add --json output option for dry runs
+    3.0 Update help text to match new functions
+    3.0 Introduce standard analysis configurations stored within distribution
+    3.0 Switch gem3-mapper distribution to gembs branch on official gem3-mapper repo
+    3.0 Removal of incomplete files and roll back of db in the event of pipeline failure
+    3.0 Automatic removal of individual BAMs and BCFs after successful merging
+    3.0 Prevent pipelines hanging in event of failure
+    3.0 Generate ENCODE bed and bigbed files
+    3.0 Switch to python 3
+    3.0 Switch to mextr for BCF filtering
+    3.0 Include fetch and build of samtools / bcftools during build process
+    3.0 Add dry-run capability to map and call commands
+    3.0 Introduce contig pools to automatically group small contigs
+    3.0 Automatic generation of contig.size files from index build
+    3.0 Allow use of in memory sqlite3 db as an option
+    3.0 Allow multiple instances of gemBS (possible on different hosts) to work 
+        simultaneously on the same analysis
+    3.0 Reduce and simply commands
+    3.0 Add Dockerfile
+    3.0 Add multi-threading and multi-processing options for most commands
+    3.0 Use sqlite3 to track progress of analyses, file paths etc.
+    3.0 Added more flexible configuration options (new csv format + new configuration file)
+    3.0 Remove test dataset from distribution (distribute from web site)
+    2.1.0 Ensure commands run during pipeline come from installation
+    2.1.0 Added Singularity build recipe
     2.1.0 Add new command gemBS direct-mapping
     2.1.0 Fixed Makefile clean in tools
     2.0.2 Fixed bug related with the percentage of High Quality Variant in Variants summary report.
@@ -118,13 +160,14 @@ Changelog:
 Developers
 ----------
  
- GEMBS:
+ gemBS:
  * Marcos Fernandez-Callejo - marcos.fernandez@cnag.crg.eu
+ * Simon Heath - simon.heath@gmail.com
  
  gem mapper:
- * Santiago Marco-Sola - santiago.marco@cnag.crg.eu
+ * Santiago Marco-Sola - santiagomsola@gmail.com
 
  bisulfite caller and filtering:
- * Simon Heath - simon.heath@cnag.crg.eu
+ * Simon Heath - simon.heath@gmail.com
 
 
