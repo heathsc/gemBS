@@ -3,8 +3,9 @@ gemBS
 
 gemBS is a high performance bioinformatic pipeline designed for highthroughput analysis
 of DNA methylation data from whole genome bisulfites sequencing data
-(WGBS). It implements GEM3, a high performance read aligner and
-bs_call, a variant and methyation caller specifically for bisulfite sequencing data.
+(WGBS). It combines GEM3, a high performance read aligner and
+bs_call, a high performance variant and methyation caller, into a streamlined and efficient pipeline for
+bisulfite sueqnce analysis.
 
 The manuscript describing the pipeline is available [here](https://www.biorxiv.org/content/early/2017/10/11/201988)
 
@@ -68,11 +69,14 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.0 Bump samtools sort memory limit to 2G
+    3.0 Add extra_references option for reference generation
+    3.0 Allow input files to mapping to be shell commands
     3.0 Add links to documentation
-	 3.0 Upload new yeast example and add documentation
-	 3.0 Add --dir option to gemBS
-	 3.0 Add --ignore-db options for --dry-run / --json
-	 3.0 Add --json output option for dry runs
+    3.0 Upload new yeast example and add documentation
+    3.0 Add --dir option to gemBS
+    3.0 Add --ignore-db options for --dry-run / --json
+    3.0 Add --json output option for dry runs
     3.0 Update help text to match new functions
     3.0 Introduce standard analysis configurations stored within distribution
     3.0 Switch gem3-mapper distribution to gembs branch on official gem3-mapper repo
