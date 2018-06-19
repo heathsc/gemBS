@@ -656,7 +656,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
     readNameClean = [executables['readNameClean']]
          
     #BAM SORT
-    bamSort = [executables['samtools'],"sort","-T",os.path.join(tmpDir,name),"-@",threads,"-o",outfile,"-"]
+    bamSort = [executables['samtools'],"sort","-T",os.path.join(tmpDir,name),"-@",threads,"-m","2G","-o",outfile,"-"]
     
     tools = [mapping,readNameClean,bamSort]
     
