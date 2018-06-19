@@ -45,7 +45,7 @@ can install everything required with the followiwg commands:
 
 2) Download the gemBS distribution if you haven't already done so:
 
-    git clone --recursive https://github.com/heathsc/gemBS.git
+    ``git clone --recursive https://github.com/heathsc/gemBS.git``
 
 3) Use python install command:
 
@@ -64,7 +64,7 @@ Documentation
 -------------
 
 Documentation can be found at
-[gemBS](http://statgen.cnag.cat/gemBS_devel/)
+[gemBS](http://statgen.cnag.cat/gemBS/)
 
 ----------
 Changelog:
