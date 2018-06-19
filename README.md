@@ -56,7 +56,7 @@ Check your installation
 -----------------------
 
 For checking your installation follow this
-[worked example](http://statgen.cnag.cat/gemBS_devel/UserGuide/_build/html/example.html).
+[worked example](http://statgen.cnag.cat/gemBS/UserGuide/_build/html/example.html).
 
 
 -------------
@@ -69,6 +69,7 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.0 Make v3.0 release
     3.0 Merge with master branch.
     3.0 Bump samtools sort memory limit to 2G
     3.0 Add extra_references option for reference generation
