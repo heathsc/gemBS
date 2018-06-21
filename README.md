@@ -69,6 +69,7 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.0 Add SNP extraction function to extract command
     3.0 Make v3.0 release
     3.0 Merge with master branch.
     3.0 Bump samtools sort memory limit to 2G
