@@ -1047,7 +1047,8 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
             f.write("{}\t0\t{}\n".format(ctg, size))
 
     bcftools = [executables['bcftools'],'view','-R',contig_bed,'-Ou',bcfFile]
-    mextr = [executables['bcftools'],'+mextr','--','-z']
+    mextr_com = [executables['bcftools'],'+mextr','--','-z']
+    mextr = []
     if cpg:
         mextr.extend(['-o', outbase + '_cpg.txt'])
     if non_cpg:
@@ -1065,12 +1066,15 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
     if allow_het:
         mextr.extend(['--select', 'het'])
 
-    pipeline = [bcftools, mextr]
-    if bigWig:
-        pipeline.append(wig2bigwig)
+    if mextr:
+        mextr_com.extend(mextr)
+        pipeline = [bcftools, mextr_com]
+        if bigWig:
+            pipeline.append(wig2bigwig)
         
-    logfile = os.path.join(output_dir,"mextr_{}.err".format(name))
-    process = run_tools(pipeline, name="Methylation Extraction", logfile=logfile)
+        logfile = os.path.join(output_dir,"mextr_{}.err".format(name))
+        process = run_tools(pipeline, name="Methylation Extraction", logfile=logfile)
+        print("YO!",pipeline)
 
     if snps:
         snpxtr = [executables['bcftools'],'+snpxtr','--','-z','-o',outbase + '_snps.txt.gz']
@@ -1079,15 +1083,17 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         if snp_db:
             snpxtr.extend(['-D',snp_db])
         snp_logfile = os.path.join(output_dir,"snpxtr_{}.err".format(name))
-        process_snp = run_tools([bcftools, snpxtr], name-"SNP Extraction",logfile=snp_logfile)
-        if process.snp() != 0:
+        print("OOK!",[bcftools, snpxtr])
+        process_snp = run_tools([bcftools, snpxtr], name="SNP Extraction",logfile=snp_logfile)
+        if process_snp.wait() != 0:
             raise ValueError("Error while extracting SNP calls.")
-        
-    if process.wait() != 0:
-        raise ValueError("Error while extracting methylation calls.")
+
+    if mextr:
+        if process.wait() != 0:
+            raise ValueError("Error while extracting methylation calls.")
 
     os.remove(contig_bed)
-    
+
     # Now generate indexes and bigBed files if required
     if cpg:
         tfile = "{}_cpg.txt.gz.tbi".format(outbase)
@@ -1106,7 +1112,7 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         logfile = os.path.join(output_dir,"tabix_{}_snps.err".format(name))
         tabix = [executables['tabix'], '-S', '1', '-s' '1', 'b', '1', 'e', '1', "{}_snps.txt.gz".format(outbase)]
         snp_idx_proc = run_tools([tabix],name="Index SNP files", logfile=logfile)
-        if cpg_idx_proc.wait() != 0:
+        if snp_idx_proc.wait() != 0:
             raise ValueError("Error while indexing SNP calls.")
         
     if non_cpg:

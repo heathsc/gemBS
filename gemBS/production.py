@@ -1344,21 +1344,24 @@ class MethylationFiltering(BasicPipeline):
                     files.append(filebase + '_snps.txt.gz')
                                  
                 database.reg_db_com(filebase, "UPDATE extract SET status = 0 WHERE filepath = '{}'".format(filebase), files)                
-            
-                #Call methylation extract
-                ret = methylationFiltering(bcfFile=bcf_file,outbase=filebase,name=sample,strand_specific=self.strand_specific,
-                                           cpg=cpg,non_cpg=non_cpg,contig_list=self.contig_list,allow_het=self.allow_het,
-                                           inform=self.inform,phred=self.phred,min_nc=self.min_nc,bedMethyl=bedMethyl,
-                                           bigWig=bigWig,contig_size_file=self.contig_size_file,
-                                           snps=snps,snp_list=self.snp_list,snp_db=self.snp_db)
-                if ret:
-                    logging.gemBS.gt("Results extraction for {} done, results located in: {}".format(bcf_file, ret))
+
+                print(files)
+                if True:
+                    #Call methylation extract
+                    ret = methylationFiltering(bcfFile=bcf_file,outbase=filebase,name=sample,strand_specific=self.strand_specific,
+                                               cpg=cpg,non_cpg=non_cpg,contig_list=self.contig_list,allow_het=self.allow_het,
+                                               inform=self.inform,phred=self.phred,min_nc=self.min_nc,bedMethyl=bedMethyl,
+                                               bigWig=bigWig,contig_size_file=self.contig_size_file,
+                                               snps=snps,snp_list=self.snp_list,snp_db=self.snp_db)
+                    if ret:
+                        logging.gemBS.gt("Results extraction for {} done, results located in: {}".format(bcf_file, ret))
+                        
             
                 status1 = (old_stat | self.mask1) & 341
                 c.execute("BEGIN IMMEDIATE")
                 c.execute("UPDATE extract SET status = ? WHERE filepath = ?", (status1, filebase))
                 database.del_db_com(filebase)
-                
+               
         c.execute("COMMIT")
         db.close()
         
