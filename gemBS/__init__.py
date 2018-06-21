@@ -1024,7 +1024,9 @@ def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=No
 
             
 def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=False,cpg=False,non_cpg=False,allow_het=False,
-                         inform=1,phred=20,min_nc=1,bedMethyl=False,bigWig=False,contig_list=None,contig_size_file=None):
+                         inform=1,phred=20,min_nc=1,bedMethyl=False,bigWig=False,contig_list=None,contig_size_file=None,
+                         snps=None,snp_list=None,snp_db=None):
+    
     """ Filters bcf methylation calls file 
 
     bcfFile -- bcfFile methylation calling file  
@@ -1069,6 +1071,18 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         
     logfile = os.path.join(output_dir,"mextr_{}.err".format(name))
     process = run_tools(pipeline, name="Methylation Extraction", logfile=logfile)
+
+    if snps:
+        snpxtr = [executables['bcftools'],'+snpxtr','--','-z','-o',outbase + '_snps.txt.gz']
+        if snp_list:
+            snpxtr.extend(['-s',snp_list])
+        if snp_db:
+            snpxtr.extend(['-D',snp_db])
+        snp_logfile = os.path.join(output_dir,"snpxtr_{}.err".format(name))
+        process_snp = run_tools([bcftools, snpxtr], name-"SNP Extraction",logfile=snp_logfile)
+        if process.snp() != 0:
+            raise ValueError("Error while extracting SNP calls.")
+        
     if process.wait() != 0:
         raise ValueError("Error while extracting methylation calls.")
 
@@ -1085,6 +1099,16 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         if cpg_idx_proc.wait() != 0:
             raise ValueError("Error while indexing CpG calls.")
 
+    if snp:
+        tfile = "{}_snp.txt.gz.tbi".format(outbase)
+        if os.path.exists(tfile):
+            os.remove(tfile)
+        logfile = os.path.join(output_dir,"tabix_{}_snps.err".format(name))
+        tabix = [executables['tabix'], '-S', '1', '-s' '1', 'b', '1', 'e', '1', "{}_snps.txt.gz".format(outbase)]
+        snp_idx_proc = run_tools([tabix],name="Index SNP files", logfile=logfile)
+        if cpg_idx_proc.wait() != 0:
+            raise ValueError("Error while indexing SNP calls.")
+        
     if non_cpg:
         tfile = "{}_non_cpg.txt.gz.tbi".format(outbase)
         if os.path.exists(tfile):

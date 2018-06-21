@@ -1167,9 +1167,9 @@ class MethylationFilteringThread(th.Thread):
                 self.lock.release()
             
 class MethylationFiltering(BasicPipeline):
-    title = "Methylation Extraction."
+    title = "Methylation & SNP Extraction."
     description = """ 
-  Filters BCF files generated for all or a subset of samples to produce a series of summary output files.  The detailed formats of the 
+  Extracts summary files from BCF files generated for all or a subset of samples to produce a series of summary output files.  The detailed formats of the 
   output files are given in the gemBS docuemntation.
 
   The default output are CpG files.  These are BED3+8 format files with information on methylation and genotypes.  A list of non-CpG sites
@@ -1186,6 +1186,12 @@ class MethylationFiltering(BasicPipeline):
   the files will also be generated in bigBed format for display in genome browsers.  The --bigwig option will produce a bigWig file giving
   the methylation percentage at all covered cytosine sites (informative coverage > 0).  For the ENCODE output files, not further filtering 
   is performed.
+
+  In addition to the methylation result, SNP genotypes can also be extract with the --snps options.  By default, this will return a file
+  with genotypes on all SNPs covered by the experiment that were in the dbSNP_idx file used for the calling stage.  This selection can
+  be refined uwing the --snp-list option, which is a file with a list of SNP ids, one id per line.  An alternate dbSNP_idx file can also be supplied
+  using the --snp-db option, allowing SNPs that were not in the original dbSNP_idx file used for calling to be extracted.
+
     """
                   
     def register(self,parser):
@@ -1202,6 +1208,9 @@ class MethylationFiltering(BasicPipeline):
         parser.add_argument('-N','--non-cpg', dest="non_cpg", action="store_true", help="Output gemBS bed with non-cpg sites.")
         parser.add_argument('-B','--bed-methyl', dest="bedMethyl", action="store_true", help="Output bedMethyl files (bed and bigBed)")
         parser.add_argument('-w','--bigwig', dest="bigWig", action="store_true", help="Output bigWig file")
+        parser.add_argument('-S','--snps', dest="snps", help="Output SNP file")
+        parser.add_argument('--snp-list', dest="snp_list", help="List of SNPs to output")
+        parser.add_argument('--snp-db', dest="snp_db", help="dbSNP_idx processed SNP idx")
         
     def run(self,args):
         self.command = 'extract'
@@ -1212,6 +1221,9 @@ class MethylationFiltering(BasicPipeline):
         self.jobs = self.jsonData.check(section='extract',key='jobs',arg=args.jobs,default=1,int_type=True)
         self.allow_het = self.jsonData.check(section='extract',key='allow_het',arg=args.allow_het,boolean=True,default=False)
         self.cpg = self.jsonData.check(section='extract',key='make_cpg',arg=args.cpg,boolean=True,default=False)
+        self.snps = self.jsonData.check(section='extract',key='make_snps',arg=args.snps,boolean=True,default=False)
+        self.snp_list = self.jsonData.check(section='extract',key='snp_list',arg=args.snp_list)
+        self.snp_db = self.jsonData.check(section='extract',key='snp_db',arg=args.snp_db)
         self.non_cpg = self.jsonData.check(section='extract',key='make_non_cpg',arg=args.non_cpg,boolean=True,default=False)
         self.bedMethyl = self.jsonData.check(section='extract',key='make_bedmethyl',arg=args.bedMethyl,boolean=True,default=False)
         self.bigWig = self.jsonData.check(section='extract',key='make_bigwig',arg=args.bigWig,boolean=True,default=False)
@@ -1221,7 +1233,7 @@ class MethylationFiltering(BasicPipeline):
         self.min_nc = self.jsonData.check(section='extract',key='min_nc',arg=args.inform, default = 1, int_type=True)
         self.path_bcf = self.jsonData.check(section='calling',key='bcf_dir',arg=None, default = '.', dir_type=True)
 
-        if not (self.cpg or self.non_cpg or self.bedMethyl):
+        if not (self.cpg or self.non_cpg or self.bedMethyl or self.snps):
             self.cpg = True
 
         self.mask = 0
@@ -1229,7 +1241,8 @@ class MethylationFiltering(BasicPipeline):
         if self.non_cpg: self.mask |= 12
         if self.bedMethyl: self.mask |= 48
         if self.bigWig: self.mask |= 192
-        self.mask1 = self.mask & 85
+        if self.snps: self.mask |= 768
+        self.mask1 = self.mask & 341
         
         sdata = self.jsonData.sampleData
         if not args.sample and args.sample_name:
@@ -1304,6 +1317,7 @@ class MethylationFiltering(BasicPipeline):
         ret = c.fetchone()
         if ret:
             filebase, status = ret
+            old_stat = status
             sm = status & self.mask            
             if not (sm == self.mask or sm == self.mask1):
                 status1 = status | self.mask
@@ -1320,18 +1334,21 @@ class MethylationFiltering(BasicPipeline):
                     for x in ('cpg', 'chg', 'chh') :
                         files.extend([filebase + "_{}.bed.gz".format(x), filebase + "_{}.bed.tmp".format(x),
                                       filebase + "_{}.bb".format(x)])
-
+                if self.snps:
+                    files.append(filebase + '_snps.txt.gz')
+                                 
                 database.reg_db_com(filebase, "UPDATE extract SET status = 0 WHERE filepath = '{}'".format(filebase), files)                
             
                 #Call methylation extract
                 ret = methylationFiltering(bcfFile=bcf_file,outbase=filebase,name=sample,strand_specific=self.strand_specific,
                                            cpg=self.cpg,non_cpg=self.non_cpg,contig_list=self.contig_list,allow_het=self.allow_het,
                                            inform=self.inform,phred=self.phred,min_nc=self.min_nc,bedMethyl=self.bedMethyl,
-                                           bigWig=self.bigWig,contig_size_file=self.contig_size_file)
+                                           bigWig=self.bigWig,contig_size_file=self.contig_size_file,
+                                           snps=self.snps,snp_list=self.snp_list,snp_db=self.snp_db)
                 if ret:
-                    logging.gemBS.gt("Methylation extraction for {} done, results located in: {}".format(bcf_file, ret))
+                    logging.gemBS.gt("Results extraction for {} done, results located in: {}".format(bcf_file, ret))
             
-                status1 = self.mask & 21
+                status1 = (old_stat | self.mask1) & 341
                 c.execute("BEGIN IMMEDIATE")
                 c.execute("UPDATE extract SET status = ? WHERE filepath = ?", (status1, filebase))
                 database.del_db_com(filebase)

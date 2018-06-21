@@ -424,6 +424,7 @@ class database(sqlite3.Connection):
                 if os.path.isfile(sample_cpg + '_non_cpg.txt.gz.tbi'): st |= 4
                 if os.path.isfile(sample_cpg + '_chh.bb'): st |= 16
                 if os.path.isfile(sample_cpg + '.bw'): st |= 64
+                if os.path.isfile(sample_cpg + '_snps.txt.gz'): st |= 256
                 old = (old[0], old[1], st)
             extract_tab[sample_cpg] = (sample_cpg, bc, old[2])
             if old != extract_tab[sample_cpg]:
