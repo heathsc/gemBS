@@ -1324,27 +1324,33 @@ class MethylationFiltering(BasicPipeline):
                 c.execute("UPDATE extract SET status = ? WHERE filepath = ?", (status1, filebase))
                 c.execute("COMMIT")
                 files = [filebase + "_contig_list.bed"]
-                if self.cpg:
+                cpg, non_cpg, bigWig, bedMethyl, snps = (False, False, False, False, False)
+                if self.cpg and not (sm & 3):
+                    cpg = True
                     files.extend([filebase + '_cpg.txt.gz', filebase + '_cpg.txt.gz.tbi'])
-                if self.non_cpg:
+                if self.non_cpg and not (sm & 12):
+                    non_cpg = True
                     files.extend([filebase + '_non_cpg.txt.gz', filebase + '_non_cpg.txt.gz.tbi'])
-                if self.bigWig:
+                if self.bigWig and not (sm & 48):
+                    bigWig = True
                     files.append(filebase + '.bw')
-                if self.bedMethyl:
+                if self.bedMethyl and not (sm & 192):
+                    bedMethyl = True
                     for x in ('cpg', 'chg', 'chh') :
                         files.extend([filebase + "_{}.bed.gz".format(x), filebase + "_{}.bed.tmp".format(x),
                                       filebase + "_{}.bb".format(x)])
-                if self.snps:
+                if self.snps and not(sm & 768):
+                    snps = True
                     files.append(filebase + '_snps.txt.gz')
                                  
                 database.reg_db_com(filebase, "UPDATE extract SET status = 0 WHERE filepath = '{}'".format(filebase), files)                
             
                 #Call methylation extract
                 ret = methylationFiltering(bcfFile=bcf_file,outbase=filebase,name=sample,strand_specific=self.strand_specific,
-                                           cpg=self.cpg,non_cpg=self.non_cpg,contig_list=self.contig_list,allow_het=self.allow_het,
-                                           inform=self.inform,phred=self.phred,min_nc=self.min_nc,bedMethyl=self.bedMethyl,
-                                           bigWig=self.bigWig,contig_size_file=self.contig_size_file,
-                                           snps=self.snps,snp_list=self.snp_list,snp_db=self.snp_db)
+                                           cpg=cpg,non_cpg=non_cpg,contig_list=self.contig_list,allow_het=self.allow_het,
+                                           inform=self.inform,phred=self.phred,min_nc=self.min_nc,bedMethyl=bedMethyl,
+                                           bigWig=bigWig,contig_size_file=self.contig_size_file,
+                                           snps=snps,snp_list=self.snp_list,snp_db=self.snp_db)
                 if ret:
                     logging.gemBS.gt("Results extraction for {} done, results located in: {}".format(bcf_file, ret))
             
