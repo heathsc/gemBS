@@ -509,6 +509,8 @@ class Mapping(BasicPipeline):
                 if self.dry_run_json:
                     task = {}
                     task['command'] = com
+                    task['dataset'] = fli
+                    task['sample_barcode'] = self.name
                     task['inputs'] = inputFiles
                     odir = os.path.dirname(outfile)
                     report_file = os.path.join(odir,fli + '.json')
@@ -578,6 +580,7 @@ class Mapping(BasicPipeline):
                             if self.dry_run_json:
                                 task = {}
                                 task['command'] = com
+                                task['sample_barcode'] = smp
                                 task['inputs'] = inputs
                                 logfile1 = os.path.join(odir, 'bam_index_' + smp + '.err')
                                 logfile2 = os.path.join(odir, 'bam_merge_' + smp + '.err')
@@ -617,8 +620,8 @@ class Mapping(BasicPipeline):
                     print(' '.join(com))
                 if self.dry_run_json:
                     task = {}
-                    task['desc'] = "merge {}".format(sample)
                     task['command'] = com
+                    task['sample_barcode'] = sample
                     task['inputs'] = [fname]
                     odir = os.path.dirname(fname)
                     ixfile = os.path.join(odir, sample + '.bai')
@@ -812,6 +815,7 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
         parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
         parser.add_argument('--ignore-db', dest="ignore_db", action="store_true",help="Ignore database for --dry-run and --json commands")
+        parser.add_argument('--ignore-dep', dest="ignore_dep", action="store_true",help="Ignore dependencies for --dry-run and --json commands")
         
     def run(self,args):
         self.command = 'call'
@@ -850,8 +854,10 @@ class MethylationCall(BasicPipeline):
         if self.dry_run or self.dry_run_json:
             self.jobs = 1
             self.ignore_db = args.ignore_db
+            self.ignore_dep = args.ignore_dep
         else:
             self.ignore_db = False
+            self.ignore_dep = False
         if self.dry_run_json:
             self.json_commands = {}
         else:
@@ -953,9 +959,9 @@ class MethylationCall(BasicPipeline):
         else:            
             ret = c.execute("SELECT * from mapping WHERE type != 'MULTI_BAM'")
         for fname, fli, smp, ftype, status in ret:
-            if status == 1 or self.ignore_db:
+            if status == 1 or self.ignore_db or self.ignore_dep:
                 if not os.path.isfile(fname):
-                    if not self.ignore_db:
+                    if not (self.ignore_db or self.ignore_dep):
                         raise CommandException("Sorry file '{}' was not found".format(fname))
                 sampleBam[smp] = fname
             else:
@@ -1181,7 +1187,7 @@ class MethylationFiltering(BasicPipeline):
   -I option (default = 1).  For non-CpG sites the strategy is to only output sites with a minimum number of non-converted reads.  This level
   can be set using the --min-nc option (default = 1).
 
-  A second set of filtered output that correspond to the ENCODE WGBS pipeline are also available using the --bed-methyl and --bigwig options.
+  A second set of extracted outputs that correspond to the ENCODE WGBS pipeline are also available using the --bed-methyl and --bigwig options.
   The --bed-methyl option will produce three files per sample for all covered sites in CpG, CHG and CHH context in BED9+5 format.  Each of 
   the files will also be generated in bigBed format for display in genome browsers.  The --bigwig option will produce a bigWig file giving
   the methylation percentage at all covered cytosine sites (informative coverage > 0).  For the ENCODE output files, not further filtering 
@@ -1208,9 +1214,13 @@ class MethylationFiltering(BasicPipeline):
         parser.add_argument('-N','--non-cpg', dest="non_cpg", action="store_true", help="Output gemBS bed with non-cpg sites.")
         parser.add_argument('-B','--bed-methyl', dest="bedMethyl", action="store_true", help="Output bedMethyl files (bed and bigBed)")
         parser.add_argument('-w','--bigwig', dest="bigWig", action="store_true", help="Output bigWig file")
-        parser.add_argument('-S','--snps', dest="snps", help="Output SNP file")
+        parser.add_argument('-S','--snps', dest="snps", action="store_true",help="Output SNPs")
         parser.add_argument('--snp-list', dest="snp_list", help="List of SNPs to output")
         parser.add_argument('--snp-db', dest="snp_db", help="dbSNP_idx processed SNP idx")
+        parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
+        parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
+        parser.add_argument('--ignore-db', dest="ignore_db", action="store_true",help="Ignore database for --dry-run and --json commands")
+        parser.add_argument('--ignore-dep', dest="ignore_dep", action="store_true",help="Ignore dependencies for --dry-run and --json commands")
         
     def run(self,args):
         self.command = 'extract'
@@ -1232,6 +1242,21 @@ class MethylationFiltering(BasicPipeline):
         self.inform = self.jsonData.check(section='extract',key='min_inform',arg=args.inform, default = 1, int_type=True)
         self.min_nc = self.jsonData.check(section='extract',key='min_nc',arg=args.inform, default = 1, int_type=True)
         self.path_bcf = self.jsonData.check(section='calling',key='bcf_dir',arg=None, default = '.', dir_type=True)
+        self.dry_run = args.dry_run
+        self.dry_run_json = args.dry_run_json
+
+        if self.dry_run or self.dry_run_json:
+            self.jobs = 1
+            self.ignore_db = args.ignore_db
+            self.ignore_dep = args.ignore_dep
+            self.args = args
+        else:
+            self.ignore_db = False
+            self.ignore_dep = False
+        if self.dry_run_json:
+            self.json_commands = {}
+        else:
+            self.json_commands = None
 
         if not (self.cpg or self.non_cpg or self.bedMethyl or self.snps):
             self.cpg = True
@@ -1254,9 +1279,15 @@ class MethylationFiltering(BasicPipeline):
                 raise ValueError("Sample name '{}' not found".format(args.sample_name))
                 
         db = database(self.jsonData)
-        if not db.mem_db():
+        self.mem_db = db.mem_db()
+        if not self.mem_db:
             db.check_index()        
             db.check_extract()
+
+        # If we are doing a dry-run we will use an in memory copy of the db so the on disk db is not touched
+        if self.dry_run or self.dry_run_json:
+            db.copy_to_mem()
+
         c = db.cursor()
         c.execute("SELECT * FROM indexing WHERE type = 'contig_sizes'")
         ret = c.fetchone()
@@ -1277,11 +1308,12 @@ class MethylationFiltering(BasicPipeline):
         
         self.bcf_list = []
         if args.sample:
-            ret = c.execute("SELECT filepath, sample from calling WHERE sample = ? AND type = 'MRG_BCF' AND status = 1", (args.sample,))
+            ret = c.execute("SELECT filepath, sample, status from calling WHERE sample = ? AND type = 'MRG_BCF'", (args.sample,))
         else:
-            ret = c.execute("SELECT filepath, sample from calling WHERE type = 'MRG_BCF' AND status = 1")
-        for fname, smp in ret:
-            self.bcf_list.append((smp, fname))
+            ret = c.execute("SELECT filepath, sample, status from calling WHERE type = 'MRG_BCF'")
+        for fname, smp, status in ret:
+            if status == 1 or self.ignore_db or self.ignore_dep:
+                self.bcf_list.append((smp, fname))
 
         if not self.bcf_list:
             logging.gemBS.gt("No BCF files are available for methylation extraction.")
@@ -1303,6 +1335,10 @@ class MethylationFiltering(BasicPipeline):
             else:
                 for v in self.bcf_list:
                     self.do_filter(v)
+                
+        if self.dry_run_json and self.json_commands:
+            with open(self.dry_run_json, 'w') as of:
+                json.dump(self.json_commands, of, indent = 2)
 
     def do_filter(self, v):
         sample, bcf_file = v
@@ -1318,7 +1354,9 @@ class MethylationFiltering(BasicPipeline):
         if ret:
             filebase, status = ret
             old_stat = status
-            sm = status & self.mask            
+            sm = status & self.mask
+            if self.ignore_db:
+                sm = 0
             if not (sm == self.mask or sm == self.mask1):
                 status1 = status | self.mask
                 c.execute("UPDATE extract SET status = ? WHERE filepath = ?", (status1, filebase))
@@ -1341,12 +1379,49 @@ class MethylationFiltering(BasicPipeline):
                                       filebase + "_{}.bb".format(x)])
                 if self.snps and not(sm & 768):
                     snps = True
-                    files.append(filebase + '_snps.txt.gz')
-                                 
-                database.reg_db_com(filebase, "UPDATE extract SET status = 0 WHERE filepath = '{}'".format(filebase), files)                
+                    files.extend([filebase + '_snps.txt.gz', filebase + '_snps.txt.gz_tbi'])
 
-                print(files)
-                if True:
+                if self.dry_run or self.dry_run_json:
+                    args = self.args
+                    com = ['gemBS']
+                    if self.mem_db:
+                        if Mapping.gemBS_json != 'gemBS.json':
+                            com.extend(['-j',Mapping.gemBS_json])
+                    else:
+                        if Mapping.gemBS_json != '.gemBS/gemBS.json':
+                            com.extend(['-j',Mapping.gemBS_json])
+                    com.extend(['extract','-b',sample])
+                    if args.strand_specific: com.append('-x')
+                    if args.phred: com.extend(['-q', args.phred])
+                    if args.inform: com.extend(['-I', args.inform])
+                    if args.min_nc: com.extend(['-M', args.min_nc])
+                    if args.allow_het: com.extend(['-H', args.allow_het])
+                    if cpg: com.append('--cpg')
+                    if non_cpg: com.append('--non-cpg')
+                    if bigWig: com.append('--bigwig')
+                    if bedMethyl: com.append('--bed-methyl')
+                    if snps:
+                        com.append('--snps')
+                        if args.snp_list: com.extend(['--snp_list', args.snp_list])
+                        if args.snp_db: com.extend(['--snp_db', args.snp_db])
+                    if self.dry_run:
+                        print(' '.join(com))
+                    if self.dry_run_json:
+                        task = {}
+                        desc = "extract {}".format(sample)
+                        task['command'] = com
+                        task['sample_barcode'] = sample
+                        task['inputs'] = [bcf_file]
+                        odir = os.path.dirname(filebase)
+                        if cpg or non_cpg or bedMethyl or bigWig:
+                            files.append(os.path.join(odir, 'mextr_{}.err'.format(sample)))
+                        if snps:
+                            files.append(os.path.join(odir, 'snpxtr_{}.err'.format(sample)))
+                        task['outputs'] = files[1:]
+                        self.json_commands[desc] = task
+                else:
+                    database.reg_db_com(filebase, "UPDATE extract SET status = 0 WHERE filepath = '{}'".format(filebase), files)                
+
                     #Call methylation extract
                     ret = methylationFiltering(bcfFile=bcf_file,outbase=filebase,name=sample,strand_specific=self.strand_specific,
                                                cpg=cpg,non_cpg=non_cpg,contig_list=self.contig_list,allow_het=self.allow_het,
@@ -1355,12 +1430,11 @@ class MethylationFiltering(BasicPipeline):
                                                snps=snps,snp_list=self.snp_list,snp_db=self.snp_db)
                     if ret:
                         logging.gemBS.gt("Results extraction for {} done, results located in: {}".format(bcf_file, ret))
-                        
-            
-                status1 = (old_stat | self.mask1) & 341
+
+                    status1 = (old_stat | self.mask1) & 341
+                    database.del_db_com(filebase)
                 c.execute("BEGIN IMMEDIATE")
                 c.execute("UPDATE extract SET status = ? WHERE filepath = ?", (status1, filebase))
-                database.del_db_com(filebase)
                
         c.execute("COMMIT")
         db.close()

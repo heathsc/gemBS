@@ -910,6 +910,8 @@ class MethylationCallThread(th.Thread):
                     if self.dry_run_json:
                         task={}
                         task['command']=com
+                        task['sample_barcode']=sample
+                        task['pool']=pool
                         task['inputs']=[input_bam]
                         task['outputs']=[bcf_file, report_file, log_file]
                         desc="call {} {}".format(sample,pool)
@@ -936,6 +938,7 @@ class MethylationCallThread(th.Thread):
                         task={}
                         task['command']=com
                         task['inputs']=list_bcfs
+                        task['sample_barcode']=sample
                         odir = os.path.dirname(fname)
                         bcfSampleMd5 = os.path.join(odir,"{}.bcf.md5".format(sample))
                         idxfile = os.path.join(odir,"{}.bcf.csi".format(sample))
@@ -1100,18 +1103,14 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         logfile = os.path.join(output_dir,"tabix_{}_cpg.err".format(name))
         tabix = [executables['tabix'], '-p', 'bed', '-S', '1', "{}_cpg.txt.gz".format(outbase)]
         cpg_idx_proc = run_tools([tabix],name="Index Methylation CpG files", logfile=logfile)
-        if cpg_idx_proc.wait() != 0:
-            raise ValueError("Error while indexing CpG calls.")
 
     if snps:
         tfile = "{}_snp.txt.gz.tbi".format(outbase)
         if os.path.exists(tfile):
             os.remove(tfile)
         logfile = os.path.join(output_dir,"tabix_{}_snps.err".format(name))
-        tabix = [executables['tabix'], '-S', '1', '-s' '1', 'b', '1', 'e', '1', "{}_snps.txt.gz".format(outbase)]
+        tabix = [executables['tabix'], '-S', '1', '-s' '1', '-b', '1', '-e', '1', "{}_snps.txt.gz".format(outbase)]
         snp_idx_proc = run_tools([tabix],name="Index SNP files", logfile=logfile)
-        if snp_idx_proc.wait() != 0:
-            raise ValueError("Error while indexing SNP calls.")
         
     if non_cpg:
         tfile = "{}_non_cpg.txt.gz.tbi".format(outbase)
@@ -1160,6 +1159,10 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
             if p.wait() != 0:
                 raise ValueError("Error while making bigBed files.")
             os.remove(bm_tfile[ix])
+    if snp:
+        if snp_idx_proc.wait() != 0:
+            raise ValueError("Error while indexing SNP calls.")
+        
     return os.path.abspath(output_dir)
 
 def bsConcat(list_bcfs=None,sample=None,bcfSample=None):
