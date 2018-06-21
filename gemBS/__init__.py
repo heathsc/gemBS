@@ -1109,7 +1109,7 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         if os.path.exists(tfile):
             os.remove(tfile)
         logfile = os.path.join(output_dir,"tabix_{}_snps.err".format(name))
-        tabix = [executables['tabix'], '-S', '1', '-s' '1', '-b', '1', '-e', '1', "{}_snps.txt.gz".format(outbase)]
+        tabix = [executables['tabix'], '-S', '1', '-s' '1', '-b', '2', '-e', '2', "{}_snps.txt.gz".format(outbase)]
         snp_idx_proc = run_tools([tabix],name="Index SNP files", logfile=logfile)
         
     if non_cpg:
