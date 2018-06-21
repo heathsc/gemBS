@@ -1103,7 +1103,7 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         if cpg_idx_proc.wait() != 0:
             raise ValueError("Error while indexing CpG calls.")
 
-    if snp:
+    if snps:
         tfile = "{}_snp.txt.gz.tbi".format(outbase)
         if os.path.exists(tfile):
             os.remove(tfile)
