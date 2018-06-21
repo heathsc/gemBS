@@ -1074,7 +1074,6 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         
         logfile = os.path.join(output_dir,"mextr_{}.err".format(name))
         process = run_tools(pipeline, name="Methylation Extraction", logfile=logfile)
-        print("YO!",pipeline)
 
     if snps:
         snpxtr = [executables['bcftools'],'+snpxtr','--','-z','-o',outbase + '_snps.txt.gz']
@@ -1083,7 +1082,6 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         if snp_db:
             snpxtr.extend(['-D',snp_db])
         snp_logfile = os.path.join(output_dir,"snpxtr_{}.err".format(name))
-        print("OOK!",[bcftools, snpxtr])
         process_snp = run_tools([bcftools, snpxtr], name="SNP Extraction",logfile=snp_logfile)
         if process_snp.wait() != 0:
             raise ValueError("Error while extracting SNP calls.")
