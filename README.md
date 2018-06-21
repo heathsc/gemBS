@@ -69,6 +69,8 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.0 Add --dry-run, --json, --ignore-db and --ignore-dep to extract command
+    3.0 Add --ignore-dep option to call and merge-bcfs commands
     3.0 Add SNP extraction function to extract command
     3.0 Make v3.0 release
     3.0 Merge with master branch.

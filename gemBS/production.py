@@ -224,7 +224,10 @@ class Mapping(BasicPipeline):
 
   The --dry-run option will output a list of the mapping / merging operations that would be run by the map command without executing
   any of the commands.  The --json <JSON OUTPUT> options is similar to --dry-run, but writes the commands to be executed in JSON
-  format to the supplied output file, including information about the input and output files for the commands.
+  format to the supplied output file, including information about the input and output files for the commands.  The --ignore-db option
+  modifies the --dry-run and --json options such that the database is not consulted (i.e., gemBS assumes that nothing has already
+  been completed.
+
     """   
  
     def register(self,parser):
@@ -669,8 +672,9 @@ class Merging(Mapping):
 
   The --dry-run option will output a list of the merging operations that would be run by the merge-bam command without executing
   any of the commands.  The --json <JSON OUTPUT> options is similar to --dry-run, but writes the commands to be executed in JSON
-  format to the supplied output file, including information about the input and output files for the commands.
-
+  format to the supplied output file, including information about the input and output files for the commands.  The --ignore-db option
+  modifies the --dry-run and --json options such that the database is not consulted (i.e., gemBS assumes that nothing has already
+  been completed.
     """
                      
     def register(self,parser):
@@ -782,7 +786,10 @@ class MethylationCall(BasicPipeline):
 
   The --dry-run option will output a list of the calling / merging operations that would be run by the call command without executing
   any of the commands. The --json <JSON OUTPUT> options is similar to --dry-run, but writes the commands to be executed in JSON
-  format to the supplied output file, including information about the input and output files for the commands.
+  format to the supplied output file, including information about the input and output files for the commands. The --ignore-db option
+  modifies the --dry-run and --json options such that the database is not consulted (i.e., gemBS assumes that no calling has already
+  been completed but that all dependencies (i.e., BAM files) are available.  The --ignore-dep option is similar - it ignores dependencies,
+  but does check whether a task has already been completed.
 
     """
     def membersInitiation(self):
@@ -1122,7 +1129,12 @@ class BsCallConcatenate(MethylationCall):
   '-b <SAMPLE_BARCODE>.
 
   The --dry-run option will output a list of the merging operations that would be run by the merge-bcfs command without executing
-  any of the commands.
+  any of the commands. The --json <JSON OUTPUT> options is similar to --dry-run, but writes the commands to be executed in JSON
+  format to the supplied output file, including information about the input and output files for the commands. The --ignore-db option
+  modifies the --dry-run and --json options such that the database is not consulted (i.e., gemBS assumes that no calling has already
+  been completed but that all dependencies (i.e., BAM files) are available.  The --ignore-dep option is similar - it ignores dependencies,
+  but does check whether a task has already been completed.
+
     """
     
     def register(self,parser):
@@ -1197,6 +1209,13 @@ class MethylationFiltering(BasicPipeline):
   with genotypes on all SNPs covered by the experiment that were in the dbSNP_idx file used for the calling stage.  This selection can
   be refined uwing the --snp-list option, which is a file with a list of SNP ids, one id per line.  An alternate dbSNP_idx file can also be supplied
   using the --snp-db option, allowing SNPs that were not in the original dbSNP_idx file used for calling to be extracted.
+
+  The --dry-run option will output a list of the merging operations that would be run by the merge-bcfs command without executing
+  any of the commands. The --json <JSON OUTPUT> options is similar to --dry-run, but writes the commands to be executed in JSON
+  format to the supplied output file, including information about the input and output files for the commands. The --ignore-db option
+  modifies the --dry-run and --json options such that the database is not consulted (i.e., gemBS assumes that no calling has already
+  been completed but that all dependencies (i.e., BAM files) are available.  The --ignore-dep option is similar - it ignores dependencies,
+  but does check whether a task has already been completed.
 
     """
                   
