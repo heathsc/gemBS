@@ -158,7 +158,7 @@ class database(sqlite3.Connection):
             index_ok = 1 if os.path.exists(index) else 0
         else:
             try:
-                index = _prepare_index_parameter(index)
+                index = database._prepare_index_parameter(index)
                 index_ok = 1
             except IOError:
                 index_ok = 0
