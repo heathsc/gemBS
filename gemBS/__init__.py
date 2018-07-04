@@ -1159,7 +1159,7 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
             if p.wait() != 0:
                 raise ValueError("Error while making bigBed files.")
             os.remove(bm_tfile[ix])
-    if snp:
+    if snps:
         if snp_idx_proc.wait() != 0:
             raise ValueError("Error while indexing SNP calls.")
         
