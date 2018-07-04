@@ -639,7 +639,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
         mapping.extend(["--i1",inputFiles[0],"--i2",inputFiles[1]])
     elif len(inputFiles) == 1:
         if ftype in ['SAM', 'BAM']:
-            input_pipe.extend([executables['samtools'],"bam2fq", inputFiles[0]])
+            input_pipe.extend([executables['samtools'],"bam2fq", "--threads", str(threads), inputFiles[0]])
         elif ftype in ['COMMAND', 'SINGLE_COMMAND', 'PAIRED_COMMAND']:
             input_pipe.extend(['/bin/sh','-c',inputFiles[0]])            
         else:
@@ -723,7 +723,7 @@ def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/"):
     
     #Samtools index
     logfile = os.path.join(output,"bam_index_{}.err".format(sample))
-    indexing = [executables['samtools'], "index", bam_filename, index_filename]
+    indexing = [executables['samtools'], "index", "-@", threads, bam_filename, index_filename]
     md5sum = ['md5sum',bam_filename]
     processIndex = run_tools([indexing],name="Indexing",logfile=logfile)
     processMD5 = run_tools([md5sum],name="BAM MD5",output=md5_filename)
