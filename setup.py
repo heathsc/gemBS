@@ -169,11 +169,11 @@ class install_lib(_install_lib):
 class install_scripts(_install_scripts):
     
     def write_script(self, script_name, contents, mode="t", *ignored):
-        i = contents.find('sys.exit')
+        i = contents.find('__requires__')
         if i >= 0:
             j = contents.rfind('\n', 0, i)
             if j >= 0:
-                contents = contents[:j+1] + "    sys.path.insert(0,'{}')\n".format(gemBS_install_dir) + contents[j+1:]
+                contents = contents[:j+1] + "import sys\nsys.path.insert(0,'{}')\n".format(gemBS_install_dir) + contents[j+1:]
         _install_scripts.write_script(self, script_name, contents, mode, *ignored)
             
 # hack the setup tools cleaning
