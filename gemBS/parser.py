@@ -91,13 +91,24 @@ class gembsConfigParse:
                     repl[key] = v
                 for k,v in repl.items():
                     tok = tok.replace("${{{}}}".format(k),v)
-                self.vstack.append(tok)
                 ntok = lex.get_token()
+                if ntok == '=':
+                    raise ValueError("Unexpected token '{}' after'{}'".format(ntok, tok))
+                if ntok != ',':
+                    while ntok and ntok != '[' and ntok != ',':
+                        ntok1 = lex.get_token()
+                        if ntok1 == '=':
+                            lex.push_token(ntok1)
+                            break
+                        tok = tok + " " + ntok
+                        ntok = ntok1
+                self.vstack.append(tok)
                 if ntok == ',':
                     state = 4
                 else:
                     self.var[section][var] = self.vstack if len(self.vstack) > 1 else self.vstack[0]
-                    if ntok != None: lex.push_token(ntok)
+                    if ntok != None:
+                        lex.push_token(ntok)
                     state = 0
         
     def __getitem__(self, key):
