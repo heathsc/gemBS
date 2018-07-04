@@ -36,9 +36,6 @@ class execs_dict(dict):
         # check if there is an environment variable set
         # to specify the path to the GEM executables
         
-        #src/gemBSbinaries/readNameClean
-         
-          
         base_dir = os.getenv("GEM_BS_PATH", None)
         if base_dir is not None:
             file = os.path.join(base_dir, item)
@@ -61,14 +58,27 @@ class execs_dict(dict):
             try:
                 base = os.path.split(os.path.abspath(sys.argv[0]))[0]
                 binary = os.path.join(base,item)
-                if os.path.exists(binary):
-                    logging.debug("Using bundled binary : %s" % binary)
+                if os.path.isfile(binary) and os.access(binary, os.X_OK):
+                    logging.debug("Using bundled binary: %s" % binary)
                     return binary
             except Exception:
                 pass
 
-        logging.debug("Using binary from PATH: %s" % item)
-        return dict.__getitem__(self, item)
+        # try in system PATH
+        fpath, fname = os.path.split(item)
+        if fpath:
+            if os.path.isfile(item) and os.access(item, os.X_OK):
+                return item
+        else:
+            for path in os.environ["PATH"].split(os.pathsep):
+                binary = os.path.join(path, item)
+                if os.path.isfile(binary) and os.access(binary, os.X_OK):
+                    logging.debug("Using binary from PATH: %s" % binary)
+                    return binary
+        if dict.__contains__(self, item):
+            return dict.__getitem__(self, item)
+        
+        return None
 
 ## paths to the executables
 executables = execs_dict({
@@ -482,8 +492,15 @@ def index(input_name, index_name, extra_fasta_files=None,threads=None,tmpDir=Non
                 raise CommandException("Reference file '{}' does not exist".format(f))
             
         gcat.extend(extra_fasta_files)
-        output = index_base + "_gemBS.tmp.gz"
-        process = run_tools([gcat,['pigz']], name='gemBS_cat', output = output)
+        compress_bin = executables['pigz']
+        if compress_bin == None:
+            compress_bin = executables['gzip']
+        if compress_bin == None:
+            output = index_base + "_gemBS.tmp"
+            process = run_tools([gcat], name='gemBS_cat', output = output)
+        else:
+            output = index_base + "_gemBS.tmp.gz"
+            process = run_tools([gcat,[compress_bin]], name='gemBS_cat', output = output)
         if process.wait() != 0:
             if os.path.exists(output):
                 os.remove(output)
@@ -517,7 +534,7 @@ def index(input_name, index_name, extra_fasta_files=None,threads=None,tmpDir=Non
         
     if process.wait() != 0:
         for f in (f_in, index_base + '.gem', index_base + '.info', index_base + '.sa.tmp'):
-            if os.path.exists(f):
+            if os.path.exists(f) and f != input_name:
                 os.remove(f)
         raise ValueError("Error while executing the Bisulphite gem-indexer")
     
@@ -545,11 +562,16 @@ def dbSNP_index(list_dbSNP_files=[],dbsnp_index=""):
             files = glob.glob(dbSnpFile)
             if files:
                 db_snp_index.extend(files)
-        #Pigz pipe            
-        pigz = ["pigz"]
         #Create Pipeline            
         tools = [db_snp_index]
-        tools.append(pigz)
+        
+        #Compress pipe            
+        compress_bin = executables['pigz']
+        if compress_bin == None:
+            compress_bin = executables['gzip']
+        if compress_bin != None:
+            tools.append([compress_bin])
+
         #Process dbSNP
         process_dbsnp = run_tools(tools,name="dbSNP-indexer",output=dbsnp_index)
         if process_dbsnp.wait() != 0:
