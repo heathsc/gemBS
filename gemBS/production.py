@@ -809,6 +809,7 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('-t','--threads', dest="threads", metavar="THREADS", help='Number of threads, Default: %s' %self.threads)
         parser.add_argument('-j','--jobs', dest="jobs", type=int, help='Number of parallel jobs')
         parser.add_argument('-u','--keep-duplicates', dest="keep_duplicates", action="store_true", help="Do not merge duplicate reads.")    
+        parser.add_argument('-U','--ignore_duplicate_flag', dest="ignore_duplicates", action="store_true", help="Ignore duplicate flag from SAM/BAM files.")    
         parser.add_argument('-k','--keep-unmatched', dest="keep_unmatched", action="store_true", help="Do not discard reads that do not form proper pairs.")
         parser.add_argument('-e','--species',dest="species",metavar="SPECIES",help="Sample species name. Default: %s" %self.species)
         parser.add_argument('-r','--remove', dest="remove", action="store_true", help='Remove individual BCF files after merging.')
@@ -848,6 +849,7 @@ class MethylationCall(BasicPipeline):
         self.ref_bias = self.jsonData.check(section='calling',key='reference_bias',arg=args.ref_bias)
         self.keep_unmatched = self.jsonData.check(section='calling',key='keep_improper_pairs',arg=args.keep_unmatched,boolean=True)
         self.keep_duplicates = self.jsonData.check(section='calling',key='keep_duplicates',arg=args.keep_duplicates,boolean=True)
+        self.ignore_duplicates = self.jsonData.check(section='calling',key='ignore_duplicate_flag',arg=args.keep_duplicates,boolean=True)
         self.haploid = self.jsonData.check(section='calling',key='haploid',arg=args.haploid,boolean=True)
         self.species = self.jsonData.check(section='calling',key='species',arg=args.species)
         self.contig_list = self.jsonData.check(section='calling',key='contig_list',arg=args.contig_list,list_type=True, default = [])
@@ -1068,6 +1070,7 @@ class MethylationCall(BasicPipeline):
                 if args.right_trim: com2.extend(['--right-trim',str(args.right_trim)])
                 if args.left_trim: com2.extend(['--left-trim',str(args.left_trim)])
                 if args.keep_duplicates: com2.append('-u')
+                if args.ignore_duplicates: com2.append('-U')
                 if args.keep_unmatched: com2.append('-k')
                 if args.haploid: com2.append('--haploid')
                 if args.species: com2.append('--species')
@@ -1085,7 +1088,8 @@ class MethylationCall(BasicPipeline):
                                      right_trim=self.right_trim, left_trim=self.left_trim,concat=args.concat,json_commands=self.json_commands,
                                      sample_bam=self.sampleBam,output_bcf=self.outputBcf,remove=self.remove,dry_run=self.dry_run,
                                      keep_unmatched=self.keep_unmatched,samples=self.samples,dry_run_com=dry_run_com,
-                                     keep_duplicates=self.keep_duplicates,dbSNP_index_file=self.dbSNP_index_file,threads=self.threads,jobs=self.jobs,
+                                     keep_duplicates=self.keep_duplicates,ignore_duplicates=self.ignore_duplicates,
+                                     dbSNP_index_file=self.dbSNP_index_file,threads=self.threads,jobs=self.jobs,
                                      mapq_threshold=self.mapq_threshold,bq_threshold=self.qual_threshold,dry_run_json=self.dry_run_json,
                                      haploid=self.haploid,conversion=self.conversion,ref_bias=self.ref_bias,sample_conversion=self.sample_conversion)
                 

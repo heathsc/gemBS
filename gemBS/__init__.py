@@ -738,7 +738,7 @@ def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/"):
 
 class BsCaller:
     def __init__(self,reference,species,right_trim=0,left_trim=5,keep_unmatched=False,
-                 keep_duplicates=False,contig_size=None,dbSNP_index_file="",threads="1",
+                 keep_duplicates=False,ignore_duplicates=False,contig_size=None,dbSNP_index_file="",threads="1",
                  mapq_threshold=None,bq_threshold=None,
                  haploid=False,conversion=None,ref_bias=None,sample_conversion=None):
         self.reference = reference
@@ -747,6 +747,7 @@ class BsCaller:
         self.left_trim = left_trim
         self.keep_unmatched = keep_unmatched
         self.keep_duplicates = keep_duplicates
+        self.ignore_duplicates = ignore_duplicates
         self.dbSNP_index_file = dbSNP_index_file
         self.threads = threads
         self.mapq_threshold = mapq_threshold
@@ -774,6 +775,8 @@ class BsCaller:
             parameters_bscall.append('-k')
         if self.keep_duplicates:
             parameters_bscall.append('-d')
+        if self.ignore_duplicates:
+            parameters_bscall.append('--ignore-duplicates')
         if self.haploid:
             parameters_bscall.append('-1')
         if self.conversion != None:
@@ -982,7 +985,7 @@ class MethylationCallThread(th.Thread):
 def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=None,samples=None,right_trim=0,left_trim=5,dry_run_com=None,
                        keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1",jobs=1,remove=False,concat=False,
                        mapq_threshold=None,bq_threshold=None,haploid=False,conversion=None,ref_bias=None,sample_conversion=None,
-                       no_merge=False,json_commands=None,dry_run=False,dry_run_json=None,ignore_db=None):
+                       no_merge=False,json_commands=None,dry_run=False,dry_run_json=None,ignore_db=None,ignore_duplicates=False):
 
     """ Performs the process to make met5Bhylation calls.
     
@@ -996,6 +999,7 @@ def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=No
     dry_run_com -- Partial command for dry-run
     keep_unmatched -- Do not discard reads that do not form proper pairs
     keep_duplicates -- Do not merge duplicate reads  
+    ignore_duplicates -- Ignore duplicate flag from SAM/BAM files
     dbSNP_index_file -- dbSNP Index File            
     threads -- Number of threads
     mapq_threshold -- threshold for MAPQ scores
@@ -1028,7 +1032,7 @@ def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=No
                 contig_size[fd[0]] = int(fd[1])
 
     bsCall = BsCaller(reference=reference,species=species,right_trim=right_trim,left_trim=left_trim,
-                      keep_unmatched=keep_unmatched,keep_duplicates=keep_duplicates,contig_size=contig_size,
+                      keep_unmatched=keep_unmatched,keep_duplicates=keep_duplicates,ignore_duplicates=ignore_duplicates,contig_size=contig_size,
                       dbSNP_index_file=dbSNP_index_file,threads=threads,mapq_threshold=mapq_threshold,bq_threshold=bq_threshold,
                       haploid=haploid,conversion=conversion,ref_bias=ref_bias,sample_conversion=sample_conversion)
 
