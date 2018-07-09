@@ -639,9 +639,7 @@ class RunBasicStats:
         #1. PLOT BUILDING
         readsMapq = self.mapping_stats.mapping_quality_reads
        
-        mapqList = []
-        for mapq in range(61):
-            mapqList.append(mapq)
+        mapqList = list(range(len(readsMapq)))
      
         matplotlib.pyplot.ioff()
         figure = plt.figure()
@@ -739,8 +737,8 @@ class RunBasicStats:
         ax = figure.add_subplot(111,projection='3d')
                        
         lane = 0
-        qualityRange = list(range(61))        
         for fragmentsQuality in mapqFragmentsLanes:
+            qualityRange = list(range(len(fragmentsQuality)))            
             ax.bar(qualityRange,fragmentsQuality, zs=lane, zdir='y', color='b', alpha=0.8)
             lane = lane + 1
             
@@ -752,27 +750,3 @@ class RunBasicStats:
         pylab.savefig(self.png_mapq_histogram)
         
         plt.close(figure)                                                                  
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                       
-    
