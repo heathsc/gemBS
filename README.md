@@ -69,11 +69,11 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
-    3.0 Allow white space in variable values
-    3.0 Allow fallback to gzip if pigz not present
-    3.0 Add --dry-run, --json, --ignore-db and --ignore-dep to extract command
-    3.0 Add --ignore-dep option to call and merge-bcfs commands
-    3.0 Add SNP extraction function to extract command
+    3.1.0 Allow white space in variable values
+    3.1.0 Allow fallback to gzip if pigz not present
+    3.1.0 Add --dry-run, --json, --ignore-db and --ignore-dep to extract command
+    3.1.0 Add --ignore-dep option to call and merge-bcfs commands
+    3.1.0 Add SNP extraction function to extract command
     3.0 Make v3.0 release
     3.0 Merge with master branch.
     3.0 Bump samtools sort memory limit to 2G

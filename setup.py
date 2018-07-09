@@ -14,7 +14,7 @@ import subprocess
 import shutil
 
 __VERSION_MAJOR = "3"
-__VERSION_MINOR = "0"
+__VERSION_MINOR = "1"
 __VERSION_SUBMINOR = "0"
 __VERSION__ = "%s.%s.%s" % (__VERSION_MAJOR, __VERSION_MINOR,__VERSION_SUBMINOR)
 
