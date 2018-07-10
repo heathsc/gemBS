@@ -125,6 +125,7 @@ class database(sqlite3.Connection):
         c.execute("REPLACE INTO indexing VALUES (?, 'reference', 1)",(ref,))
         cdef =config['DEFAULT']
         index = cdef.get('index', None)
+        nonbs_index = cdef.get('nonbs_index', None)
         csizes = cdef.get('contig_sizes', None)
         index_dir = cdef.get('index_dir', None)
         dbSNP_idx = cdef.get('dbsnp_index', None)
@@ -162,9 +163,17 @@ class database(sqlite3.Connection):
                 index_ok = 1
             except IOError:
                 index_ok = 0
+        if nonbs_index != None:
+            try:
+                nonbs_index = database._prepare_index_parameter(nonbs_index, nonbs = True)
+                nonbs_index_ok = 1
+            except IOError:
+                nonbs_index_ok = 0
         csizes_ok = 1 if os.path.exists(csizes) else 0
         c.execute("REPLACE INTO indexing VALUES (?, 'index', ?)",(index, index_ok))
         c.execute("REPLACE INTO indexing VALUES (?, 'contig_sizes', ?)",(csizes,csizes_ok))
+        if nonbs_index != None:
+            c.execute("REPLACE INTO indexing VALUES (?, 'nonbs_index', ?)",(nonbs_index,nonbs_index_ok))
         if dbSNP_idx != None:
             c.execute("REPLACE INTO indexing VALUES (?, 'dbsnp_idx', ?)",(dbSNP_idx,dbSNP_ok))
         self.commit()
@@ -211,7 +220,7 @@ class database(sqlite3.Connection):
                     if database._mem_db or sync:
                         if os.path.isfile(ind_bam):
                             old1 = (0,0,0,0,1)                    
-                        elif old[4] == 1:
+                        elif old[5] == 1:
                             old1 = (0,0,0,0,2)
                     mapping_tab[ind_bam] = (ind_bam, k, bc, 'MULTI_BAM', old1[4])
                     key_used[ind_bam] = True
@@ -444,7 +453,7 @@ class database(sqlite3.Connection):
             self.commit()
 
     @staticmethod
-    def _prepare_index_parameter(index):
+    def _prepare_index_parameter(index, nonbs = False):
         """Prepares the index file and checks that the index
         exists. The function throws a IOError if the index file
         can not be found.
@@ -461,7 +470,8 @@ class database(sqlite3.Connection):
         file_name = index
 
         if not os.path.exists(file_name):
-            if not index.endswith('.BS.gem') and os.path.exists(index + '.BS.gem'):
+            
+            if not nonbs and not index.endswith('.BS.gem') and os.path.exists(index + '.BS.gem'):
                 index += '.BS.gem'
             elif not index.endswith(".gem") and os.path.exists(index + '.gem'):
                 index += '.gem'

@@ -69,6 +69,7 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.1.0 Add support for non-bisulfite mapping of individual datasets
     3.1.0 Allow white space in variable values
     3.1.0 Allow fallback to gzip if pigz not present
     3.1.0 Add --dry-run, --json, --ignore-db and --ignore-dep to extract command

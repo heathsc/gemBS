@@ -157,6 +157,7 @@ class Index(BasicPipeline):
         fasta_input, fasta_input_ok = db_data['reference']
         extra_fasta_files = jsonData.check(section='index',key='extra_references',arg=None,list_type=True,default=[])
         index_name, index_ok = db_data['index']
+        nonbs_index_name, nonbs_index_ok = db_data['nonbs_index']
         csizes, csizes_ok = db_data['contig_sizes']
         dbsnp_index, dbsnp_ok = db_data.get('dbsnp_idx',(None, 0))
         self.threads = jsonData.check(section='index',key='threads',arg=args.threads)
@@ -167,6 +168,7 @@ class Index(BasicPipeline):
         if index_ok == 1:
             logging.warning("Bisulphite Index {} already exists, skipping indexing".format(index_name))
         else:
+            self.command = 'index'
             self.log_parameter()
         
             ret = index(fasta_input, index_name, extra_fasta_files=extra_fasta_files, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=os.path.dirname(index_name))
@@ -176,6 +178,17 @@ class Index(BasicPipeline):
             if ret:
                 logging.gemBS.gt("Index done: {}".format(index))
                 db.check_index()
+
+        if nonbs_index_name != None:
+            if nonbs_index_ok == 1:
+                logging.warning("Non-bisulphite Index {} already exists, skipping indexing".format(nonbs_index_name))
+            else:
+                self.command = 'nonbs index'
+                self.log_parameter()
+        
+                ret = index(fasta_input, nonbs_index_name, nonbs_flag=True, extra_fasta_files=extra_fasta_files, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=os.path.dirname(index_name))
+                if ret:
+                    logging.gemBS.gt("Non-bisulfite index done: {}".format(index))
 
         if dbsnp_index != None:
             if args.list_dbSNP_files:
@@ -242,10 +255,9 @@ class Mapping(BasicPipeline):
         parser.add_argument('-r', '--remove', dest="remove", action="store_true", help='Remove individual BAM files after merging.', required=False)
         parser.add_argument('-s', '--read-non-stranded', dest="read_non_stranded", action="store_true", 
                               help='Automatically selects the proper C->T and G->A read conversions based on the level of Cs and Gs on the read.')     
-        parser.add_argument('-u', '--underconversion-sequence', dest="underconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control unmethylated cytosines which fails to be\
-                              deaminated and thus appears to be Methylated.', default=None,required=False)
-        parser.add_argument('-v', '--overconversion-sequence', dest="overconversion_sequence", metavar="SEQUENCE", help='Name of Lambda Sequence used to control methylated cytosines which are\
-                              deaminated and thus appears to be Unmethylated.', default=None,required=False)
+        parser.add_argument('-u', '--underconversion-sequence', dest="underconversion_sequence", metavar="SEQUENCE", help='Name of unmethylated sequencing control.', default=None,required=False)
+        parser.add_argument('-v', '--overconversion-sequence', dest="overconversion_sequence", metavar="SEQUENCE", help='Name of methylated sequencing control.', default=None,required=False)
+        parser.add_argument('--non-bs', dest="non_bs", action="store_true", help="Use regular (non bisulfite) index")
         parser.add_argument('--no-merge', dest="no_merge", action="store_true", help="Do not automatically merge BAMs")
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
         parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
@@ -274,6 +286,8 @@ class Mapping(BasicPipeline):
         self.dry_run = args.dry_run
         self.dry_run_json = args.dry_run_json
         self.no_merge = args.no_merge
+        self.non_bs = args.non_bs
+                      
         if self.dry_run or self.dry_run_json:
             self.ignore_db = args.ignore_db
         else:
@@ -315,14 +329,13 @@ class Mapping(BasicPipeline):
         # If we are doing a dry-run we will use an in memory copy of the db so the on disk db is not touched
         if self.dry_run or self.dry_run_json:
             self.db.copy_to_mem()
-            
-        c = self.db.cursor()
-        c.execute("SELECT file, status FROM indexing WHERE type = 'index'")
-        index_name, status = c.fetchone()
-        if status != 1:
-            raise CommandException("GEM Index {} not found.  Run 'gemBS index' or correct configuration file and rerun".format(index_name)) 
-        self.index = index_name
 
+        self.index_status = {}
+        c = self.db.cursor()
+        for ix_type in ('index', 'nonbs_index'):
+            c.execute("SELECT file, status FROM indexing WHERE type = '{}'".format(ix_type))
+            self.index_status[ix_type] = c.fetchone()
+            
         #Check Temp Directory
         if self.tmp_dir and not os.path.isdir(self.tmp_dir):
             raise CommandException("Temporary directory %s does not exists or is not a directory." %(self.tmp_dir))
@@ -390,6 +403,17 @@ class Mapping(BasicPipeline):
 
             sample = fliInfo.sample_name
             bc = fliInfo.sample_barcode
+            bis = fliInfo.bisulfite
+            if self.non_bs: bis = False
+            ix_type = 'index' if bis else 'nonbs_index'
+            v = self.index_status[ix_type]
+            if v != None:
+                self.index = v[0]
+                if v[1] != 1:
+                    raise CommandException("GEM Index {} not found.  Run 'gemBS index' or correct configuration file and rerun".format(self.index))
+            else:
+                raise CommandException("GEM {} not found.  Run 'gemBS index' or correct configuration file and rerun".format(six_type))
+                
             input_dir = self.input_dir.replace('@BARCODE',bc).replace('@SAMPLE',sample)
 
             #Paired
@@ -507,6 +531,7 @@ class Mapping(BasicPipeline):
                 if args.read_non_stranded: com.append('-s')
                 if args.underconversion_sequence: com.extend(['-u',args.underconversion_sequence])
                 if args.overconversion_sequence: com.extend(['-v',args.overconversion_sequence])
+                if not bis: com.append('--non-bs')
                 if self.dry_run:
                     print(" ".join(com))
                 if self.dry_run_json:
@@ -515,6 +540,7 @@ class Mapping(BasicPipeline):
                     task['dataset'] = fli
                     task['sample_barcode'] = self.name
                     task['inputs'] = inputFiles
+                    task['index'] = self.index
                     odir = os.path.dirname(outfile)
                     report_file = os.path.join(odir,fli + '.json')
                     logfile = os.path.join(odir,'gem_mapper_' + fli + '.err')

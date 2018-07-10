@@ -17,6 +17,8 @@ import json
 import gzip
 import pkg_resources
 import glob
+import distutils
+import distutils.util
 
 from .utils import run_tools, CommandException, try_get_exclusive
 from .parser import gembsConfigParse
@@ -110,6 +112,8 @@ class Fli:
         self.file = None
         self.centre = None
         self.platform = None
+        self.bisulfite = True
+        
     def getFli(self):
         #Get FLI (flowcell lane index)
         return self.fli
@@ -174,6 +178,8 @@ class JSONdata:
                     fliCommands.centre = value
                 elif key == "platform":
                     fliCommands.platform = value
+                elif key == "bisulfite":
+                    fliCommands.bisulfite = json.loads(str(value).lower())
 
                 self.sampleData[fli] = fliCommands
 
@@ -297,7 +303,8 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
             'read2': 'file2', 'end2': 'file2', 'file2': 'file2', 'location2': 'file2',
             'description': 'description', 'desc': 'description',
             'centre': 'centre', 'center': 'centre',
-            'platform': 'platform'
+            'platform': 'platform',
+            'bisulfite': 'bisulfite'
             }
         data_types = ['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM', 'COMMAND', 'SINGLE_COMMAND', 'PAIRED_COMMAND']
         paired_types = ['PAIRED', 'INTERLEAVED', 'PAIRED_STREAM', 'PAIRED_COMMAND']
@@ -340,7 +347,9 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
                             elif head == "file1":
                                 file1 = field
                             elif head == "file2":
-                                file2 = field    
+                                file2 = field
+                            elif head == "bisulfite":
+                                sampleDirectory[head] = bool(distutils.util.strtobool(field.lower()))
                             elif head == "type":
                                 field = field.upper()
                                 if field in data_types:
@@ -459,7 +468,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
         ix_files[ftype]=(fname, status)
     db.close()
     printer = logging.gemBS.gt
-    for x in ('Reference','Index','Contig_sizes','dbSNP_idx'):
+    for x in ('Reference','Index','Contig_sizes','NonBS_Index','dbSNP_idx'):
         v = ix_files.get(x.lower())
         if v:
             st = 'OK' if v[1] == 1 else 'Missing'
@@ -468,7 +477,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
     with open(jsonOutput, 'w') as of:
         json.dump(generalDictionary, of, indent=2)
 
-def index(input_name, index_name, extra_fasta_files=None,threads=None,tmpDir=None,sampling_rate=None):
+def index(input_name, index_name, extra_fasta_files=None,threads=None,tmpDir=None,sampling_rate=None,nonbs_flag=False):
     """Run the gem-indexer on the given input. Input has to be the path
     to a single fasta file that contains the genome to be indexed.
     Output should be the path to the target index file. Note that
@@ -514,11 +523,13 @@ def index(input_name, index_name, extra_fasta_files=None,threads=None,tmpDir=Non
                            
     indexer = [
         executables['gem-indexer'],
-        '-b',
         '-i',f_in,
         '-o',index_base
     ]
 
+    if not nonbs_flag:
+        indexer.append('-b')
+        
     if tmpDir:
         tmpDir = tmpDir.rstrip('/') + '/'
         indexer.extend(['--tmp-folder', tmpDir])
