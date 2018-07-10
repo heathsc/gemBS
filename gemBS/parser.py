@@ -38,40 +38,47 @@ class gembsConfigParse:
         
     def read(self, infile):
         f = open(infile,'r')
-        lex = gembsConfigLex(instream=f, infile='test.conv', config_dir = self.sys_config_dir)
+        lex = gembsConfigLex(instream=f, infile=infile, config_dir = self.sys_config_dir)
         lex.wordchars += '.-/{}$@*?:'
         lex.source = 'include'
+        lex.whitespace = " \t\r"
         self.var = {}
         self.var['default'] = {}
         state = 0
         lex.set_section('default')
+        var_break = '[,\n'
         for tok in lex:
             if state == 0:
                 self.vstack = []
-                if tok == '[': state = 1
-                elif tok[0].isalpha:
+                if tok == '\n': state = 0
+                elif tok == '[': state = 1
+                elif tok[0].isalpha():
+                    var_orig = tok
                     var = tok.lower()
                     state = 2
                 else: 
-                    raise ValueError("Unexpected token '{}'".format(tok))
+                    raise ValueError("{}Unexpected token {}".format(lex.error_leader(), repr(tok)))
             elif state == 1:
-                if tok[0].isalpha:
+                if tok[0].isalpha():
                     section = tok.lower()
                     state = 3
                 else: 
-                    raise ValueError("Unexpected token '{}'".format(tok))
+                    raise ValueError("{}Unexpected token {} in section title".format(lex.error_leader(), repr(tok)))
             elif state == 2:
+                if tok == '\n': continue
                 if tok == '=': state = 4
                 else: 
-                    raise ValueError("Unexpected token '{}'".format(tok))
+                    raise ValueError("{}Unexpected token {} after '{}'".format(lex.error_leader(), repr(tok), var_orig))
             elif state == 3:
                 if tok == ']':
                     lex.set_section(section)
                     if not section in self.var: self.var[section] = {}
                     state = 0
                 else: 
-                    raise ValueError("Unexpected token '{}'".format(tok))
+                    raise ValueError("{}Unexpected token {} (expecting ']')".format(lex.error_leader(), repr(tok)))
             elif state == 4:
+                if tok == '\n':
+                    continue
                 repl = {}
                 section = lex.get_section()
                 for m in self.reg.finditer(tok):
@@ -93,9 +100,9 @@ class gembsConfigParse:
                     tok = tok.replace("${{{}}}".format(k),v)
                 ntok = lex.get_token()
                 if ntok == '=':
-                    raise ValueError("Unexpected token '{}' after'{}'".format(ntok, tok))
+                    raise ValueError("Unexpected token {} after'{}'".format(ntok, tok))
                 if ntok != ',':
-                    while ntok and ntok != '[' and ntok != ',':
+                    while ntok and ntok not in var_break:
                         ntok1 = lex.get_token()
                         if ntok1 == '=':
                             lex.push_token(ntok1)
