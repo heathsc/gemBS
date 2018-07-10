@@ -126,6 +126,7 @@ class database(sqlite3.Connection):
         cdef =config['DEFAULT']
         index = cdef.get('index', None)
         nonbs_index = cdef.get('nonbs_index', None)
+        nonbs_flag = cdef.get('nonbs_flag', False)
         csizes = cdef.get('contig_sizes', None)
         index_dir = cdef.get('index_dir', None)
         dbSNP_idx = cdef.get('dbsnp_index', None)
@@ -163,7 +164,11 @@ class database(sqlite3.Connection):
                 index_ok = 1
             except IOError:
                 index_ok = 0
-        if nonbs_index != None:
+        if nonbs_index == None:
+            if nonbs_flag:
+                nonbs_index = os.path.join(index_dir, reference_basename) + '.gem'
+                nonbs_index_ok = 1 if os.path.exists(index) else 0
+        else:
             try:
                 nonbs_index = database._prepare_index_parameter(nonbs_index, nonbs = True)
                 nonbs_index_ok = 1

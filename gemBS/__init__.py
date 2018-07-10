@@ -289,6 +289,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
         os.remove(jsonOutput)
 
     generalDictionary['sampleData'] = {}
+    nonbs_flag = False
     if text_metadata is not None:
         #Parses Metadata coming from text file
         headers = { 
@@ -304,7 +305,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
             'description': 'description', 'desc': 'description',
             'centre': 'centre', 'center': 'centre',
             'platform': 'platform',
-            'bisulfite': 'bisulfite'
+            'bisulfite': 'bisulfite', 'bisulphite': 'bisulfite', 'bis': 'bisulfite'
             }
         data_types = ['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM', 'COMMAND', 'SINGLE_COMMAND', 'PAIRED_COMMAND']
         paired_types = ['PAIRED', 'INTERLEAVED', 'PAIRED_STREAM', 'PAIRED_COMMAND']
@@ -350,6 +351,8 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
                                 file2 = field
                             elif head == "bisulfite":
                                 sampleDirectory[head] = bool(distutils.util.strtobool(field.lower()))
+                                if not sampleDirectory[head]:
+                                    nonbs_flag = True;
                             elif head == "type":
                                 field = field.upper()
                                 if field in data_types:
@@ -430,6 +433,7 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
         if inputs_path != None:
             shutil.copy(text_metadata, inputs_path)
     elif lims_cnag_json is not None:
+        bisulfite_applications = ("WG-BS-Seq", "BSseq", "oxBS-Seq", "CustomCaptureBS-Seq","Other-BS")
         # Parses json from cnag lims
         with open(lims_cnag_json) as jsonFile:
             sampleDirectory = json.load(jsonFile)
@@ -445,6 +449,11 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
                     sample["sample_name"] = element["sample_name"]
                     sample["platform"] = 'Illumina'
                     sample["centre"] = 'CNAG'
+                    if element["application"] in bisulfite_applications:
+                        sample["bisulfite"] = True
+                    else:
+                        sample["bisulfite"] = False
+                        nonbs_flag = True;
                     generalDictionary['sampleData'][fli] = sample
 
         if inputs_path != None:
@@ -453,7 +462,9 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
         js = JSONdata(jsonOutput)
         generalDictionary['contigs']=js.contigs
     else:
-        generalDictionary['contigs']={}    
+        generalDictionary['contigs']={}
+        
+    generalDictionary['config']['DEFAULT']['nonbs_flag'] = nonbs_flag
     js = JSONdata(jdict = generalDictionary)
     # Initialize or check database
     database.setup(js)
