@@ -473,9 +473,8 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
     printer = logging.gemBS.gt
     for x in ('Reference','Index','Contig_sizes','NonBS_Index','dbSNP_idx'):
         v = ix_files.get(x.lower())
-        if v:
-            st = 'OK' if v[1] == 1 else 'Missing'
-            printer("{} file '{}': Status {}".format(x, v[0], st))
+        if v and v[1] != 1:
+            printer("{} file '{}': Missing".format(x, v[0]))
     generalDictionary['contigs']=js.contigs
     with open(jsonOutput, 'w') as of:
         json.dump(generalDictionary, of, indent=2)
