@@ -1108,12 +1108,13 @@ class GCcoverage(StatsMother,PlotMother):
                 sxy += z*x*y
                 n += z
         #Estimate correlation
+        corr = -2
         if n != 0:
             numerator = float(sxy) - ((float(sx)*float(sy))/n)
             denominator = (float(sx2) - ((float(sx)*float(sx))/n)) * (float(sy2) - ((float(sy)*float(sy))/n))
-            return float(numerator) / math.sqrt(denominator)
-        else:
-            return -2
+            if denominator > 0:
+                corr = float(numerator) / math.sqrt(denominator)
+        return corr
         
             
 class QCDistribution(DistributionPlot,StatsMother):
