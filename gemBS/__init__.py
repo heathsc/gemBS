@@ -211,13 +211,6 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
     cpath = None
     inputs_path = None
 
-    if no_db:
-        js = 'gemBS.json'
-    else:
-        js = '.gemBS/gemBS.json'
-    if os.path.exists(js):
-        os.remove(js)
-        
     if configFile is not None:
         config = gembsConfigParse()
         config.read(configFile)
@@ -284,9 +277,6 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
             jsonOutput = os.path.join(cpath, 'gemBS.json')
         else:
             jsonOutput = 'gemBS.json'
-
-    if os.path.exists(jsonOutput):
-        os.remove(jsonOutput)
 
     generalDictionary['sampleData'] = {}
     nonbs_flag = False
@@ -458,9 +448,11 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
 
         if inputs_path != None:
             shutil.copy(lims_cnag_json, inputs_path)
+
     if os.path.exists(jsonOutput):
         js = JSONdata(jsonOutput)
         generalDictionary['contigs']=js.contigs
+        os.remove(jsonOutput)
     else:
         generalDictionary['contigs']={}
         

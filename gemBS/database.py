@@ -225,7 +225,7 @@ class database(sqlite3.Connection):
                     if database._mem_db or sync:
                         if os.path.isfile(ind_bam):
                             old1 = (0,0,0,0,1)                    
-                        elif old[5] == 1:
+                        elif old[4] == 1:
                             old1 = (0,0,0,0,2)
                     mapping_tab[ind_bam] = (ind_bam, k, bc, 'MULTI_BAM', old1[4])
                     key_used[ind_bam] = True
@@ -287,16 +287,14 @@ class database(sqlite3.Connection):
         
         # Make list of contig pools already described in JSON file
         rebuild = 0;
-        for ctg, pool in js.pools.items():
-            if ctg not in contig_size:
-                rebuild |= 1
-            else:
-                ctg_flag[ctg][0] |= 1
-                ctg_flag[ctg][1] = pool
-            if not pool in ctg_pools:
-                ctg_pools[pool] = [[ctg], False, {}]
-            else:
-                ctg_pools[pool][0].append(ctg)
+        for pool, ctglist in js.contigs.items():
+            for ctg in ctglist:
+                if ctg not in contig_size:
+                    rebuild |= 1
+                else:
+                    ctg_flag[ctg][0] |= 1
+                    ctg_flag[ctg][1] = pool
+            ctg_pools[pool] = [ctglist, False, {}]
             
         # And make list of contigs already completed in table
         if not sync:
@@ -323,7 +321,7 @@ class database(sqlite3.Connection):
             # in sync (which should mean that the db has been altered outside of
             # gemBS) and we can not be confident in the makeup of the pools
             logging.gemBS.gt("db tables have been altered and do not correspond - rebuilding")
-            print(rebuild)
+#            print(rebuild)
             for ctg in contig_size:
                 ctg_flag[ctg] = [0, None]
         else:
