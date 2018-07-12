@@ -137,7 +137,7 @@ class JSONdata:
         try:
             conf = jsconfig['config']
             defaults = conf['DEFAULT']
-            for sect in ['mapping', 'calling', 'extract', 'report', 'index', 'DEFAULT']:
+            for sect in ['DEFAULT', 'mapping', 'calling', 'extract', 'report', 'index']:
                 self.config[sect] = {}
                 if sect in conf:
                     for key,val in conf[sect].items():
@@ -230,6 +230,33 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
         elif dbfile == None:
             dbfile = def_dict.get('gembs_dbfile', '.gemBS/gemBS.db')
         config_dict['DEFAULT']['gembs_dbfile'] = dbfile
+        if 'index_dir' in config_dict['DEFAULT']:
+            ixdir = config_dict['DEFAULT']['index_dir']
+            conf = os.path.join(ixdir, 'gemBS.json')
+            path_vars = (
+                'tmp_dir', 'bam_dir', 'sequence_dir', 'index', 'reference', 'reference_basename', 'extra_references', 'nonbs_index', 'contig_sizes', 'dbsnp_files', 'dbsnp_index',
+                'bcf_dir', 'extract_dir', 'report_dir'
+            )
+            if os.path.exists(conf):
+                with open(conf, 'r') as fileJson:
+                    js = json.load(fileJson)
+                    defaults = config_dict['DEFAULT']
+                    for sect in ['DEFAULT', 'mapping', 'calling', 'extract', 'report', 'index']:
+                        if not sect in config_dict:
+                            config_dict[src] = {}
+                        if sect in js:
+                            for key,val in js[sect].items():
+                                if not key in config_dict[sect]:
+                                    if key in path_vars:
+                                        val = os.path.join(ixdir, val)
+                                    config_dict[sect][key] = val
+                        if sect != 'DEFAULT' and 'DEFAULT' in js:
+                            for key,val in js['DEFAULT'].items():
+                                if not key in config_dict[sect]:
+                                    if key in path_vars:
+                                        val = os.path.join(ixdir, val)
+                                    config_dict[sect][key] = val
+            
         if not 'reference' in config_dict['DEFAULT']:
             raise ValueError("No value for 'reference' given in main section of configuration file {}".format(configFile))
         if not os.path.exists(config_dict['DEFAULT']['reference']):
@@ -799,7 +826,7 @@ class BsCaller:
                 else:
                     parameters_bscall.extend(['--conversion', self.conversion])
         if self.ref_bias != None:
-            parameters_bscall.extend(['--reference_bias', self.ref_bias])
+            parameters_bscall.extend(['--reference-bias', self.ref_bias])
         #Thresholds
         if self.mapq_threshold != None:
             parameters_bscall.extend(['--mapq-threshold', self.mapq_threshold])
@@ -1067,7 +1094,7 @@ def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=No
             
 def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=False,cpg=False,non_cpg=False,allow_het=False,
                          inform=1,phred=20,min_nc=1,bedMethyl=False,bigWig=False,contig_list=None,contig_size_file=None,
-                         snps=None,snp_list=None,snp_db=None):
+                         snps=None,snp_list=None,snp_db=None,ref_bias=None):
     
     """ Filters bcf methylation calls file 
 
@@ -1091,6 +1118,8 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
     bcftools = [executables['bcftools'],'view','-R',contig_bed,'-Ou',bcfFile]
     mextr_com = [executables['bcftools'],'+mextr','--','-z']
     mextr = []
+    if ref_bias:
+        mextr.extend(['--reference-bias', ref_bias])       
     if cpg:
         mextr.extend(['-o', outbase + '_cpg.txt'])
     if non_cpg:

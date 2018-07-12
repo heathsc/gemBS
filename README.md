@@ -69,6 +69,8 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.1.0 Add support for reading config from ${index_dir}/gemBS.json if it exists
+    3.1.0 Add --reference-bias option to mextr and gemBS extract
     3.1.0 Add support for non-bisulfite mapping of individual datasets
     3.1.0 Allow white space in variable values
     3.1.0 Allow fallback to gzip if pigz not present

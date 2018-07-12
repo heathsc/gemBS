@@ -134,11 +134,11 @@ class gembsConfigParse:
                     
         known_var = {
             'mapping': ('tmp_dir', 'threads', 'non_stranded', 'remove_individual_bams', 'underconversion_sequence', 'overconversion_sequence', 'bam_dir', 'sequence_dir'),
-            'index': ('index', 'index_dir', 'reference', 'extra_references', 'reference_basename', 'nonbs_index', 'contig_size', 'threads', 'dbsnp_files', 'dbsnp_index', 'sampling_rate'),
+            'index': ('index', 'index_dir', 'reference', 'extra_references', 'reference_basename', 'nonbs_index', 'contig_sizes', 'threads', 'dbsnp_files', 'dbsnp_index', 'sampling_rate'),
             'calling': ('bcf_dir', 'mapq_threshold', 'qual_threshold', 'left_trim', 'right_trim', 'threads', 'jobs', 'species', 'keep_duplicates', 'keep_improper_pairs',
                         'remove_individual_bcfs', 'haploid', 'reference_bias', 'conversion', 'contig_list', 'contig_pool_limit'),
             'extract': ('extract_dir', 'jobs', 'allow_het', 'phred_threshold', 'min_inform', 'strand_specific', 'min_bc', 'make_cpg', 'make_non_cpg', 'make_bedmethyl',
-                        'make_bigwig', 'make_snps', 'snp_list', 'snp_db'),
+                        'make_bigwig', 'make_snps', 'snp_list', 'snp_db', 'reference_bias'),
             'report': ('project', 'report_dir', 'threads')
         }
         # Check if variables are used

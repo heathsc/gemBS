@@ -841,7 +841,7 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('-r','--remove', dest="remove", action="store_true", help='Remove individual BCF files after merging.')
         parser.add_argument('-1','--haploid', dest="haploid", action="store", help="Force genotype calls to be homozygous")
         parser.add_argument('-C','--conversion', dest="conversion", help="Set under and over conversion rates (under,over)")
-        parser.add_argument('-B','--reference_bias', dest="ref_bias", help="Set bias to reference homozygote")
+        parser.add_argument('-R','--reference-bias', dest="ref_bias", help="Set bias to reference homozygote")
         parser.add_argument('-x','--concat-only', dest="concat", action="store_true", help="Only perform merging BCF files.")
         parser.add_argument('--no-merge', dest="no_merge", action="store_true", help="Do not automatically merge BCFs")
         parser.add_argument('--pool',dest="req_pool",metavar="POOL",help="Contig pool on which to perform the methylation calling.")
@@ -1259,6 +1259,7 @@ class MethylationFiltering(BasicPipeline):
         parser.add_argument('-I','--min-inform', dest="inform", help="Min threshold for informative reads.")
         parser.add_argument('-M','--min-nc', dest="min_nc", help="Min threshold for non-converted reads for non CpG sites.")
         parser.add_argument('-H','--allow-het', dest="allow_het", action="store_true", help="Allow both heterozygous and homozgyous sites.")
+        parser.add_argument('-R','--reference-bias', dest="ref_bias", help="Allow both heterozygous and homozgyous sites.")
         parser.add_argument('-c','--cpg', dest="cpg", action="store_true", help="Output gemBS bed with cpg sites.")
         parser.add_argument('-N','--non-cpg', dest="non_cpg", action="store_true", help="Output gemBS bed with non-cpg sites.")
         parser.add_argument('-B','--bed-methyl', dest="bedMethyl", action="store_true", help="Output bedMethyl files (bed and bigBed)")
@@ -1285,9 +1286,10 @@ class MethylationFiltering(BasicPipeline):
         self.snp_db = self.jsonData.check(section='extract',key='snp_db',arg=args.snp_db)
         self.non_cpg = self.jsonData.check(section='extract',key='make_non_cpg',arg=args.non_cpg,boolean=True,default=False)
         self.bedMethyl = self.jsonData.check(section='extract',key='make_bedmethyl',arg=args.bedMethyl,boolean=True,default=False)
+        self.ref_bias = self.jsonData.check(section='extract',key='reference_bias',arg=args.ref_bias)
         self.bigWig = self.jsonData.check(section='extract',key='make_bigwig',arg=args.bigWig,boolean=True,default=False)
         self.strand_specific = self.jsonData.check(section='extract',key='strand_specific',arg=args.strand_specific,boolean=True,default=False)
-        self.phred = self.jsonData.check(section='extract',key='phred_threshold',arg=args.phred, default = 20)
+        self.phred = self.jsonData.check(section='extract',key='phred_threshold',arg=args.phred, default = '20')
         self.inform = self.jsonData.check(section='extract',key='min_inform',arg=args.inform, default = 1, int_type=True)
         self.min_nc = self.jsonData.check(section='extract',key='min_nc',arg=args.inform, default = 1, int_type=True)
         self.path_bcf = self.jsonData.check(section='calling',key='bcf_dir',arg=None, default = '.', dir_type=True)
@@ -1444,6 +1446,7 @@ class MethylationFiltering(BasicPipeline):
                     if args.phred: com.extend(['-q', args.phred])
                     if args.inform: com.extend(['-I', args.inform])
                     if args.min_nc: com.extend(['-M', args.min_nc])
+                    if args.ref_bias: com.extend(['--reference-bias', args.ref_bias])
                     if args.allow_het: com.extend(['-H', args.allow_het])
                     if cpg: com.append('--cpg')
                     if non_cpg: com.append('--non-cpg')
@@ -1475,7 +1478,7 @@ class MethylationFiltering(BasicPipeline):
                     ret = methylationFiltering(bcfFile=bcf_file,outbase=filebase,name=sample,strand_specific=self.strand_specific,
                                                cpg=cpg,non_cpg=non_cpg,contig_list=self.contig_list,allow_het=self.allow_het,
                                                inform=self.inform,phred=self.phred,min_nc=self.min_nc,bedMethyl=bedMethyl,
-                                               bigWig=bigWig,contig_size_file=self.contig_size_file,
+                                               bigWig=bigWig,contig_size_file=self.contig_size_file,ref_bias=self.ref_bias,
                                                snps=snps,snp_list=self.snp_list,snp_db=self.snp_db)
                     if ret:
                         logging.gemBS.gt("Results extraction for {} done, results located in: {}".format(bcf_file, ret))
