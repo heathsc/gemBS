@@ -106,6 +106,8 @@ def gemBS_main():
         else:
             path = f + ":" + path
             os.environ["PATH"] = path
+
+        os.environ["LC_NUMERIC"] = "C"
             
         commands = {
             "prepare" : PrepareConfiguration,            
