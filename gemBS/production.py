@@ -157,7 +157,7 @@ class Index(BasicPipeline):
         fasta_input, fasta_input_ok = db_data['reference']
         extra_fasta_files = jsonData.check(section='index',key='extra_references',arg=None,list_type=True,default=[])
         index_name, index_ok = db_data['index']
-        nonbs_index_name, nonbs_index_ok = db_data.get('nonbs_index',(None, 0)
+        nonbs_index_name, nonbs_index_ok = db_data.get('nonbs_index',(None, 0))
         csizes, csizes_ok = db_data['contig_sizes']
         dbsnp_index, dbsnp_ok = db_data.get('dbsnp_idx',(None, 0))
         self.threads = jsonData.check(section='index',key='threads',arg=args.threads)
