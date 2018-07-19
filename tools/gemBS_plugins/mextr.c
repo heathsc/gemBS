@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
+#include <locale.h>
 #include <unistd.h>
 #include <string.h>
 #include <inttypes.h>
@@ -310,7 +312,6 @@ static void check_hdr_params(args_t *a) {
 int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out __unused__)
 {
   args.hdr  = in;
-
   check_hdr_params(&args);
   static struct option loptions[] = {
     {"cpgfile",required_argument,0,'c'},
@@ -462,6 +463,7 @@ bcf1_t *process(bcf1_t *rec)
   static bool valid[2] = {false, false};
   static bcf1_t prev_rec;
   
+  (void)setlocale(LC_NUMERIC, "C");
   int ns = bcf_hdr_nsamples(args.hdr);
   stats_t *st = args.stats;
   if(st != NULL) st->n_sites++;
