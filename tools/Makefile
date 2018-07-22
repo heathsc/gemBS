@@ -32,31 +32,28 @@ endif
 		  
 FOLDER_BIN=bin
 
-all: release $(FOLDER_BIN)/wigToBigWig $(FOLDER_BIN)/bedToBigBed
+all: setup gem3 _samtools _bcftools kent _bs_call _utils
+
+all_static: setup gem3-static _samtools _bcftools kent _bs_call _utils
+
+all_debug: setup gem3-debug _samtools _bcftools kent _bs_call _utils
+
+_samtools: $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk 
 	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
+
+_bcftools: $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
 	$(MAKE) $(FOLDER_BIN)/bcftools
 
-static:	setup gem3-static $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
-	$(MAKE) --directory=utils static
-	$(MAKE) --directory=gen static
-	$(MAKE) --directory=bs_call static
+kent: $(FOLDER_BIN)/wigToBigWig $(FOLDER_BIN)/bedToBigBed
 
-release: setup	gem3 $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
-	$(MAKE) --directory=utils
-	$(MAKE) --directory=gen
+_bs_call: bs_call/src/Makefile.mk
 	$(MAKE) --directory=bs_call
 
-debug: setup gem3-debug $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
-	$(MAKE) --directory=utils debug
-	$(MAKE) --directory=gen debug
-	$(MAKE) --directory=bs_call debug
-	cd gem3-mapper; ./configure;
+_utils:
+	$(MAKE) --directory=utils
 
-setup: gen/Makefile bs_call/src/Makefile.mk
+setup:
 	@mkdir -p $(FOLDER_BIN) 
-
-gen/Makefile: gen/Makefile.in gen/configure
-	cd gen; ./configure
 
 bs_call/src/Makefile.mk: bs_call/src/Makefile.mk.in bs_call/GEMTools/Makefile.mk.in bs_call/configure
 	cd bs_call; ./configure
@@ -104,6 +101,5 @@ $(FOLDER_BIN)/wigToBigWig:
 clean:
 	@rm -f *~
 	@rm -rf $(FOLDER_BIN) $(SAMTOOLS_DIR) $(BCFTOOLS_DIR)
-	$(MAKE) --directory=gen clean
-	$(MAKE) --directory=gem3-mapper clean
-	$(MAKE) --directory=bs_call clean
+	if [ -f "gem3-mapper/Makefile" ]; then $(MAKE) --directory=gem3-mapper clean; fi
+	if [ -f "bs_call/Makefile" ]; then $(MAKE) --directory=bs_call clean; fi
