@@ -62,7 +62,7 @@ def _install_bundle(install_dir, inst):
 
     # copy tools/bin
     bins = ['gemBS_cat', 'readNameClean']
-    if not inst.no_kent:
+    if not (inst.minimal or inst.no_kent):
         bins.extend(['wigToBigWig', 'bedToBigBed'])
     for file in bins:
         f = os.path.join('tools/bin', file)
@@ -74,7 +74,7 @@ def _install_bundle(install_dir, inst):
             shutil.copy(f, gemBSbin_dir)
             os.chmod(result_file, 0o755)
 
-    if not inst.no_bscall:
+    if not (inst.minimal or inst.no_bscall):
         # copy compiled bs_call tools
         bins = [x for x in os.listdir("tools/bs_call/bin")]
         for file in bins:
@@ -85,7 +85,7 @@ def _install_bundle(install_dir, inst):
             shutil.copy(os.path.join("tools/bs_call/bin", file), gemBSbin_dir)
             os.chmod(result_file, 0o755)
 
-    if not inst.no_gem3:
+    if not (inst.minimal or inst.no_gem3):
         # copy compiled gem3 tools
         bins = [x for x in os.listdir("tools/gem3-mapper/bin")]
         for file in bins:
@@ -106,7 +106,7 @@ def _install_bundle(install_dir, inst):
     for dir in [bin_dir, lib_dir, plugins_dir, config_dir]:
         if not os.path.exists(dir):
             os.makedirs(dir)
-    if not inst.no_samtools:
+    if not (inst.minimal or inst.no_samtools):
         if os.path.exists("tools/samtools/samtools"):
             # print ("Copy binary: samtools to {}".format(bin_dir))
             shutil.copy("tools/samtools/samtools", bin_dir)
