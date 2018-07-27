@@ -69,6 +69,7 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.2.0 Make new release
     3.1.0 Make installation process more modular.  Allow for sub-installs
     3.1.0 Add support for reading config from ${index_dir}/gemBS.json if it exists
     3.1.0 Add --reference-bias option to mextr and gemBS extract
