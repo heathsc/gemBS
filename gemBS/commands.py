@@ -10,7 +10,7 @@ from .utils import CommandException
 from .production import *
 from .database import database
 
-__VERSION__ = "3.0.0"
+__VERSION__ = "3.2.0"
 
 LOG_NOTHING = 1
 LOG_STDERR = 2
