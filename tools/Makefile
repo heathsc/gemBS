@@ -56,7 +56,7 @@ setup:
 	@mkdir -p $(FOLDER_BIN) 
 
 bs_call/src/Makefile.mk: bs_call/src/Makefile.mk.in bs_call/GEMTools/Makefile.mk.in bs_call/configure
-	cd bs_call; ./configure
+	cd bs_call; ./configure ${BS_CALL_CONFIG}
 
 gem3: gem3-mapper/Makefile.mk
 	$(MAKE) --directory=gem3-mapper

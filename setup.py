@@ -3,6 +3,7 @@ import sys
 import glob
 
 from distutils.core import setup
+from distutils.sysconfig import get_config_vars
 from setuptools import setup, Command
 from setuptools.command.install import install as _install
 # from setuptools.command.build_py import build_py as _build_py
@@ -18,11 +19,13 @@ import shutil
 
 __VERSION_MAJOR = "3"
 __VERSION_MINOR = "2"
-__VERSION_SUBMINOR = "0"
+__VERSION_SUBMINOR = "1"
 __VERSION__ = "%s.%s.%s" % (__VERSION_MAJOR, __VERSION_MINOR,__VERSION_SUBMINOR)
 
-def compile_gemBS_tools(options):
+def compile_gemBS_tools(options, gsl_path):
     make_com = 'make ' + ' '.join(options)
+    if gsl_path:
+        make_com = "BS_CALL_CONFIG=\'--with-gsl={}\' ".format(gsl_path) + make_com
     process = subprocess.Popen(make_com, shell=True, cwd='tools')
     if process.wait() != 0:
         print ("""
@@ -155,7 +158,8 @@ class install(_install):
         ('no-gem3', None, "Do not install gem3 mapper"),
         ('no-bscall', None, "Do not install bscall"),
         ('minimal', None,
-         "Perform minimal install (equivalent to --no-samtools --no-kent --no-gem3 --no-bscall)")
+         "Perform minimal install (equivalent to --no-samtools --no-kent --no-gem3 --no-bscall)"),
+        ('gsl-path=', None, "Installation path of GSL library")
     ])
     _install.boolean_options.extend(['no-samtools','no-kent','no-gem3','no-bscall','minimal'])
 
@@ -165,6 +169,7 @@ class install(_install):
         self.no_kent = False
         self.no_gem3 = False
         self.no_bscall = False
+        self.gsl_path = None
         _install.initialize_options(self)
         
     def run(self):
@@ -179,7 +184,7 @@ class install(_install):
             if not self.no_bscall:
                 options.append('_bs_call')
 
-        compile_gemBS_tools(options)
+        compile_gemBS_tools(options, self.gsl_path)
         _install.run(self)
 
         # find target folder
