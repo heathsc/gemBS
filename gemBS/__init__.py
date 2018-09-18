@@ -261,6 +261,11 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
             raise ValueError("No value for 'reference' given in main section of configuration file {}".format(configFile))
         if not os.path.exists(config_dict['DEFAULT']['reference']):
             raise CommandException("Reference file '{}' does not exist".format(config_dict['DEFAULT']['reference']))
+        if 'dbsnp_files' in config_dict['DEFAULT'] and not 'dbsnp_index' in config_dict['DEFAULT']:
+            dbsnp_index = os.path.join(ixdir, 'dbSNP_gemBS.idx')
+            config_dict['DEFAULT']['dbsnp_index'] = dbsnp_index
+            config_dict['index']['dbsnp_index'] = dbsnp_index
+            
         ex_fasta = config_dict['DEFAULT'].get('extra_references')
         if ex_fasta:
             if not isinstance(ex_fasta, list):
@@ -498,10 +503,16 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
         ix_files[ftype]=(fname, status)
     db.close()
     printer = logging.gemBS.gt
+    miss_flag = False
     for x in ('Reference','Index','Contig_sizes','NonBS_Index','dbSNP_idx'):
         v = ix_files.get(x.lower())
         if v and v[1] != 1:
             printer("{} file '{}': Missing".format(x, v[0]))
+            if x != 'Reference':
+                miss_flag = True
+    if miss_flag:
+        printer("\n: To generate missing files run gemBS index")
+        
     generalDictionary['contigs']=js.contigs
     with open(jsonOutput, 'w') as of:
         json.dump(generalDictionary, of, indent=2)

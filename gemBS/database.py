@@ -130,6 +130,11 @@ class database(sqlite3.Connection):
         csizes = cdef.get('contig_sizes', None)
         index_dir = cdef.get('index_dir', None)
         dbSNP_idx = cdef.get('dbsnp_index', None)
+        if dbSNP_idx == None:
+            dbSNP_files = cdef.get('dbsnp_files', None)
+            if dbSNP_files != None and index_dir != None:
+                dbSNP_idx = os.path.join(index_dir,'dbSNP_gemBS.idx')
+                config['DEFAULT']['dbsnp_index'] = dbSNP_idx
         dbSNP_ok = 0
         if dbSNP_idx != None and os.path.exists(dbSNP_idx): dbSNP_ok = 1
         reference_basename = cdef.get('reference_basename', None)
@@ -179,8 +184,12 @@ class database(sqlite3.Connection):
         c.execute("REPLACE INTO indexing VALUES (?, 'contig_sizes', ?)",(csizes,csizes_ok))
         if nonbs_index != None:
             c.execute("REPLACE INTO indexing VALUES (?, 'nonbs_index', ?)",(nonbs_index,nonbs_index_ok))
+        else:
+            c.execute("DELETE FROM indexing WHERE type == 'nonbs_index'")
         if dbSNP_idx != None:
             c.execute("REPLACE INTO indexing VALUES (?, 'dbsnp_idx', ?)",(dbSNP_idx,dbSNP_ok))
+        else:
+            c.execute("DELETE FROM indexing WHERE type == 'dbsnp_idx'")
         self.commit()
 
     def check_mapping(self, sync = False):

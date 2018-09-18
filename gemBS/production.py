@@ -147,6 +147,7 @@ class Index(BasicPipeline):
     def run(self, args):
         self.command = 'index'
         jsonData = JSONdata(Index.gemBS_json)
+        args.list_dbSNP_files = jsonData.check(section='index',key='dbsnp_files',arg=args.list_dbSNP_files,list_type=True,default=[])
         db = database(jsonData)
         db.check_index()
         c = db.cursor()
