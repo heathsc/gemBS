@@ -1178,6 +1178,7 @@ class BsCallConcatenate(MethylationCall):
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
         parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
         parser.add_argument('--ignore-db', dest="ignore_db", action="store_true",help="Ignore database for --dry-run and --json commands")
+        parser.add_argument('--ignore-dep', dest="ignore_dep", action="store_true",help="Ignore dependencies for --dry-run and --json commands")
     
     def run(self,args):
 
@@ -1195,6 +1196,9 @@ class BsCallConcatenate(MethylationCall):
         args.conversion = None
         args.ref_bias = None
         args.dbSNP_index_file = None
+        args.pool = None
+        args.list_pools = 0
+        args.no_merge = False
         MethylationCall.run(self, args)
       
 class MethylationFilteringThread(th.Thread):

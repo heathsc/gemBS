@@ -92,6 +92,7 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.2.1 Fix undeclared variable bugs and missing --ignore-deps option in merge-bcfs
     3.2.1 Add default for dbSNP_index if dbSNP_files is set
     3.2.1 Add gsl-path install option
     3.2.0 Make new release
