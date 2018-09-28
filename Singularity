@@ -1,5 +1,5 @@
 BootStrap: docker
-From: ubuntu:bionic   # This is a comment
+From: ubuntu:xenial
 
 %runscript
     exec /usr/local/bin/gemBS $@

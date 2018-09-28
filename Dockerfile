@@ -1,4 +1,4 @@
-FROM ubuntu:bionic
+FROM ubuntu:xenial
 MAINTAINER Simon Heath (simon.heath@gmail.com)
 RUN apt-get update
 RUN apt-get install -y python3 build-essential git python3-pip wget pigz
