@@ -92,6 +92,8 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.2.2 Rework non-stranded mode so that both possible conversions are tried and the results merged
+    3.2.2 Fix bug where non-stranded flag was not being passed to mapper in paired end mode
     3.2.1 Move warning message from bscall from stdout to stderr
     3.2.1 Switch Singularity build to use Ubuntu 16.04 rather than 18.04 to allow the image to work in CentOS 6 (Docker build changed as well to keep the two in sync)
     3.2.1 Fix undeclared variable bugs and missing --ignore-deps option in merge-bcfs
