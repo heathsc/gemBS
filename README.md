@@ -92,6 +92,7 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+		3.2.3 Fixed bug if conversion parameters were not set
     3.2.2 Rework non-stranded mode so that both possible conversions are tried and the results merged
     3.2.2 Fix bug where non-stranded flag was not being passed to mapper in paired end mode
     3.2.1 Move warning message from bscall from stdout to stderr

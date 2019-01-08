@@ -721,9 +721,9 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
 
     mapping.extend(["-r",readGroups])    
     #Bisulfite Conversion Values
-    if under_conversion != "":
+    if under_conversion != "" and under_conversion != None:
         mapping.extend(["--underconversion_sequence",under_conversion])
-    if over_conversion != "":
+    if over_conversion != "" and under_conversion != None:
         mapping.extend(["--overconversion_sequence",over_conversion])
     #READ FILTERING
     readNameClean = [executables['readNameClean']]
