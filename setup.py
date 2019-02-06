@@ -19,7 +19,7 @@ import shutil
 
 __VERSION_MAJOR = "3"
 __VERSION_MINOR = "2"
-__VERSION_SUBMINOR = "3"
+__VERSION_SUBMINOR = "4"
 __VERSION__ = "%s.%s.%s" % (__VERSION_MAJOR, __VERSION_MINOR,__VERSION_SUBMINOR)
 
 def compile_gemBS_tools(options, gsl_path):

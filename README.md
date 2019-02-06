@@ -92,6 +92,9 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.2.4 Modify the bisulfite processing in gem-mapper to be more efficient (in particular for the non-stranded option)
+    3.2.4 Modify gemBS to use the new conversion options for gem-mapper
+    3.2.4 Switch gem-mapper to use option --underconversion-sequence and --overconversion-sequence rather than --underconversion_sequence to be consistent with other options
 		3.2.3 Fixed bug if conversion parameters were not set
     3.2.2 Rework non-stranded mode so that both possible conversions are tried and the results merged
     3.2.2 Fix bug where non-stranded flag was not being passed to mapper in paired end mode
