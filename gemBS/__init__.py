@@ -723,7 +723,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
     #Bisulfite Conversion Values
     if under_conversion != "" and under_conversion != None:
         mapping.extend(["--underconversion-sequence",under_conversion])
-    if over_conversion != "" and under_conversion != None:
+    if over_conversion != "" and over_conversion != None:
         mapping.extend(["--overconversion-sequence",over_conversion])
     #READ FILTERING
     readNameClean = [executables['readNameClean']]

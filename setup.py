@@ -19,13 +19,17 @@ import shutil
 
 __VERSION_MAJOR = "3"
 __VERSION_MINOR = "2"
-__VERSION_SUBMINOR = "5"
+__VERSION_SUBMINOR = "6"
 __VERSION__ = "%s.%s.%s" % (__VERSION_MAJOR, __VERSION_MINOR,__VERSION_SUBMINOR)
 
-def compile_gemBS_tools(options, gsl_path):
+def compile_gemBS_tools(options, gsl_path, enable_cuda, disable_cuda):
     make_com = 'make ' + ' '.join(options)
     if gsl_path:
         make_com = "BS_CALL_CONFIG=\'--with-gsl={}\' ".format(gsl_path) + make_com
+    if disable_cuda:
+        make_com = "GEM3_CONFIG=\'--disable-cuda\' " + make_com
+    elif enable_cuda:
+        make_com = "GEM3_CONFIG=\'--enable-cuda\' " + make_com
     process = subprocess.Popen(make_com, shell=True, cwd='tools')
     if process.wait() != 0:
         print ("""
@@ -159,6 +163,8 @@ class install(_install):
         ('no-bscall', None, "Do not install bscall"),
         ('minimal', None,
          "Perform minimal install (equivalent to --no-samtools --no-kent --no-gem3 --no-bscall)"),
+        ('disable-cuda', None, "Do not build GPU support for GEM3 (default)"),
+        ('enable-cuda', None, "Try to build GPU support for GEM3"),
         ('gsl-path=', None, "Installation path of GSL library")
     ])
     _install.boolean_options.extend(['no-samtools','no-kent','no-gem3','no-bscall','minimal'])
@@ -169,6 +175,8 @@ class install(_install):
         self.no_kent = False
         self.no_gem3 = False
         self.no_bscall = False
+        self.disable_cuda = False
+        self.enable_cuda = False
         self.gsl_path = None
         _install.initialize_options(self)
         
@@ -184,7 +192,10 @@ class install(_install):
             if not self.no_bscall:
                 options.append('_bs_call')
 
-        compile_gemBS_tools(options, self.gsl_path)
+        if not self.enable_cuda:
+            self.diable_cuda = True
+            
+        compile_gemBS_tools(options, self.gsl_path, self.enable_cuda, self.disable_cuda)
         _install.run(self)
 
         # find target folder

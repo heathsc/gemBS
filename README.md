@@ -92,6 +92,12 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.2.6 Fixed python error if either the over conversion reference sequence was not defined
+    3.2.6 Added check in bs_call that conversion parameters are valid (between 0 and 1)
+    3.2.6 Perform more stringent sanity checking on conversion vaalues when autocomputed by gemBS
+    3.2.6 Use --diasble-lzma configuration flag for samtools and bcftools as we don't need it and it removes an unneccesary dependency
+    3.2.6 Add install options --disable-cuda (on by default) and --enable-cuda that affect GEM3 comppilation
+    3.2.6 Bug fix with incorrect handling of duplicate reads
     3.2.5 Minor bug fix - correct error with non-paired end non-bisulfite reads
     3.2.4 Modify the bisulfite processing in gem-mapper to be more efficient (in particular for the non-stranded option)
     3.2.4 Modify gemBS to use the new conversion options for gem-mapper

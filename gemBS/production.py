@@ -965,12 +965,16 @@ class MethylationCall(BasicPipeline):
                     oc = stats.getOverConversionRate()
                     if uc == "NA":
                         uc = 0.99
-                    elif uc < 0.8:
-                        uc = 0.8
+                    elif uc < 0.95:
+                        uc = 0.95
+                    elif uc > 0.999:
+                        uc = 0.999
                     if oc == "NA":
                         oc = 0.05
-                    elif oc > 0.2:
-                        oc = 0.2
+                    elif oc > 0.15:
+                        oc = 0.15
+                    elif oc < 0.0:
+                        oc = 0.01
                     self.sample_conversion[sample] = "{:.4f},{:.4f}".format(1-uc,oc)
 
         # Get fasta reference && dbSNP index if supplied

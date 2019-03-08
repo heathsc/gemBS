@@ -68,16 +68,16 @@ gem3-debug: gem3-mapper/Makefile.mk
 	$(MAKE) --directory=gem3-mapper debug
 	
 gem3-mapper/Makefile.mk: gem3-mapper/Makefile.mk.in gem3-mapper/configure
-	cd gem3-mapper; ./configure
+	cd gem3-mapper; ./configure ${GEM3_CONFIG}
 
 $(SAMTOOLS_DIR)/config.mk:
-	cd $(SAMTOOLS_DIR); ./configure
+	cd $(SAMTOOLS_DIR); ./configure --disable-lzma
 
 $(FOLDER_BIN)/bcftools: $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/plugins/mextr.c $(BCFTOOLS_DIR)/plugins/snpxtr.c
 	$(MAKE) --directory=$(BCFTOOLS_DIR) all
 
 $(BCFTOOLS_DIR)/config.h:
-	cd $(BCFTOOLS_DIR); ./configure
+	cd $(BCFTOOLS_DIR); ./configure --disable-lzma
 	touch $(BCFTOOLS_DIR)/config.h
 
 $(SAMTOOLS_DIR):
