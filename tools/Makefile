@@ -100,6 +100,16 @@ $(FOLDER_BIN)/wigToBigWig:
 
 clean:
 	@rm -f *~
-	@rm -rf $(FOLDER_BIN) $(SAMTOOLS_DIR) $(BCFTOOLS_DIR)
-	if [ -f "gem3-mapper/Makefile" ]; then $(MAKE) --directory=gem3-mapper clean; fi
-	if [ -f "bs_call/Makefile" ]; then $(MAKE) --directory=bs_call clean; fi
+	@rm -rf $(FOLDER_BIN) 
+	if [ -f $(SAMTOOLS_DIR)/Makefile ]; then $(MAKE) --directory=$(SAMTOOLS_DIR) clean; fi
+	if [ -f $(BCFTOOLS_DIR)/Makefile ]; then $(MAKE) --directory=$(BCFTOOLS_DIR) clean; fi
+	if [ -f "gem3-mapper/Makefile.mk" ]; then $(MAKE) --directory=gem3-mapper clean; fi
+	if [ -f "bs_call/src/Makefile.mk" ]; then $(MAKE) --directory=bs_call clean; fi
+
+distclean:
+	@rm -f *~
+	@rm -rf $(FOLDER_BIN) 
+	if [ -f $(SAMTOOLS_DIR)/Makefile ]; then cd $(SAMTOOLS_DIR); $(MAKE) clean; rm -f config.h config.log config.status config.mk; fi
+	if [ -f $(BCFTOOLS_DIR)/Makefile ]; then cd $(BCFTOOLS_DIR); $(MAKE) clean; rm -f config.h config.log config.status config.mk; fi
+	if [ -f "gem3-mapper/Makefile.mk" ]; then $(MAKE) --directory=gem3-mapper distclean; fi
+	if [ -f "bs_call/src/Makefile.mk" ]; then $(MAKE) --directory=bs_call distclean; fi

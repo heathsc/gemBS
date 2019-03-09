@@ -50,7 +50,7 @@ sudo apt-get install make gcc python-dev libbz2-dev
 
 
 def clean_gemBS_tools():
-    process = subprocess.Popen(['make clean'],shell=True,cwd='tools')
+    process = subprocess.Popen(['make distclean'],shell=True,cwd='tools')
     if process.wait() != 0:
         print (""" Error Running cleaning. """,file=sys.stderr)
         exit(1)
