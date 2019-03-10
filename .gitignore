@@ -1,5 +1,6 @@
 tools/samtools*
 tools/bcftools*
+tools/userApps
 tools/gen/Makefile
 tools/gen/config.log
 tools/gen/config.status

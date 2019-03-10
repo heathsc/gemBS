@@ -12,22 +12,34 @@ ROOT_PATH=$(CURDIR)
 # samtools and bcftools definitions
 SAMTOOLS_VERSION=1.8
 BCFTOOLS_VERSION=1.8
+UCSCTOOLS_VERSION=v378
 SAMTOOLS_DIR=samtools
 BCFTOOLS_DIR=bcftools
+UCSCTOOLS_DIR=userApps
 SAMTOOLS=$(SAMTOOLS_DIR)/samtools
 BCFTOOLS=$(BCFTOOLS_DIR)/bcftools
 SAMTOOLS_TAR=samtools-$(SAMTOOLS_VERSION).tar.bz2
 BCFTOOLS_TAR=bcftools-$(BCFTOOLS_VERSION).tar.bz2
+UCSCTOOLS_TAR=userApps.$(UCSCTOOLS_VERSION).src.tgz
 SAMTOOLS_URL=https://github.com/samtools/samtools/releases/download/$(SAMTOOLS_VERSION)/$(SAMTOOLS_TAR)
 BCFTOOLS_URL=https://github.com/samtools/bcftools/releases/download/$(BCFTOOLS_VERSION)/$(BCFTOOLS_TAR)
+UCSCTOOLS_URL=http://hgdownload.cse.ucsc.edu/admin/exe/$(UCSCTOOLS_TAR)
 
-UNAME := $(shell uname -s)
-ifeq ($(UNAME),Linux)
-  ARCHIVE=http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64
+MACHTYPE:=$(shell uname -m)
+ifneq (,$(findstring -,$(MACHTYPE)))
+    MACHTYPE:=$(shell uname -m)
 endif
-ifeq ($(UNAME),Darwin)
-  ARCHIVE=http://hgdownload.cse.ucsc.edu/admin/exe/macOSX.x86_64
-endif
+
+UCSCTOOLS_LIB=$(UCSCTOOLS_DIR)/kent/src/lib/$(MACHTYPE)/jkweb.a
+UCSCTOOLS_HTSLIB=$(UCSCTOOLS_DIR)/kent/src/htslib/libhts.a
+
+#UNAME := $(shell uname -s)
+#ifeq ($(UNAME),Linux)
+#  ARCHIVE=http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64.v369
+#endif
+#ifeq ($(UNAME),Darwin)
+# ARCHIVE=http://hgdownload.cse.ucsc.edu/admin/exe/macOSX.x86_64
+#endif
 
 		  
 FOLDER_BIN=bin
@@ -88,17 +100,30 @@ $(BCFTOOLS_DIR):
 	wget $(BCFTOOLS_URL) && tar -jxf $(BCFTOOLS_TAR) && rm -f $(BCFTOOLS_TAR)
 	mv bcftools-$(BCFTOOLS_VERSION) $(BCFTOOLS_DIR)
 
+$(UCSCTOOLS_DIR):
+	wget $(UCSCTOOLS_URL) && tar -zxf $(UCSCTOOLS_TAR) && rm -f $(UCSCTOOLS_TAR)
+	echo BINDIR=$(CURDIR)/bin > $(UCSCTOOLS_DIR)/kent/src/inc/localEnvironment.mk
+
+$(UCSCTOOLS_LIB): $(UCSCTOOLS_DIR)
+	cd $(UCSCTOOLS_DIR)/kent/src/lib && make
+
+$(UCSCTOOLS_HTSLIB): $(UCSCTOOLS_DIR)
+	cd $(UCSCTOOLS_DIR)/kent/src/htslib && make
+
 $(BCFTOOLS_DIR)/plugins/%.c:
 	ln -sf ../../gemBS_plugins/$(notdir $@) $(BCFTOOLS_DIR)/plugins/ 
 	ln -sf ../../gemBS_plugins/$(basename $(notdir $@)).mk $(BCFTOOLS_DIR)/plugins/
 
-$(FOLDER_BIN)/bedToBigBed:
-	wget $(ARCHIVE)/bedToBigBed -O $(FOLDER_BIN)/bedToBigBed  && chmod 755 $(FOLDER_BIN)/bedToBigBed
+$(FOLDER_BIN)/bedToBigBed: $(UCSCTOOLS_LIB) $(UCSCTOOLS_HTSLIB)
+	cd $(UCSCTOOLS_DIR)/kent/src/utils/bedToBigBed && make
 
-$(FOLDER_BIN)/wigToBigWig:
-	wget $(ARCHIVE)/wigToBigWig -O $(FOLDER_BIN)/wigToBigWig && chmod 755 $(FOLDER_BIN)/wigToBigWig
+$(FOLDER_BIN)/wigToBigWig: $(UCSCTOOLS_LIB) $(UCSCTOOLS_HTSLIB)
+	cd $(UCSCTOOLS_DIR)/kent/src/utils/wigToBigWig && make
 
-clean:
+ucsctools_clean:
+	if [ -d $(UCSCTOOLS_DIR) ]; then $(MAKE) --directory=$(UCSCTOOLS_DIR)/kent/src/lib clean; $(MAKE) --directory=$(UCSCTOOLS_DIR)/kent/src/htslib clean; $(MAKE) --directory=$(UCSCTOOLS_DIR)/kent/src/utils/bedToBigBed clean; $(MAKE) --directory=$(UCSCTOOLS_DIR)/kent/src/utils/wigToBigWig clean; fi
+
+clean: 	ucsctools_clean 
 	@rm -f *~
 	@rm -rf $(FOLDER_BIN) 
 	if [ -f $(SAMTOOLS_DIR)/Makefile ]; then $(MAKE) --directory=$(SAMTOOLS_DIR) clean; fi
@@ -106,7 +131,7 @@ clean:
 	if [ -f "gem3-mapper/Makefile.mk" ]; then $(MAKE) --directory=gem3-mapper clean; fi
 	if [ -f "bs_call/src/Makefile.mk" ]; then $(MAKE) --directory=bs_call clean; fi
 
-distclean:
+distclean: 	ucsctools_clean
 	@rm -f *~
 	@rm -rf $(FOLDER_BIN) 
 	if [ -f $(SAMTOOLS_DIR)/Makefile ]; then cd $(SAMTOOLS_DIR); $(MAKE) clean; rm -f config.h config.log config.status config.mk; fi
