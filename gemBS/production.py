@@ -468,7 +468,7 @@ class Mapping(BasicPipeline):
                     for fli in (fliInfo.getFli(),fliInfo.alt_fli):
                         if fli == None:
                             continue
-                        reg = re.compile("(.*){}(.*)(.)[.](fastq|fq|fasta|fa|bam|sam)([.][^.]+)?$".format(fli, re.I))
+                        reg = re.compile("(.*){}(.*)[.](fastq|fq|fasta|fa|bam|sam)([.][^.]+)?$".format(fli, re.I))
                         mlist = []
                         for file in os.listdir(input_dir):
                             m = reg.match(file)
