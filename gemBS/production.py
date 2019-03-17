@@ -1093,19 +1093,19 @@ class MethylationCall(BasicPipeline):
                     if Mapping.gemBS_json != '.gemBS/gemBS.json':
                         com.extend(['-j',Mapping.gemBS_json])
                 com1 = []
-                if args.threads: com1.extend(['-t',args.threads])
-                if args.remove: com1.append('-r')
+                if args.threads != None: com1.extend(['-t',args.threads])
+                if args.remove != None: com1.append('-r')
                 com2 = []
-                if args.mapq_threshold: com2.extend(['-q',str(args.mapq_threshold)])
-                if args.qual_threshold: com2.extend(['-Q',str(args.mapq_threshold)])
-                if args.right_trim: com2.extend(['--right-trim',str(args.right_trim)])
-                if args.left_trim: com2.extend(['--left-trim',str(args.left_trim)])
-                if args.keep_duplicates: com2.append('-u')
-                if args.ignore_duplicates: com2.append('-U')
-                if args.keep_unmatched: com2.append('-k')
-                if args.haploid: com2.append('--haploid')
-                if args.species: com2.append('--species')
-                if args.ref_bias: com2.extend(['-B',args.ref_bias])
+                if args.mapq_threshold != None: com2.extend(['-q',str(args.mapq_threshold)])
+                if args.qual_threshold != None: com2.extend(['-Q',str(args.mapq_threshold)])
+                if args.right_trim != None: com2.extend(['--right-trim',str(args.right_trim)])
+                if args.left_trim != None: com2.extend(['--left-trim',str(args.left_trim)])
+                if args.keep_duplicates != None: com2.append('-u')
+                if args.ignore_duplicates != None: com2.append('-U')
+                if args.keep_unmatched != None: com2.append('-k')
+                if args.haploid != None: com2.append('--haploid')
+                if args.species != None: com2.append('--species')
+                if args.ref_bias != None: com2.extend(['-B',args.ref_bias])
                 dry_run_com = [com, com1, com2]
                 
             else:
