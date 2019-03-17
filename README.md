@@ -92,7 +92,9 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
-    3.2.6 Fixed bug (reported by chhylp123) where zero arguments to some options were being ignored
+    3.2.7 Apply patches for bugs in handling single end reads (suggested by I. Moghul)
+    3.2.7 Changed regex for filenames to make it more general (suggested by I. Moghul)
+    3.2.7 Fixed bug (reported by chhylp123) where zero arguments to some options were being ignored
     3.2.6 Cleaned up compilation and cleaning of gemBS tools
     3.2.6 Fixed python error if either the over conversion reference sequence was not defined
     3.2.6 Added check in bs_call that conversion parameters are valid (between 0 and 1)
