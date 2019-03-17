@@ -487,7 +487,7 @@ class Mapping(BasicPipeline):
                                 else:
                                     ftype = 'INTERLEAVED' if self.paired else 'SINGLE'
                             elif ftype == 'PAIRED' or (ftype == 'SAM' and m.group(4).lower != 'sam') or (ftype == 'BAM' and m.group(4).lower() != 'bam'): skip = True
-                            if not skip: inputFiles.append(file)
+                            if not skip: inputFiles.append(os.path.join(input_dir,file))
                         elif len(mlist) == 2:
                             (file1, m1) = mlist[0]
                             (file2, m2) = mlist[1]
