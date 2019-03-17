@@ -480,7 +480,7 @@ class Mapping(BasicPipeline):
                             
                         if len(mlist) == 1:
                             (file, m) = mlist[0]
-                            skip = false
+                            skip = False
                             if ftype is None:
                                 if m.group(4).lower() in ['SAM', 'BAM']:
                                     ftype = 'BAM' if m.group(4).lower == 'BAM' else 'SAM'
