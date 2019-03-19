@@ -314,8 +314,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out __unused__)
   args.hdr  = in;
   check_hdr_params(&args);
   static struct option loptions[] = {
-    {"cpgfile",required_argument,0,'c'},
-    {"wigfile",required_argument,0,'c'},
+    {"cpgfile",required_argument,0,'o'},
+    {"wigfile",required_argument,0,'w'},
     {"noncpgfile",required_argument,0,'n'},
     {"bed-methyl",required_argument,0,'b'},
     {"bed-track-line",required_argument,0,'t'},
@@ -330,6 +330,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out __unused__)
     {"number",required_argument,0,'N'},
     {"inform",required_argument,0,'I'},
     {"threshold",required_argument,0,'T'},
+    {"conversion",required_argument,0,'c'},
+    {"bq-conversion",required_argument,0,'Q'},
     {"gzip",no_argument,0,'z'},
     {"bzip2",no_argument,0,'j'},
     {"xz",no_argument,0,'x'},

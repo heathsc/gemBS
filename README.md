@@ -92,6 +92,8 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.2.8 Fix mis specification errors in long options for mextr. 
+    3.2.8 Fix bug where mextr (methyl extract plugin for bcftools) would crash if cpg output  option was not set.
     3.2.7 Apply patches for bugs in handling single end reads (suggested by I. Moghul)
     3.2.7 Changed regex for filenames to make it more general (suggested by I. Moghul)
     3.2.7 Fixed bug (reported by chhylp123) where zero arguments to some options were being ignored
