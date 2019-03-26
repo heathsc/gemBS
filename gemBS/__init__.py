@@ -186,7 +186,7 @@ class JSONdata:
     def check(self, section, key, arg=None, default=None, boolean=False, dir_type=False, list_type=False, int_type = False):
         if not section in self.config:
             self.config[section] = {}
-        if arg != None:
+        if arg:
             ret = arg
         elif key in self.config[section]:
             ret = self.config[section][key]

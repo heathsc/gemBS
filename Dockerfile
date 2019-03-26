@@ -1,6 +1,7 @@
 FROM ubuntu:xenial
 MAINTAINER Simon Heath (simon.heath@gmail.com)
 RUN apt-get update
+RUN apt-get install -y libpng-dev uuid-dev libmysqlclient-dev
 RUN apt-get install -y python3 build-essential git python3-pip wget pigz
 RUN apt-get install -y zlib1g-dev libbz2-dev gsl-bin libgsl0-dev
 RUN apt-get install -y libncurses5-dev liblzma-dev libssl-dev libcurl4-openssl-dev

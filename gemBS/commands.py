@@ -10,7 +10,6 @@ from .utils import CommandException
 from .production import *
 from .database import database
 
-__VERSION__ = "3.2.2"
 
 LOG_NOTHING = 1
 LOG_STDERR = 2
@@ -84,6 +83,9 @@ def _cleanup_on_shutdown():
 
 import atexit
 atexit.register(_cleanup_on_shutdown)
+
+pwd = os.path.abspath(os.path.dirname(__file__))
+exec(open(os.path.join(pwd,'version.py')).read())
 
 def gemBS_main():
     try:

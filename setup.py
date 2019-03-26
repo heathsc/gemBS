@@ -17,10 +17,8 @@ from site import USER_SITE
 import subprocess
 import shutil
 
-__VERSION_MAJOR = "3"
-__VERSION_MINOR = "2"
-__VERSION_SUBMINOR = "8"
-__VERSION__ = "%s.%s.%s" % (__VERSION_MAJOR, __VERSION_MINOR,__VERSION_SUBMINOR)
+pwd = os.path.abspath(os.path.dirname(__file__))
+exec(open(os.path.join(pwd,'gemBS','version.py')).read())
 
 def compile_gemBS_tools(options, gsl_path, enable_cuda, disable_cuda):
     make_com = 'make ' + ' '.join(options)
