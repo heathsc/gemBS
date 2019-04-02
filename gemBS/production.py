@@ -468,12 +468,12 @@ class Mapping(BasicPipeline):
                     for fli in (fliInfo.getFli(),fliInfo.alt_fli):
                         if fli == None:
                             continue
-                        reg = re.compile("(.*){}(.*)[.](fastq|fq|fasta|fa|bam|sam)([.][^.]+)?$".format(fli, re.I))
+                        reg = re.compile("(.*){}(.*?)([12])?[.](fastq|fq|fasta|fa|bam|sam)([.][^.]+)?$".format(fli, re.I))
                         mlist = []
                         for file in os.listdir(input_dir):
                             m = reg.match(file)
                             if m: 
-                                if m.group(5) in [None, '.gz', '.xz', 'bz2', 'z']: 
+                                if m.group(5) in [None, '.gz', '.xz', 'bz2', 'z']:
                                     if ftype == 'PAIRED' and (m.group(3) not in ['1', '2'] or m.group(4).lower() not in ['fasta', 'fa', 'fastq', 'fq']): continue
                                     if ftype in ['SAM', 'BAM'] and m.group(4).lower() not in ['sam', 'bam']: continue
                                     mlist.append((file, m))

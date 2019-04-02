@@ -92,6 +92,11 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+
+    3.2.10 Correct regex patch for single end reads
+    3.2.9 Update Singularity and Dockerfile recipes to allow kemp utils to be built correctly
+    3.2.9 Make setup.py and gemBS/commands.py read the version information from gemBS/version.py, so ensuring consistency
+    3.2.9 Fix bug added in last version where options in config file were not being taken into account
     3.2.8 Fix mis specification errors in long options for mextr. 
     3.2.8 Fix bug where mextr (methyl extract plugin for bcftools) would crash if cpg output  option was not set.
     3.2.7 Apply patches for bugs in handling single end reads (suggested by I. Moghul)
