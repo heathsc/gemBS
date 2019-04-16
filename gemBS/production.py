@@ -254,6 +254,7 @@ class Mapping(BasicPipeline):
         parser.add_argument('-T', '--type', dest="ftype", help='Type of data file (PAIRED, SINGLE, INTERLEAVED, STREAM, BAM)')
         parser.add_argument('-p', '--paired-end', dest="paired_end", action="store_true", help="Input data is Paired End")
         parser.add_argument('-r', '--remove', dest="remove", action="store_true", help='Remove individual BAM files after merging.', required=False)
+        parser.add_argument('-R', '--reverse-conversion', dest="reverse_conv", action="store_true", help='Perform G2A conversion on read 1 and C2T on read 2 rather than the reverse.', required=False)
         parser.add_argument('-s', '--read-non-stranded', dest="read_non_stranded", action="store_true", 
                               help='Automatically selects the proper C->T and G->A read conversions based on the level of Cs and Gs on the read.')     
         parser.add_argument('-u', '--underconversion-sequence', dest="underconversion_sequence", metavar="SEQUENCE", help='Name of unmethylated sequencing control.', default=None,required=False)
@@ -316,7 +317,10 @@ class Mapping(BasicPipeline):
         
         self.tmp_dir = self.jsonData.check(section='mapping',key='tmp_dir',arg=args.tmp_dir,dir_type=True)
         self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
+        self.reverse_conv = self.jsonData.check(section='mapping',key='reverse_conversion',arg=args.reverse_conv, boolean=True)
         self.read_non_stranded = self.jsonData.check(section='mapping',key='non_stranded',arg=args.read_non_stranded, boolean=True)
+        if self.read_non_stranded:
+            self.reverse_conv = False
         self.remove = self.jsonData.check(section='mapping',key='remove_individual_bams',arg=args.remove, boolean=True)
         self.underconversion_sequence = self.jsonData.check(section='mapping',key='underconversion_sequence',arg=args.underconversion_sequence)
         self.overconversion_sequence = self.jsonData.check(section='mapping',key='overconversion_sequence',arg=args.overconversion_sequence)
@@ -530,6 +534,7 @@ class Mapping(BasicPipeline):
                 if args.threads: com.extend(['-t',args.threads])
                 if args.tmp_dir: com.extend(['-d',args.tmp_dir])
                 if args.read_non_stranded: com.append('-s')
+                if args.reverse_conv: com.append('-R')
                 if args.underconversion_sequence: com.extend(['-u',args.underconversion_sequence])
                 if args.overconversion_sequence: com.extend(['-v',args.overconversion_sequence])
                 if not bis: com.append('--non-bs')
@@ -554,7 +559,7 @@ class Mapping(BasicPipeline):
                     tmp = os.path.dirname(outfile)
                     
                 ret = mapping(name=fli,index=self.index,fliInfo=fliInfo,inputFiles=inputFiles,ftype=ftype,
-                              read_non_stranded=self.read_non_stranded,
+                              read_non_stranded=self.read_non_stranded, reverse_conv=self.reverse_conv,
                               outfile=outfile,paired=self.paired,tmpDir=tmp,threads=self.threads,
                               under_conversion=self.underconversion_sequence,over_conversion=self.overconversion_sequence) 
         
@@ -672,16 +677,17 @@ class Mapping(BasicPipeline):
         printer = logging.gemBS.gt
         
         printer("------------ Mapping Parameters ------------")
-        printer("Sample barcode   : %s", self.name)
-        printer("Data set         : %s", self.curr_fli)
-        printer("No. threads      : %s", self.threads)
-        printer("Index            : %s", self.index)
-        printer("Paired           : %s", self.paired)
-        printer("Read non stranded: %s", self.read_non_stranded)
-        printer("Type             : %s", self.curr_ftype)
+        printer("Sample barcode    : %s", self.name)
+        printer("Data set          : %s", self.curr_fli)
+        printer("No. threads       : %s", self.threads)
+        printer("Index             : %s", self.index)
+        printer("Paired            : %s", self.paired)
+        printer("Read non stranded : %s", self.read_non_stranded)
+        printer("Reverse conversion: %s", self.reverse_conv)
+        printer("Type              : %s", self.curr_ftype)
         if self.inputFiles:
-            printer("Input Files      : %s", ','.join(self.inputFiles))
-        printer("Output dir       : %s", self.curr_output_dir)
+            printer("Input Files       : %s", ','.join(self.inputFiles))
+        printer("Output dir        : %s", self.curr_output_dir)
         
         printer("")
 
