@@ -969,17 +969,17 @@ class MethylationCall(BasicPipeline):
                     stats = SampleStats(name=sample,list_lane_stats=list_stats_lanes)
                     uc = stats.getUnderConversionRate()
                     oc = stats.getOverConversionRate()
-                    if uc == "NA":
+                    if uc == "NA" or uc < 0.0:
                         uc = 0.99
                     elif uc < 0.95:
                         uc = 0.95
                     elif uc > 0.999:
                         uc = 0.999
-                    if oc == "NA":
+                    if oc == "NA" or oc < 0.0:
                         oc = 0.05
                     elif oc > 0.15:
                         oc = 0.15
-                    elif oc < 0.0:
+                    elif oc < 0.001:
                         oc = 0.01
                     self.sample_conversion[sample] = "{:.4f},{:.4f}".format(1-uc,oc)
 
