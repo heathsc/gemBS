@@ -32,7 +32,8 @@ static FILE *open_ofile(char *name, int compress, bool append) {
       char *p = strrchr(tname, '.');
       if(p == NULL || strcmp(p + 1, suffix)) {
 	// No, so we will have to add it
-	asprintf(&tname, "%s.%s", name, suffix);
+	tname = malloc(strlen(name) + strlen(suffix) + 2);
+	sprintf(tname, "%s.%s", name, suffix);
       }
       int i = child_open(WRITE, tname, cdata->comp_path[comp_ix][0]);
       fp = fdopen(i, "w");
@@ -108,8 +109,9 @@ static void print_file_header(FILE *fp, int ns, char **names) {
     fputs("Contig\tPos0\tPos1\tRef", fp);
     for(int i = 0; i < ns; i++) {
       char *name = names[i];
-      fprintf(fp, "\t%s:Call\t%s:Flags\t%s:Meth\t%s:non_conv\t%s:conv\t%s:support_call\t%s:total\n", name, name, name, name, name, name, name);
+      fprintf(fp, "\t%s:Call\t%s:Flags\t%s:Meth\t%s:non_conv\t%s:conv\t%s:support_call\t%s:total", name, name, name, name, name, name, name);
     }
+		fputc('\n', fp);
   }
 }
 
