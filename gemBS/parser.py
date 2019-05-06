@@ -133,7 +133,7 @@ class gembsConfigParse:
                     state = 0
                     
         known_var = {
-            'mapping': ('tmp_dir', 'threads', 'non_stranded', 'remove_individual_bams', 'underconversion_sequence', 'overconversion_sequence', 'bam_dir', 'sequence_dir'),
+            'mapping': ('tmp_dir', 'threads', 'non_stranded', 'reverse_conversion', 'remove_individual_bams', 'underconversion_sequence', 'overconversion_sequence', 'bam_dir', 'sequence_dir'),
             'index': ('index', 'index_dir', 'reference', 'extra_references', 'reference_basename', 'nonbs_index', 'contig_sizes', 'threads', 'dbsnp_files', 'dbsnp_index', 'sampling_rate'),
             'calling': ('bcf_dir', 'mapq_threshold', 'qual_threshold', 'left_trim', 'right_trim', 'threads', 'jobs', 'species', 'keep_duplicates', 'keep_improper_pairs',
                         'remove_individual_bcfs', 'haploid', 'reference_bias', 'conversion', 'contig_list', 'contig_pool_limit'),
