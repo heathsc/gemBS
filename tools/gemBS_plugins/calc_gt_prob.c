@@ -253,6 +253,7 @@ void calc_cpg_meth(args_t *args, int ns, cpg_prob *cpg, gt_meth *g1, gt_meth *g2
   double wval[3] = {1.0, 1.0, 0.5};
   double pval[3] = {1.0, 0.5, 1.0};
   for(int ix = 0; ix < ns; ix++) {
+    if(g1[ix].skip || g2[ix].skip) continue;
     int gt1 = g1[ix].max_gt;
     int gt2 = g2[ix].max_gt;
     cpg[ix].max_gt[0] = gt1;
