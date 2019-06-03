@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
-#include <locale.h>
 #include <unistd.h>
 #include <string.h>
 #include <inttypes.h>
@@ -463,11 +462,10 @@ static fmt_field_t tags[] = {
 bcf1_t *process(bcf1_t *rec)
 {
   static int idx;
-  static int32_t curr_rid = -1, prev_pos, mq[2];
+  static int32_t curr_rid = -1, prev_pos;
   static bool valid[2] = {false, false};
   static bcf1_t prev_rec;
   
-  (void)setlocale(LC_NUMERIC, "C");
   int ns = bcf_hdr_nsamples(args.hdr);
   stats_t *st = args.stats;
   if(st != NULL) st->n_sites++;
@@ -563,8 +561,6 @@ bcf1_t *process(bcf1_t *rec)
 	  }
 	}
       }
-      mq[idx] = -1;
-      if(mq_p != NULL) mq[idx] = (int32_t)(0.5 + sqrt(ms_mq / (double)tot_n));
       valid[idx] = true;
       // Here is the logic for deciding what we print
       if(rec->rid != curr_rid) curr_rid = rec->rid;

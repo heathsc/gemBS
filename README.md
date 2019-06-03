@@ -93,6 +93,8 @@ Documentation can be found at
 Changelog:
 ----------
 
+    3.3.0 Make new release for IHEC
+    3.3.0 Fix bug where conversion parameters could be ignored
     3.2.13 Fix formatting bug in mextr with multiple samples (not triggered in normal gemBS use)
     3.2.12 Ensure that conversion statistics are correctly calculated for non-stranded or reverse conversion protocols
     3.2.11 Introduce reverse_conversion option for mapping where read 1 is G2A converted and read 2 is C2T converted

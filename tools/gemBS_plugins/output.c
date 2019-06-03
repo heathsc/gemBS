@@ -178,7 +178,6 @@ void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt
 	double z = 0.0;
 	gt_meth *g = sample_gt[idx ^ pos] + ix;
 	if(!g->skip) {
-	  double m = get_meth(g, pos);
 	  if(!pos) {
 	    if(g->counts[5] >= args->min_nc && (g->counts[5] + g->counts[7] >= args->min_inform)) {
 	      if(args->sel_mode == SELECT_HOM) z = exp(g->gt_prob[4]);
@@ -260,8 +259,9 @@ static char *rgb_tab[11] = { "0,255,0", "55,255,0", "105,255,0", "155,255,0", "2
   
 void output_bedmethyl(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt[], int idx) {
   static char *cx;
-  static int32_t cx_n,old_rid = 0xffffffff;
+  static int32_t cx_n,old_rid = 0xffffffff, old_pos = -1;
   
+  if(rec->rid == old_rid && rec->pos <= old_pos) return;
   int ns = bcf_hdr_nsamples(args->hdr);
   if(ns > 1) return;
   gt_meth *g = sample_gt[idx];
@@ -310,7 +310,6 @@ void output_bedmethyl(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sam
       FILE *fp = args->wigfile;
       if(fp != NULL) {
 	if(rec->rid != old_rid) {
-	  old_rid = rec->rid;
 	  fprintf(fp, "variableStep chrom=%s\n", args->hdr->id[BCF_DT_CTG][rec->rid].key);
 	}
 	fprintf(fp, "%u\t%.4g\n", rec->pos + 1, 100.0 * m);
@@ -323,5 +322,7 @@ void output_bedmethyl(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sam
 	      args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos, rec->pos + 1, args->bedmethyl_desc, cov > 1000 ? 1000 : cov, strand, 
 	      rec->pos, rec->pos + 1, rgb_tab[(int)(m * 10.0 + 0.5)], cov, (int)(100.0 * m), rtmp, rtmp + 4, gq);
     }
+    old_rid = rec->rid;
+    old_pos = rec->pos;
   }
 }

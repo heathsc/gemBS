@@ -57,7 +57,7 @@ static void init_compress(void) {
 			  path = DEFAULT_PATH;
 			for (i = 0; i < COMPRESS_NONE; i++) {
 				compress_data.compress_suffix[i] = strdup(suff[i]);
-				compress_data.comp_path[i][0] = compress_data.comp_path[i][0] = NULL;
+				compress_data.comp_path[i][0] = compress_data.comp_path[i][1] = NULL;
 			}
 			int ix = 0;
 			while(pnames[ix][0] != NULL) {

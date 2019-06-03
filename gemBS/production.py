@@ -1106,6 +1106,7 @@ class MethylationCall(BasicPipeline):
                 if args.qual_threshold != None: com2.extend(['-Q',str(args.mapq_threshold)])
                 if args.right_trim != None: com2.extend(['--right-trim',str(args.right_trim)])
                 if args.left_trim != None: com2.extend(['--left-trim',str(args.left_trim)])
+                if args.conversion != None: com2.extend(['--conversion',str(args.conversion)])
                 if args.keep_duplicates != None: com2.append('-u')
                 if args.ignore_duplicates != None: com2.append('-U')
                 if args.keep_unmatched != None: com2.append('-k')

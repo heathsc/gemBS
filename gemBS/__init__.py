@@ -838,11 +838,10 @@ class BsCaller:
         if self.haploid:
             parameters_bscall.append('-1')
         if self.conversion != None:
-            if self.conversion.lower() == "auto":
-                if sample in self.sample_conversion:
-                    parameters_bscall.extend(['--conversion', self.sample_conversion[sample]])
-                else:
-                    parameters_bscall.extend(['--conversion', self.conversion])
+            if self.conversion.lower() == "auto" and sample in self.sample_conversion:
+                parameters_bscall.extend(['--conversion', self.sample_conversion[sample]])
+            else:
+                parameters_bscall.extend(['--conversion', self.conversion])
         if self.ref_bias != None:
             parameters_bscall.extend(['--reference-bias', self.ref_bias])
         #Thresholds
