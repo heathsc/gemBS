@@ -887,6 +887,8 @@ class MethylationCall(BasicPipeline):
         self.species = self.jsonData.check(section='calling',key='species',arg=args.species)
         self.contig_list = self.jsonData.check(section='calling',key='contig_list',arg=args.contig_list,list_type=True, default = [])
         self.conversion = self.jsonData.check(section='calling',key='conversion',arg=args.conversion)
+        if isinstance(self.conversion, list):
+            self.conversion = ','.join(self.conversion)
         self.remove = self.jsonData.check(section='calling',key='remove_individual_bcfs',arg=args.remove, boolean=True)
 
         self.dry_run = args.dry_run

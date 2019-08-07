@@ -852,7 +852,7 @@ class BsCaller:
         if self.dbSNP_index_file:
             parameters_bscall.extend(['-D', self.dbSNP_index_file])
     
-        bsCall.append(parameters_bscall)             
+        bsCall.append(parameters_bscall)
                 
         bsCall.append([executables['bcftools'],'convert','-o',output_bcf,'-O','b','--threads',self.threads])
         return bsCall
