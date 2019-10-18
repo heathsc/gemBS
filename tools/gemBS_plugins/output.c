@@ -209,7 +209,7 @@ void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt
 	for(int ix = 0; ix < ns; ix++, cx_p += cx_sz) {
 	  gt_meth *g = sample_gt[idx ^ pos] + ix;
 	  if(!g->skip) {
- 	    int gq = calc_phred(1.0 - exp(g->gt_prob[g->max_gt])); // Prob. of not being called genotype
+	    int gq = calc_phred(1.0 - exp(g->gt_prob[g->max_gt])); // Prob. of not being called genotype
 	    fprintf(fp, "\t%c\tGQ=%d", gt_iupac[g->max_gt], gq);
 	    if(g->max_gt != (pos ? 7 : 4)) {
 	      int dq = calc_phred(exp(g->gt_prob[pos ? 7 : 4])); // Prob. of being CG
@@ -250,9 +250,88 @@ void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt
 	}
 	fputc('\n', fp);
       }
-    }
+    } 
   }
 }							  
+
+void output_nonconsec_noncpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt[], int idx, bool first, cpg_prob *cpg, double *Q[]) {
+  static char *cx;
+  static int32_t cx_n;
+  static char *gt_iupac = "AMRWCSYGKT";
+  static uint8_t gt_msk[] = {0x11, 0xb3, 0x55, 0x99, 0xa2, 0xf6, 0xaa, 0x54, 0xdc, 0x88};
+  
+  FILE *fp = args->cpgfile;
+  int ns = bcf_hdr_nsamples(args->hdr);
+  int min_n = args->min_num;
+  int n1 = (int)(args->min_prop * (double)ns + 0.5);
+  if(n1 > min_n) min_n = n1;
+  fp=args->noncpgfile;
+  assert(fp != NULL);
+  for(int ix = 0; ix < ns; ix++) {
+    double z = 0.0;
+    gt_meth *g = sample_gt[idx] + ix;
+    if(!g->skip) {
+      if(first) {
+	if(g->counts[5] >= args->min_nc && (g->counts[5] + g->counts[7] >= args->min_inform)) {
+	  if(args->sel_mode == SELECT_HOM) z = exp(g->gt_prob[4]);
+	  else z = exp(g->gt_prob[1]) + exp(g->gt_prob[4]) + exp(g->gt_prob[5]) + exp(g->gt_prob[6]);
+	}
+      } else {
+	if(g->counts[6] >= args->min_nc && (g->counts[6] + g->counts[4] >= args->min_inform)) {
+	  if(args->sel_mode == SELECT_HOM) z = exp(g->gt_prob[7]);
+	  else z = exp(g->gt_prob[2]) + exp(g->gt_prob[5]) + exp(g->gt_prob[7]) + exp(g->gt_prob[8]);
+	}
+      }
+    }
+    Q[2][ix] = z;
+  }
+  double *p = get_prob_dist(ns, Q);
+  double z = p[0];
+  for(int i = 1; i <= ns && i < min_n; i++) z += p[i];
+  int phred = calc_phred(z);
+  if(phred >= args->sel_thresh) {
+    int cx_len = bcf_get_info_values(args->hdr, rec, "CX", (void **)&cx, &cx_n, BCF_HT_STR);    
+    int cx_sz = tags[FMT_CX].st[idx].ne / ns;
+    int *mq_p = tags[FMT_MQ].st[idx].ne == ns ? tags[FMT_MQ].st[idx].dat_p : NULL; 
+    fprintf(fp,"%s\t%d\t%d\t%c", args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos, rec->pos + 1, cx_len >= 3 ? cx[2] : '.');
+    char *cx_p = tags[FMT_CX].st[idx].dat_p;
+    for(int ix = 0; ix < ns; ix++, cx_p += cx_sz) {
+      gt_meth *g = sample_gt[idx] + ix;
+      if(!g->skip) {
+	int gq = calc_phred(1.0 - exp(g->gt_prob[g->max_gt])); // Prob. of not being called genotype
+	fprintf(fp, "\t%c\tGQ=%d", gt_iupac[g->max_gt], gq);
+	if(g->max_gt != (first ? 4 : 7)) {
+	  int dq = calc_phred(exp(g->gt_prob[first ? 4 : 7])); // Prob. of being CG
+	  fprintf(fp, ";DQ=%d", dq);
+	}
+	int mq = -1;
+	if(mq_p != NULL) mq = mq_p[ix];
+	if(mq >= 0) fprintf(fp, ";MQ=%d", mq);
+	if(cx_sz >= 5) fprintf(fp, ";CX=%.3s", cx_p + 2);
+	int32_t ct[4];
+	if(!first) {
+	  ct[0] = g->counts[6];
+	  ct[1] = g->counts[4];
+	} else {
+	  ct[0] = g->counts[5];
+	  ct[1] = g->counts[7];
+	}
+	ct[2] = ct[3] = 0;
+	uint8_t m = 1;
+	uint8_t msk = gt_msk[g->max_gt];
+	for(int i = 0; i < 8; i++, m <<= 1) {
+	  ct[3] += g->counts[i];
+	  if(msk & m) ct[2] += g->counts[i];
+	}
+	double meth = get_meth(g, !first);
+	fprintf(fp, "\t%g\t%d\t%d\t%d\t%d", meth, ct[0], ct[1], ct[2], ct[3]);
+      } else {
+	fputs("\t.\t.\t.\t.\t.\t.\t.\t.", fp);
+      }
+    }
+    fputc('\n', fp);
+  }
+}
 
 static char *rgb_tab[11] = { "0,255,0", "55,255,0", "105,255,0", "155,255,0", "205,255,0", "255,255,0",
 			     "255,205,0", "255,155,0", "255,105,0", "255,55,0", "255,0,0" };

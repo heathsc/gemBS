@@ -102,6 +102,7 @@ void calc_gt_prob(gt_meth *gt, args_t *args, char rf);
 void calc_cpg_meth(args_t *args, int ns, cpg_prob *cpg, gt_meth *g1, gt_meth *g2);
 double get_meth(gt_meth *g, int idx);
 void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt[], int idx, cpg_prob *sample_cpg, double *Q[]);
+void output_nonconsec_noncpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt[], int idx, bool first, cpg_prob *sample_cpg, double *Q[]);
 void output_bedmethyl(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt[], int idx);
 void fill_base_prob_table(void);
 

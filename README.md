@@ -93,6 +93,7 @@ Documentation can be found at
 Changelog:
 ----------
 
+    3.3.2 Fix generation of non_cpg files
     3.3.1 Fix Attribute error bug due to not checking if conversion is a list
     3.3.0 Make new release for IHEC
     3.3.0 Switch conversion default in IHEC_standard configuration to 0.01,0.05 rather than auto, which can give odd results if conversion controls not present or not working correctly

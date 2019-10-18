@@ -462,8 +462,7 @@ static fmt_field_t tags[] = {
 bcf1_t *process(bcf1_t *rec)
 {
   static int idx;
-  static int32_t curr_rid = -1, prev_pos;
-  static bool valid[2] = {false, false};
+  static int32_t curr_rid = -1, prev_pos = -1;
   static bcf1_t prev_rec;
   
   int ns = bcf_hdr_nsamples(args.hdr);
@@ -479,7 +478,7 @@ bcf1_t *process(bcf1_t *rec)
       break;
     }
   }
-  if(cg || args.output_noncpg) { // Site with potentially Cs or Gs (or we are outputting non_cpgs)
+  if(cg) { // Site with potentially Cs or Gs
     bcf_unpack(rec, BCF_UN_ALL);
     // Get format tags
     for(int ix = 0; tags[ix].tag != NULL; ix++) {
@@ -561,17 +560,24 @@ bcf1_t *process(bcf1_t *rec)
 	  }
 	}
       }
-      valid[idx] = true;
       // Here is the logic for deciding what we print
+
+      // check if we are next to the previous record
+      bool consec = false;
       if(rec->rid != curr_rid) curr_rid = rec->rid;
-      else if(rec->pos - prev_pos == 1 && valid[idx ^ 1]) output_cpg(&args, &prev_rec, tags, sample_gt, idx ^ 1, sample_cpg, sample_Q);
+      else if(rec->pos - prev_pos == 1) consec = true;
+      if(consec) {
+	output_cpg(&args, &prev_rec, tags, sample_gt, idx ^ 1, sample_cpg, sample_Q);
+      } else if(args.output_noncpg && prev_pos >= 0) {
+	output_nonconsec_noncpg(&args, &prev_rec, tags, sample_gt, idx ^ 1, true, sample_cpg, sample_Q);
+	output_nonconsec_noncpg(&args, rec, tags, sample_gt, idx, false, sample_cpg, sample_Q);
+      }
       if(args.bedmethyl || args.wigfile) {
 	output_bedmethyl(&args, rec, tags, sample_gt, idx);
       }
       idx ^= 1;
       prev_pos = rec->pos;
       memcpy(&prev_rec, rec, sizeof(bcf1_t));
-      valid[idx] = false;
       if(st != NULL) st->n_sites_pass++;
     }
   }
