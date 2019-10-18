@@ -385,7 +385,7 @@ void output_bedmethyl(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sam
     }
     int32_t cov = ct[0] + ct[1];
     double m = cov > 0 ? (double)ct[0] / (double)cov : 0.0;
-    if(cov > 0 && args->wigfile) {
+    if(cov > 0) {
       FILE *fp = args->wigfile;
       if(fp != NULL) {
 	if(rec->rid != old_rid) {
@@ -393,6 +393,7 @@ void output_bedmethyl(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sam
 	}
 	fprintf(fp, "%u\t%.4g\n", rec->pos + 1, 100.0 * m);
       }
+      old_rid = rec->rid;
     }
     FILE *fp = args->bedmethylfiles[btype];
     if(fp != NULL) {
@@ -401,7 +402,6 @@ void output_bedmethyl(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sam
 	      args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos, rec->pos + 1, args->bedmethyl_desc, cov > 1000 ? 1000 : cov, strand, 
 	      rec->pos, rec->pos + 1, rgb_tab[(int)(m * 10.0 + 0.5)], cov, (int)(100.0 * m), rtmp, rtmp + 4, gq);
     }
-    old_rid = rec->rid;
     old_pos = rec->pos;
   }
 }

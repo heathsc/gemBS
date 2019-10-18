@@ -93,6 +93,7 @@ Documentation can be found at
 Changelog:
 ----------
 
+    3.3.2 Fix error where header line for wig files could be omitted
     3.3.2 Fix generation of non_cpg files
     3.3.1 Fix Attribute error bug due to not checking if conversion is a list
     3.3.0 Make new release for IHEC
