@@ -335,9 +335,9 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
         with open(text_metadata, 'r') as f:
             reader = csv.reader(f)
             try:
-                line = reader.__next__()
+                line = next(reader)
             except StopIteration:
-                raise ValueError('Empty configuration file');
+                raise ValueError('Empty configuration file')
             header_found = {}
             col_desc = []
             for i, entry in enumerate(line):
@@ -432,23 +432,6 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
                                 if len(file_dict) == 2 and not type in sampleDirectory:
                                     sampleDirectory['type'] = "PAIRED"
                         generalDictionary['sampleData'][fli] = sampleDirectory
-            elif len(line) == 5:
-                # Parse as simple 5 field csv file (no header)
-                while True:
-                    sampleDirectory = {}
-                    sampleDirectory["sample_barcode"] = line[0].strip()
-                    sampleDirectory["library_barcode"] = line[1].strip()
-                    flowcell = line[2].strip()
-                    lane = line[3].strip()
-                    index = line[4].strip()
-                    fli = "{}_{}_{}".format(flowcell, lane, index)
-                    fli1 = "{}_{}_0".format(flowcell, lane)
-                    sampleDirectory["alt_fli"] = fli1
-                    generalDictionary['sampleData'][fli] = sampleDirectory
-                    try:
-                        line = reader.next()
-                    except StopIteration:
-                        break
             else:
                 raise ValueError('Could not parse config file')
             

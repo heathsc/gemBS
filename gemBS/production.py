@@ -62,7 +62,7 @@ Input Files:
   Two files are required, a configuration file describing the model parameters and analysis directory
   structure, and second file describing the sample metadata and associated data files.
 
-  The sample file will normally be a text file in CSV format with an optional (although recommended) header line,
+  The sample file will normally be a text file in CSV format with a  header line,
   although there is also the option to import a JSON file from the CNAG LIMS.
 
   A full description of the input file formats can be found in the gemBS documentation.  
