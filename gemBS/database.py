@@ -123,7 +123,7 @@ class database(sqlite3.Connection):
 
         c = self.cursor()
         c.execute("REPLACE INTO indexing VALUES (?, 'reference', 1)",(ref,))
-        cdef =config['DEFAULT']
+        cdef = config['DEFAULT']
         index = cdef.get('index', None)
         nonbs_index = cdef.get('nonbs_index', None)
         nonbs_flag = cdef.get('nonbs_flag', False)
@@ -159,7 +159,16 @@ class database(sqlite3.Connection):
                 elif index.endswith('.gem'):
                     csizes = index[:-3] + 'contig.sizes'
                 else:
-                    csizes = index + '.contig.sizes'                
+                    csizes = index + '.contig.sizes'
+        if index == None:
+            greference = os.path.join(index_dir, reference_basename) + '.gemBS.ref'
+        else:
+            if index.endswith('.BS.gem'):
+                greference = index[:-6] + 'gemBS.ref'
+            elif index.endswith('.gem'):
+                greference = index[:-3] + 'gemBS.ref'
+            else:
+                greference = index + '.gemBS.ref'
         if index == None:
             index = os.path.join(index_dir, reference_basename) + '.BS.gem'
             index_ok = 1 if os.path.exists(index) else 0
@@ -180,8 +189,10 @@ class database(sqlite3.Connection):
             except IOError:
                 nonbs_index_ok = 0
         csizes_ok = 1 if os.path.exists(csizes) else 0
+        greference_ok = 1 if os.path.exists(greference) and os.path.exists(greference + '.fai') and os.path.exists(greference + '.gzi') else 0
         c.execute("REPLACE INTO indexing VALUES (?, 'index', ?)",(index, index_ok))
         c.execute("REPLACE INTO indexing VALUES (?, 'contig_sizes', ?)",(csizes,csizes_ok))
+        c.execute("REPLACE INTO indexing VALUES (?, 'gembs_reference', ?)",(greference,greference_ok))
         if nonbs_index != None:
             c.execute("REPLACE INTO indexing VALUES (?, 'nonbs_index', ?)",(nonbs_index,nonbs_index_ok))
         else:

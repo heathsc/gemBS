@@ -500,7 +500,44 @@ def prepareConfiguration(text_metadata=None,lims_cnag_json=None,configFile=None,
     with open(jsonOutput, 'w') as of:
         json.dump(generalDictionary, of, indent=2)
 
-def index(input_name, index_name, extra_fasta_files=None,threads=None,tmpDir=None,sampling_rate=None,nonbs_flag=False):
+def mk_gembs_reference(input_name, greference, extra_fasta_files=None, threads=None):
+    """Create bgzipped copy of reference file(s) in the same directory where
+    the index(es) are stored.  The index files will be made from this, and
+    this will also serve as the reference for the bs_call command.  For this
+    purpose fai and gzi indexes of the reference will be created.
+    """
+    
+    output_dir, base = os.path.split(greference)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    if not os.path.exists(greference):
+        gcat = [executables['gemBS_cat'],input_name]
+        for f in extra_fasta_files:
+            if not os.path.exists(f):
+                raise CommandException("Reference file '{}' does not exist".format(f))
+            
+        gcat.extend(extra_fasta_files)
+        bgzip_bin = executables['bgzip']
+        if bgzip_bin == None:
+            raise CommandException("bgzip binary not found (should be bundled with the gemBS distribution)\n");
+        bgzip_command = [bgzip_bin]
+        if threads != None:
+            bgzip_command.extend(['-@', str(threads)]);
+        process = run_tools([gcat,bgzip_command], name='gemBS_cat', output = greference)
+        if process.wait() != 0:
+            if os.path.exists(greference):
+                os.remove(greference)
+            raise ValueError("Error while making gemBS reference")
+        
+    process = run_tools([[executables['samtools'],'faidx',greference]], name='samtools faidx', output = 'greference.fai')
+    if process.wait() != 0:
+        for f in [greference + '.fai', greference + '.gzi']:
+            if os.path.exists(f):
+                os.remove(f)
+        raise ValueError("Error while making faidx index of gemBS reference")
+    
+def index(input_name, index_name, greference, extra_fasta_files=None,threads=None,tmpDir=None,sampling_rate=None,nonbs_flag=False):
     """Run the gem-indexer on the given input. Input has to be the path
     to a single fasta file that contains the genome to be indexed.
     Output should be the path to the target index file. Note that
@@ -517,29 +554,8 @@ def index(input_name, index_name, extra_fasta_files=None,threads=None,tmpDir=Non
     output_dir, base = os.path.split(index_name)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    if extra_fasta_files:
-        gcat = [executables['gemBS_cat'],input_name]
-        for f in extra_fasta_files:
-            if not os.path.exists(f):
-                raise CommandException("Reference file '{}' does not exist".format(f))
-            
-        gcat.extend(extra_fasta_files)
-        compress_bin = executables['pigz']
-        if compress_bin == None:
-            compress_bin = executables['gzip']
-        if compress_bin == None:
-            output = index_base + "_gemBS.tmp"
-            process = run_tools([gcat], name='gemBS_cat', output = output)
-        else:
-            output = index_base + "_gemBS.tmp.gz"
-            process = run_tools([gcat,[compress_bin]], name='gemBS_cat', output = output)
-        if process.wait() != 0:
-            if os.path.exists(output):
-                os.remove(output)
-            raise ValueError("Error while concatenating input fasta files")
-        f_in = output
-    else:
-        f_in = input_name
+
+    f_in = greference
            
     logfile = os.path.join(output_dir,"gem_indexer_" + base + ".err")
     logging.gemBS.gt("Creating index")
@@ -572,8 +588,6 @@ def index(input_name, index_name, extra_fasta_files=None,threads=None,tmpDir=Non
                 os.remove(f)
         raise ValueError("Error while executing the Bisulphite gem-indexer")
     
-    if f_in != input_name:
-        os.remove(f_in)
     if index_name != index_base + ".gem":
         os.rename(index_base + ".gem", index_name)
         os.rename(index_base + ".info", index_name + ".info")
@@ -600,7 +614,7 @@ def dbSNP_index(list_dbSNP_files=[],dbsnp_index=""):
         tools = [db_snp_index]
         
         #Compress pipe            
-        compress_bin = executables['pigz']
+        compress_bin = executables['bgzip']
         if compress_bin == None:
             compress_bin = executables['gzip']
         if compress_bin != None:
@@ -611,7 +625,7 @@ def dbSNP_index(list_dbSNP_files=[],dbsnp_index=""):
         if process_dbsnp.wait() != 0:
             if os.path.isfile(dbsnp_index):
                 os.remove(dbsnp_index)
-            raise ValueError("Error while executing the dbSNP-indexer")
+            raise ValueError("Error while executing dbSNP-indexer")
     
     return os.path.abspath(dbsnp_index)
 
@@ -644,7 +658,8 @@ def makeChromSizes(index_name=None,output=None):
 
 def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
              read_non_stranded=False,reverse_conv=False,outfile=None,
-             paired=False,tmpDir="/tmp",threads=1,under_conversion=None, over_conversion=None):
+             paired=False,tmpDir="/tmp",map_threads=None,sort_threads=None,
+             sort_memory=None,under_conversion=None, over_conversion=None):
     """ Start the GEM Bisulfite mapping on the given input.
     
     name -- Name basic (FLI) for the input and output fastq files
@@ -657,7 +672,9 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
     outputDir -- Directory to store the Bisulfite mapping results
     paired -- Paired End flag
     tmpDir -- Temporary directory to perform sorting operations
-    threads -- Number of threads
+    map_threads -- Number of threads for GEM mapper
+    sort_threads -- Number of threads for sort operation
+    sort_memory -- Per thread memory for sort operation
     under_conversion -- Under conversion sequence
     over_conversion -- Over conversion sequence
     """        
@@ -674,7 +691,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
         mapping.extend(["--i1",inputFiles[0],"--i2",inputFiles[1]])
     elif len(inputFiles) == 1:
         if ftype in ['SAM', 'BAM']:
-            input_pipe.extend([executables['samtools'],"bam2fq", "--threads", str(threads), inputFiles[0]])
+            input_pipe.extend([executables['samtools'],"bam2fq", "--threads", str(map_threads), inputFiles[0]])
         elif ftype in ['COMMAND', 'SINGLE_COMMAND', 'PAIRED_COMMAND']:
             input_pipe.extend(['/bin/sh','-c',inputFiles[0]])            
         else:
@@ -693,7 +710,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
             mapping.extend(["--bisulfite-conversion","inferred-C2T-G2A"])
     
     #Number of threads
-    mapping.extend(["-t",threads])
+    mapping.extend(["-t",map_threads])
     #Mapping stats
     report_file = os.path.join(outputDir,"{}.json".format(name))
     logfile = os.path.join(outputDir,"gem_mapper_{}.err".format(name))
@@ -719,7 +736,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,
     readNameClean = [executables['readNameClean']]
          
     #BAM SORT
-    bamSort = [executables['samtools'],"sort","-T",os.path.join(tmpDir,name),"-@",threads,"-o",outfile,"-"]
+    bamSort = [executables['samtools'],"sort","-T",os.path.join(tmpDir,name),"-@",sort_threads,"-m",sort_memory,"-o",outfile,"-"]
     
     tools = [mapping,readNameClean,bamSort]
     
@@ -779,8 +796,8 @@ def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/"):
 
 class BsCaller:
     def __init__(self,reference,species,right_trim=0,left_trim=5,keep_unmatched=False,
-                 keep_duplicates=False,ignore_duplicates=False,contig_size=None,dbSNP_index_file="",threads="1",
-                 mapq_threshold=None,bq_threshold=None,
+                 keep_duplicates=False,ignore_duplicates=False,contig_size=None,dbSNP_index_file="",
+                 call_threads="1",merge_threads="1",mapq_threshold=None,bq_threshold=None,
                  haploid=False,conversion=None,ref_bias=None,sample_conversion=None):
         self.reference = reference
         self.species = species
@@ -790,7 +807,8 @@ class BsCaller:
         self.keep_duplicates = keep_duplicates
         self.ignore_duplicates = ignore_duplicates
         self.dbSNP_index_file = dbSNP_index_file
-        self.threads = threads
+        self.call_threads = call_threads
+        self.merge_threads = merge_threads
         self.mapq_threshold = mapq_threshold
         self.bq_threshold = bq_threshold
         self.haploid = haploid
@@ -805,9 +823,6 @@ class BsCaller:
             for chrom in chrom_list:
                 f.write("{}\t0\t{}\n".format(chrom, str(self.contig_size[chrom])))
                         
-        samtools = [executables['samtools'],'view','-L',contig_bed,'-h',input_bam]
-        bsCall = [samtools]
-
         parameters_bscall = ['%s' %(executables["bs_call"]),'-r',self.reference,'-n',sample,'--contig-bed',contig_bed,'--report-file',report_file]
     
         parameters_bscall.extend(['--right-trim', str(self.right_trim), '--left-trim', str(self.left_trim)])
@@ -827,17 +842,24 @@ class BsCaller:
                 parameters_bscall.extend(['--conversion', self.conversion])
         if self.ref_bias != None:
             parameters_bscall.extend(['--reference-bias', self.ref_bias])
-        #Thresholds
+        # Thresholds
         if self.mapq_threshold != None:
             parameters_bscall.extend(['--mapq-threshold', self.mapq_threshold])
         if self.bq_threshold != None:
             parameters_bscall.extend(['--bq-threshold', self.bq_threshold])
+        # Threads
+        parameters_bscall.extend(['-t', self.call_threads])
+        # dbSNP
         if self.dbSNP_index_file:
             parameters_bscall.extend(['-D', self.dbSNP_index_file])
+        # Output
+        parameters_bscall.extend(['-O', 'b', '-o', output_bcf]);
+        
+        # Input BAM file
+        
+        parameters_bscall.append(input_bam);
     
-        bsCall.append(parameters_bscall)
-                
-        bsCall.append([executables['bcftools'],'convert','-o',output_bcf,'-O','b','--threads',self.threads])
+        bsCall = [parameters_bscall]
         return bsCall
 
 class MethylationCallIter:
@@ -1013,17 +1035,17 @@ class MethylationCallThread(th.Thread):
                         self.json_commands[desc]=task
                 
                 else:
-                    bsConcat(list_bcfs, sample, fname)
-                self.lock.acquire()
-                if self.remove:
-                    self.methIter.finished(list_bcfs, fname)
-                else:
-                    self.methIter.finished(None, fname)
-                self.lock.release()
+                    bsConcat(list_bcfs, sample, self.bsCall.merge_threads, fname)
+                    self.lock.acquire()
+                    if self.remove:
+                        self.methIter.finished(list_bcfs, fname)
+                    else:
+                        self.methIter.finished(None, fname)
+                    self.lock.release()
                 
                 
 def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=None,samples=None,right_trim=0,left_trim=5,dry_run_com=None,
-                       keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",threads="1",jobs=1,remove=False,concat=False,
+                       keep_unmatched=False,keep_duplicates=False,dbSNP_index_file="",call_threads="1",merge_threads="1",jobs=1,remove=False,concat=False,
                        mapq_threshold=None,bq_threshold=None,haploid=False,conversion=None,ref_bias=None,sample_conversion=None,
                        no_merge=False,json_commands=None,dry_run=False,dry_run_json=None,ignore_db=None,ignore_duplicates=False):
 
@@ -1041,7 +1063,8 @@ def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=No
     keep_duplicates -- Do not merge duplicate reads  
     ignore_duplicates -- Ignore duplicate flag from SAM/BAM files
     dbSNP_index_file -- dbSNP Index File            
-    threads -- Number of threads
+    call_threads -- Number of threads for calling process
+    merge_threads -- Number of threads for merging process
     mapq_threshold -- threshold for MAPQ scores
     bq_threshold -- threshold for base quality scores
     haploid -- force genotypes to be homozygous
@@ -1073,7 +1096,7 @@ def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=No
 
     bsCall = BsCaller(reference=reference,species=species,right_trim=right_trim,left_trim=left_trim,
                       keep_unmatched=keep_unmatched,keep_duplicates=keep_duplicates,ignore_duplicates=ignore_duplicates,contig_size=contig_size,
-                      dbSNP_index_file=dbSNP_index_file,threads=threads,mapq_threshold=mapq_threshold,bq_threshold=bq_threshold,
+                      dbSNP_index_file=dbSNP_index_file,call_threads=call_threads,merge_threads=merge_threads,mapq_threshold=mapq_threshold,bq_threshold=bq_threshold,
                       haploid=haploid,conversion=conversion,ref_bias=ref_bias,sample_conversion=sample_conversion)
 
     if dry_run_com != None:
@@ -1233,7 +1256,7 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         
     return os.path.abspath(output_dir)
 
-def bsConcat(list_bcfs=None,sample=None,bcfSample=None):
+def bsConcat(list_bcfs=None,sample=None,threads=None,bcfSample=None):
     """ Concatenates all bcf methylation calls files in one output file.
     
         list_bcfs -- list of bcf files to be concatenated
@@ -1252,6 +1275,8 @@ def bsConcat(list_bcfs=None,sample=None,bcfSample=None):
    
     #Concatenation
     concat = [executables['bcftools'],'concat','-O','b','-o',bcfSample]
+    if threads != None:
+        concat.extend(['--threads', threads])
     concat.extend(list_bcfs)
      
     process = run_tools([concat],name="Concatenation Calls",logfile=logfile)

@@ -543,7 +543,7 @@ class HtmlIndexBsCall(HtmlBsCallReport):
         summaryMethylation = SummaryMethylation() 
         
         #Load al json files
-        for json_file in chrom_json_files: 
+        for json_file in chrom_json_files:
             with open(json_file, 'r') as file_json:
                 try:
                     data = json.load(file_json)
@@ -589,6 +589,8 @@ class HtmlIndexBsCall(HtmlBsCallReport):
                     nonCpGReadProfile.add(data["totalStats"]["methylation"]["NonCpGreadProfile"])
                     
                 except ValueError as e:
+                    print('problem reading JSON file {})'.format(json_file))
+                    print(e)
                     pass # invalid json
 
         #Prepare plot for Methylation levels

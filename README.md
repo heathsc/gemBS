@@ -93,6 +93,12 @@ Documentation can be found at
 Changelog:
 ----------
 
+    3.4.0 Move to new bs_call version (2.1.0) which is more efficient
+          in memory use and can read BAMs and write BCFs natively.
+          The new bs_call requires a faidx indexed reference, so gemBS
+          no creates this during indexing.
+	 3.4.0 Add switches to give more control to threads and memory
+          usage in mapping and calling stages
     3.3.3 Remove legacy pathway for config files with no header line (fix issue 'error in gemBS index #65)
     3.3.2 Fix error where header line for wig files could be omitted
     3.3.2 Fix generation of non_cpg files

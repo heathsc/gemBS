@@ -149,7 +149,7 @@ class Process:
         # wait for the process
         exit_value = self.process.wait()
         logging.debug("Process '%s' finished with %d", str(self), exit_value)
-        if exit_value is not 0:
+        if exit_value != 0:
             logging.error("Process '%s' finished with %d", str(self), exit_value)
             if self.logfile is not None and isinstance(self.logfile, str):
                 with open(self.logfile) as f:
@@ -257,10 +257,10 @@ class ProcessWrapper:
             exit_value = 0
             for process in reversed(self.processes):
                 ev = process.wait()
-                if ev is not 0:
+                if ev != 0:
                     exit_value = ev
             self.exit_value = exit_value
-            if exit_value is not 0:
+            if exit_value != 0:
                 return exit_value
         except:
             self.exit_value = 1
@@ -287,7 +287,7 @@ def _prepare_output(output):
     if isinstance(output, str):
         return output
     if isinstance(output, IOBase):
-        if output.name is not None and output.name is not "<fdopen>":
+        if output.name is not None and output.name != "<fdopen>":
             output.close()
             return output.name
         raise ProcessError("Can not pass raw file descriptors")
