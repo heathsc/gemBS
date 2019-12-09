@@ -68,7 +68,7 @@ setup:
 	@mkdir -p $(FOLDER_BIN) 
 
 bs_call/src/Makefile.mk: bs_call/src/Makefile.mk.in bs_call/gt/Makefile.mk.in bs_call/configure _samtools
-	cd bs_call; ./configure ${BS_CALL_CONFIG} --with-htslib=../${SAMTOOLS_DIR}/htslib-${SAMTOOLS_VERSION}
+	cd bs_call; ./configure ${BS_CALL_CONFIG} --with-htslib=../../${SAMTOOLS_DIR}/htslib-${SAMTOOLS_VERSION}
 
 gem3: gem3-mapper/Makefile.mk
 	$(MAKE) --directory=gem3-mapper
