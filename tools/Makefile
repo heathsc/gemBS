@@ -10,8 +10,8 @@
 ROOT_PATH=$(CURDIR)
 
 # samtools and bcftools definitions
-SAMTOOLS_VERSION=1.8
-BCFTOOLS_VERSION=1.8
+SAMTOOLS_VERSION=1.9
+BCFTOOLS_VERSION=1.9
 UCSCTOOLS_VERSION=v378
 SAMTOOLS_DIR=samtools
 BCFTOOLS_DIR=bcftools
@@ -67,8 +67,8 @@ _utils:
 setup:
 	@mkdir -p $(FOLDER_BIN) 
 
-bs_call/src/Makefile.mk: bs_call/src/Makefile.mk.in bs_call/GEMTools/Makefile.mk.in bs_call/configure
-	cd bs_call; ./configure ${BS_CALL_CONFIG}
+bs_call/src/Makefile.mk: bs_call/src/Makefile.mk.in bs_call/gt/Makefile.mk.in bs_call/configure _samtools
+	cd bs_call; ./configure ${BS_CALL_CONFIG} --with-htslib=../${SAMTOOLS_DIR}/htslib-${SAMTOOLS_VERSION}
 
 gem3: gem3-mapper/Makefile.mk
 	$(MAKE) --directory=gem3-mapper
