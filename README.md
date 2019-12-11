@@ -92,7 +92,8 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
-
+    3.4.1 Add benchmark-mode that does not write date or program version numbers into SAM/BAM or VCF/BCF files
+	       Switch to samtools, bcftools and htslib v1.10
     3.4.0 Move to new bs_call version (2.1.0) which is more efficient
           in memory use and can read BAMs and write BCFs natively.
           The new bs_call requires a faidx indexed reference, so gemBS
