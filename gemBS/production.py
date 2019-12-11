@@ -183,7 +183,7 @@ class Index(BasicPipeline):
             self.command = 'index'
             self.log_parameter()
         
-            ret = index(fasta_input, index_name, greference, extra_fasta_files=extra_fasta_files, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=os.path.dirname(index_name))
+            ret = index(fasta_input, index_name, extra_fasta_files=extra_fasta_files, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=os.path.dirname(index_name))
             if os.path.exists(csizes):
                 os.remove(csizes)
                 csizes_ok = 0
@@ -279,6 +279,7 @@ class Mapping(BasicPipeline):
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
         parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
         parser.add_argument('--ignore-db', dest="ignore_db", action="store_true",help="Ignore database for --dry-run and --json commands")
+        parser.add_argument('--benchmark-mode', dest="benchmark_mode", action="store_true",help="Omit dates etc. to make file comparison simpler", required=False)
                     
     def run(self, args):     
         self.all_types = ['PAIRED', 'INTERLEAVED', 'SINGLE', 'BAM', 'SAM', 'STREAM', 'PAIRED_STREAM', 'SINGLE_STREAM', 'COMMAND', 'SINGLE_COMMAND', 'PAIRED_COMMAND']
@@ -337,6 +338,7 @@ class Mapping(BasicPipeline):
         self.merge_threads = self.jsonData.check(section='mapping',key='merge_threads',arg=args.merge_threads,default=self.threads)
         self.sort_memory = self.jsonData.check(section='mapping',key='sort_memory',arg=args.sort_memory, default='768M')
         self.reverse_conv = self.jsonData.check(section='mapping',key='reverse_conversion',arg=args.reverse_conv, boolean=True)
+        self.benchmark_mode = self.jsonData.check(section='mapping',key='benchmark_mode',arg=args.benchmark_mode, boolean=True)
         self.read_non_stranded = self.jsonData.check(section='mapping',key='non_stranded',arg=args.read_non_stranded, boolean=True)
         if self.read_non_stranded:
             self.reverse_conv = False
@@ -558,6 +560,7 @@ class Mapping(BasicPipeline):
                 if args.tmp_dir: com.extend(['-d',args.tmp_dir])
                 if args.read_non_stranded: com.append('-s')
                 if args.reverse_conv: com.append('-R')
+                if args.benchmark_mode: com.append('--benchmark-mode')
                 if args.underconversion_sequence: com.extend(['-u',args.underconversion_sequence])
                 if args.overconversion_sequence: com.extend(['-v',args.overconversion_sequence])
                 if not bis: com.append('--non-bs')
@@ -581,11 +584,12 @@ class Mapping(BasicPipeline):
                 if not tmp:
                     tmp = os.path.dirname(outfile)
                     
-                ret = mapping(name=fli,index=self.index,fliInfo=fliInfo,inputFiles=inputFiles,ftype=ftype,
+                ret = mapping(name=fli,index=self.index,fliInfo=fliInfo,inputFiles=inputFiles,ftype=ftype,filetype=filetype,
                               read_non_stranded=self.read_non_stranded, reverse_conv=self.reverse_conv,
                               outfile=outfile,paired=self.paired,tmpDir=tmp,
                               map_threads=self.map_threads,sort_threads=self.sort_threads,sort_memory=self.sort_memory,
-                              under_conversion=self.underconversion_sequence,over_conversion=self.overconversion_sequence) 
+                              under_conversion=self.underconversion_sequence,over_conversion=self.overconversion_sequence,
+                              benchmark_mode=self.benchmark_mode) 
         
                 if ret:
                     logging.gemBS.gt("Bisulfite Mapping done. Output File: %s" %(ret))
@@ -647,7 +651,7 @@ class Mapping(BasicPipeline):
                                 desc = "merge {}".format(smp)
                                 self.json_commands[desc] = task
                         else:
-                            ret = merging(inputs = inputs, sample = sample, threads = self.merge_threads, outname = outfile)
+                            ret = merging(inputs = inputs, sample = sample, threads = self.merge_threads, outname = outfile, benchmark_mode=self.benchmark_mode)
                             if ret:
                                 logging.gemBS.gt("Merging process done for {}. Output files generated: {}".format(sample, ','.join(ret)))
                                 
@@ -884,6 +888,7 @@ class MethylationCall(BasicPipeline):
         parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
         parser.add_argument('--ignore-db', dest="ignore_db", action="store_true",help="Ignore database for --dry-run and --json commands")
         parser.add_argument('--ignore-dep', dest="ignore_dep", action="store_true",help="Ignore dependencies for --dry-run and --json commands")
+        parser.add_argument('--benchmark-mode', dest="benchmark_mode", action="store_true",help="Omit dates etc. to make file comparison simpler", required=False)
         
     def run(self,args):
         self.command = 'call'
@@ -912,6 +917,7 @@ class MethylationCall(BasicPipeline):
         self.keep_unmatched = self.jsonData.check(section='calling',key='keep_improper_pairs',arg=args.keep_unmatched,boolean=True)
         self.keep_duplicates = self.jsonData.check(section='calling',key='keep_duplicates',arg=args.keep_duplicates,boolean=True)
         self.ignore_duplicates = self.jsonData.check(section='calling',key='ignore_duplicate_flag',arg=args.keep_duplicates,boolean=True)
+        self.benchmark_mode = self.jsonData.check(section='calling',key='benchmark_mode',arg=args.benchmark_mode, boolean=True)
         self.haploid = self.jsonData.check(section='calling',key='haploid',arg=args.haploid,boolean=True)
         self.species = self.jsonData.check(section='calling',key='species',arg=args.species)
         self.contig_list = self.jsonData.check(section='calling',key='contig_list',arg=args.contig_list,list_type=True, default = [])
@@ -1145,6 +1151,7 @@ class MethylationCall(BasicPipeline):
                 if args.keep_unmatched != None: com2.append('-k')
                 if args.haploid != None: com2.append('--haploid')
                 if args.species != None: com2.append('--species')
+                if args.benchmark_mode: com.append('--benchmark-mode')
                 if args.ref_bias != None: com2.extend(['-B',args.ref_bias])
                 dry_run_com = [com, com1, com2]
                 
@@ -1162,7 +1169,8 @@ class MethylationCall(BasicPipeline):
                                      keep_duplicates=self.keep_duplicates,ignore_duplicates=self.ignore_duplicates,
                                      dbSNP_index_file=self.dbSNP_index_file,call_threads=self.call_threads,merge_threads=self.merge_threads,jobs=self.jobs,
                                      mapq_threshold=self.mapq_threshold,bq_threshold=self.qual_threshold,dry_run_json=self.dry_run_json,
-                                     haploid=self.haploid,conversion=self.conversion,ref_bias=self.ref_bias,sample_conversion=self.sample_conversion)
+                                     haploid=self.haploid,conversion=self.conversion,ref_bias=self.ref_bias,sample_conversion=self.sample_conversion,
+                                     benchmark_mode=self.benchmark_mode)
                 
             if ret and not (self.dry_run or self.dry_run_json):
                 if args.concat:

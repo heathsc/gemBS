@@ -582,7 +582,7 @@ bcf1_t *process(bcf1_t *rec)
 	    if(args.gt[i]) passed = true;
 	  }
 	  if(passed) {
-	    fprintf(fp, "%s\t%d\t%s", args.hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos + 1, id);
+	    fprintf(fp, "%s\t%" PRId64 "\t%s", args.hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos + 1, id);
 	    for(int i = 0; i < ns; i++) {
 	      const int gt = args.gt[i];
 	      if(gt > 0) fprintf(fp, "\t%s%s", rec->d.allele[(gt >> 4) - 1], rec->d.allele[(gt & 7) - 1]);
