@@ -66,7 +66,7 @@ def _install_bundle(install_dir, inst):
         os.mkdir(gemBSbin_dir)
 
     # copy tools/bin
-    bins = ['gemBS_cat', 'readNameClean']
+    bins = ['gemBS_cat', 'readNameClean', 'md5_fasta']
     if not (inst.minimal or inst.no_kent):
         bins.extend(['wigToBigWig', 'bedToBigBed'])
     for file in bins:

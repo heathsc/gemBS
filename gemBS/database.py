@@ -3,6 +3,7 @@ import sqlite3
 import re
 import fnmatch
 import logging
+import json
 import threading as th
 from .utils import CommandException
 
@@ -162,13 +163,17 @@ class database(sqlite3.Connection):
                     csizes = index + '.contig.sizes'
         if index == None:
             greference = os.path.join(index_dir, reference_basename) + '.gemBS.ref'
+            contig_md5 = os.path.join(index_dir, reference_basename) + '.gemBS.contig_md5'
         else:
             if index.endswith('.BS.gem'):
                 greference = index[:-6] + 'gemBS.ref'
+                contig_md5 = index[:-6] + 'gemBS.contig_md5'
             elif index.endswith('.gem'):
                 greference = index[:-3] + 'gemBS.ref'
+                contig_md5 = index[:-3] + 'gemBS.contig_md5'
             else:
                 greference = index + '.gemBS.ref'
+                contig_md5 = index + '.gemBS.contig_md5'
         if index == None:
             index = os.path.join(index_dir, reference_basename) + '.BS.gem'
             index_ok = 1 if os.path.exists(index) else 0
@@ -190,9 +195,11 @@ class database(sqlite3.Connection):
                 nonbs_index_ok = 0
         csizes_ok = 1 if os.path.exists(csizes) else 0
         greference_ok = 1 if os.path.exists(greference) and os.path.exists(greference + '.fai') and os.path.exists(greference + '.gzi') else 0
+        contig_md5_ok = 1 if os.path.exists(contig_md5) else 0
         c.execute("REPLACE INTO indexing VALUES (?, 'index', ?)",(index, index_ok))
         c.execute("REPLACE INTO indexing VALUES (?, 'contig_sizes', ?)",(csizes,csizes_ok))
         c.execute("REPLACE INTO indexing VALUES (?, 'gembs_reference', ?)",(greference,greference_ok))
+        c.execute("REPLACE INTO indexing VALUES (?, 'contig_md5', ?)",(contig_md5,contig_md5_ok))
         if nonbs_index != None:
             c.execute("REPLACE INTO indexing VALUES (?, 'nonbs_index', ?)",(nonbs_index,nonbs_index_ok))
         else:
@@ -209,7 +216,17 @@ class database(sqlite3.Connection):
         sdata = js.sampleData
         fastq_dir = config['mapping'].get('sequence_dir', '.')
         bam_dir = config['mapping'].get('bam_dir', '.')
+        cram_flag = config['mapping'].get('make_cram', None)
+        if cram_flag != None:
+            cram_flag = json.loads(str(cram_flag).lower())
+        else:
+            cram_flag = False
 
+        if cram_flag:
+            mapfile_suffix = 'cram'
+        else:
+            mapfile_suffix = 'bam'
+            
         c = self.cursor()
         slist = {}
         for k, v in sdata.items():
@@ -231,7 +248,7 @@ class database(sqlite3.Connection):
         for bc, fli in slist.items():
             sample = sdata[fli[0]].sample_name
             bam = bam_dir.replace('@BARCODE', bc).replace('@SAMPLE', sample)
-            sample_bam = os.path.join(bam, "{}.bam".format(bc))
+            sample_bam = os.path.join(bam, "{}.{}".format(bc, mapfile_suffix))
             key_used[sample_bam] = True
             old = old_tab.get(sample_bam, (0,0,0,0,0))
             if database._mem_db or sync:

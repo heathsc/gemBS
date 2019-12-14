@@ -92,6 +92,7 @@ executables = execs_dict({
     "bedToBigBed": "bedToBigBed",
     "dbSNP_idx": "dbSNP_idx",
     "gemBS_cat": "gemBS_cat",
+    "md5_fasta": "md5_fasta",
     "samtools": "samtools",
     "bcftools": "bcftools",
     "bgzip": "bgzip",
@@ -512,12 +513,11 @@ def file_bgzipped(file_name):
         ret = (len(st) == 16 and st[0:4] == a and st[10:16] == b)
     return(ret)
 
-def mk_gembs_reference(input_name, greference, extra_fasta_files=None, threads=None):
+def mk_gembs_reference(input_name, greference, contig_md5, extra_fasta_files=None, threads=None, populate_cache=False):
     """Create bgzipped copy of reference file(s) in the same directory where
-    the index(es) are stored.  If the supplied reference is already bgzipped then we
-    simply make a symbolic link to the existing reference.
-    This file will serve as the reference for the bs_call command, and for this
-    purpose fai and gzi indexes of the reference will be created.
+    the index(es) are stored.  This file will serve as the reference for the 
+    bs_call command, and for this  purpose fai and gzi indexes of the reference will be created.
+    The contig_md5 files will be created at the same time.
     """
     
     output_dir, base = os.path.split(greference)
@@ -525,21 +525,41 @@ def mk_gembs_reference(input_name, greference, extra_fasta_files=None, threads=N
         os.makedirs(output_dir)
 
     if not os.path.exists(greference):
-        if file_bgzipped(input_name):
+        md5_fasta = [executables['md5_fasta'], '-o', contig_md5]
+        if populate_cache:
+            md5_fasta.append('-p')
+        if extra_fasta_files == None and file_bgzipped(input_name):
             os.symlink(os.path.abspath(input_name), greference)
-        else :
-            gcat = [executables['gemBS_cat'],input_name]
+            mk_ref = False
+        else:
+            md5_fasta.append('-s')
+            mk_ref = True
+            
+        md5_fasta.append(input_name)
+        if extra_fasta_files != None:
+            for f in extra_fasta_files:
+                if not os.path.exists(f):
+                    raise CommandException("Reference file '{}' does not exist".format(f))
+            md5_fasta.extend(extra_fasta_files)
+        if mk_ref:
             bgzip_bin = executables['bgzip']
             if bgzip_bin == None:
                 raise CommandException("bgzip binary not found (should be bundled with the gemBS distribution)\n");
             bgzip_command = [bgzip_bin]
             if threads != None:
                 bgzip_command.extend(['-@', str(threads)]);
-            process = run_tools([gcat,bgzip_command], name='gemBS_cat', output = greference)
+            process = run_tools([md5_fasta,bgzip_command], name='md5_fasta', output = greference)
             if process.wait() != 0:
-                if os.path.exists(greference):
-                    os.remove(greference)
+                for f in [greference, md5_contig]:
+                    if os.path.exists(f):
+                        os.remove(f)
                 raise ValueError("Error while making gemBS reference")
+        else:
+            process = run_tools([md5_fasta], name='md5_fasta', output = None)
+            if process.wait() != 0:
+                if os.path.exists(md5_contig):
+                    os.remove(md5_contig)
+                    raise ValueError("Error while making gemBS reference")
         
     process = run_tools([[executables['samtools'],'faidx',greference]], name='samtools faidx', output = 'greference.fai')
     if process.wait() != 0:
@@ -547,10 +567,24 @@ def mk_gembs_reference(input_name, greference, extra_fasta_files=None, threads=N
             if os.path.exists(f):
                 os.remove(f)
         raise ValueError("Error while making faidx index of gemBS reference")
+
+def mk_contig_md5(contig_md5, greference, populate_cache):
+    output_dir, base = os.path.split(contig_md5)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    md5 = [executables['md5_fasta'], '-o', contig_md5]
+    if populate_cache:
+        md5.append('-p')
+    md5.append(greference)
+    process = run_tools([md5], name='md5_fasta', output = None)
+    if process.wait() != 0:
+        if os.path.exists(contig_md5):
+            os.remove(contig_md5)
+        raise ValueError("Error while making contig md5 file")
+    return os.path.abspath(contig_md5)
     
-def index(input_name, index_name, extra_fasta_files=None,threads=None,tmpDir=None,sampling_rate=None,nonbs_flag=False):
-    """Run the gem-indexer on the given input. Input has to be the path
-    to a single fasta file that contains the genome to be indexed.
+def index(index_name, greference, threads=None,tmpDir=None,sampling_rate=None,nonbs_flag=False):
+    """Run the gem-indexer on the given gem reference.
     Output should be the path to the target index file. Note that
     the gem index has to end in .BS.gem and the prefix is added if necessary and
     the returned path will always be the correct path to the index.
@@ -565,29 +599,12 @@ def index(input_name, index_name, extra_fasta_files=None,threads=None,tmpDir=Non
     output_dir, base = os.path.split(index_name)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    if extra_fasta_files:
-        gcat = [executables['gemBS_cat'],input_name]
-        for f in extra_fasta_files:
-            if not os.path.exists(f):
-                raise CommandException("Reference file '{}' does not exist".format(f))
-            
-        gcat.extend(extra_fasta_files)
-        output = index_base + "_gemBS.tmp.gz"
-        process = run_tools([gcat,['pigz']], name='gemBS_cat', output = output)
-        if process.wait() != 0:
-            if os.path.exists(output):
-                os.remove(output)
-            raise ValueError("Error while concatenating input fasta files")
-        f_in = output
-    else:
-        f_in = input_name
-           
     logfile = os.path.join(output_dir,"gem_indexer_" + base + ".err")
     logging.gemBS.gt("Creating index")
                            
     indexer = [
         executables['gem-indexer'],
-        '-i',f_in,
+        '-i',greference,
         '-o',index_base
     ]
 
@@ -608,14 +625,11 @@ def index(input_name, index_name, extra_fasta_files=None,threads=None,tmpDir=Non
     process = run_tools([indexer], name="gem-indexer", logfile=logfile)
         
     if process.wait() != 0:
-        for f in (f_in, index_base + '.gem', index_base + '.info', index_base + '.sa.tmp'):
-            if os.path.exists(f) and f != input_name:
+        for f in (index_base + '.gem', index_base + '.info', index_base + '.sa.tmp'):
+            if os.path.exists(f):
                 os.remove(f)
         raise ValueError("Error while executing the Bisulphite gem-indexer")
 
-    if f_in != input_name:
-        os.remove(f_in)
-   
     if index_name != index_base + ".gem":
         os.rename(index_base + ".gem", index_name)
         os.rename(index_base + ".info", index_name + ".info")
@@ -687,7 +701,8 @@ def makeChromSizes(index_name=None,output=None):
 def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,filetype=None,
              read_non_stranded=False,reverse_conv=False,outfile=None,
              paired=False,tmpDir="/tmp",map_threads=None,sort_threads=None,
-             sort_memory=None,under_conversion=None, over_conversion=None, benchmark_mode=False):
+             sort_memory=None,under_conversion=None, over_conversion=None,
+            benchmark_mode=False, contig_md5=None, greference=None):
     """ Start the GEM Bisulfite mapping on the given input.
     
     name -- Name basic (FLI) for the input and output fastq files
@@ -707,6 +722,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,filetyp
     under_conversion -- Under conversion sequence
     over_conversion -- Over conversion sequence
     benchmark_mode -- Remove times etc. from output files to simplify file comparisons
+    contig_md5 -- File with md5 sums for all contigs
     """        
     ## prepare the input
     input_pipe = []  
@@ -765,7 +781,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,filetyp
     if over_conversion != "" and over_conversion != None:
         mapping.extend(["--overconversion-sequence",over_conversion])
     #READ FILTERING
-    readNameClean = [executables['readNameClean']]
+    readNameClean = [executables['readNameClean'], contig_md5]
          
     #BAM SORT
     bamSort = [executables['samtools'],"sort","-T",os.path.join(tmpDir,name),"-@",sort_threads,"-m",sort_memory,"-o",outfile]
@@ -773,7 +789,9 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,filetyp
         bamSort.append("--write-index")
     if benchmark_mode:
         bamSort.append("--no-PG")
-    bamSort.append("-");
+    if outfile.endswith('.cram'):
+        bamSort.extend(['-O', 'CRAM', '--reference', greference ]);
+    bamSort.append('-');
     
     tools = [mapping,readNameClean,bamSort]
     
@@ -784,7 +802,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,filetyp
 
     return os.path.abspath("%s" % outfile)
 
-def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/",benchmark_mode=False):
+def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/",benchmark_mode=False, greference=None):
     """ Merge bam alignment files 
     
         inputs -- Dictionary of samples and bam list files inputs(Key=sample, Value = [bam1,...,bamN])
@@ -798,7 +816,10 @@ def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/",benc
     output = os.path.dirname(outname)
         
     bam_filename = outname
-    index_filename = outname[:-3] + 'bai'
+    if outname.endswith('.cram'):
+        index_filename = outname[:-4] + 'crai'
+    else:
+        index_filename = outname[:-3] + 'csi'
     md5_filename = outname + '.md5'
     
     bammerging = []       
@@ -811,6 +832,8 @@ def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/",benc
         bammerging.extend([executables['samtools'],"merge","--threads",threads,"--write-index"])
         if benchmark_mode:
             bammerging.append("--no-PG")
+        if bam_filename.endswith('.cram'):
+            bammerging.extend(['-O', 'CRAM', '--reference', greference]);
         bammerging.extend(["-f",bam_filename])
         for bamFile in inputs:
             bammerging.append(bamFile)
@@ -819,14 +842,8 @@ def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/",benc
         if process.wait() != 0: raise ValueError("Error while merging.")
         return_info.append(os.path.abspath(bam_filename))
     
-    #Samtools index
-#    logfile = os.path.join(output,"bam_index_{}.err".format(sample))
-#    indexing = [executables['samtools'], "index", "-@", threads, bam_filename, index_filename]
     md5sum = ['md5sum',bam_filename]
-#    processIndex = run_tools([indexing],name="Indexing",logfile=logfile)
     processMD5 = run_tools([md5sum],name="BAM MD5",output=md5_filename)
-#    if processIndex.wait() != 0:
-#        raise ValueError("Error while indexing BAM file.")
     if processMD5.wait() != 0:
         raise ValueError("Error while calculating md5sum of BAM file.")
 

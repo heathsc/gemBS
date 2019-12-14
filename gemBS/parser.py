@@ -133,8 +133,8 @@ class gembsConfigParse:
                     state = 0
                     
         known_var = {
-            'mapping': ('tmp_dir', 'threads', 'non_stranded', 'reverse_conversion', 'remove_individual_bams', 'underconversion_sequence', 'overconversion_sequence', 'bam_dir', 'sequence_dir', 'benchmark_mode'),
-            'index': ('index', 'index_dir', 'reference', 'extra_references', 'reference_basename', 'nonbs_index', 'contig_sizes', 'threads', 'dbsnp_files', 'dbsnp_index', 'sampling_rate'),
+            'mapping': ('tmp_dir', 'threads', 'non_stranded', 'reverse_conversion', 'remove_individual_bams', 'underconversion_sequence', 'overconversion_sequence', 'bam_dir', 'sequence_dir', 'benchmark_mode', 'make_cram'),
+            'index': ('index', 'index_dir', 'reference', 'extra_references', 'reference_basename', 'nonbs_index', 'contig_sizes', 'threads', 'dbsnp_files', 'dbsnp_index', 'sampling_rate', 'populate_cache'),
             'calling': ('bcf_dir', 'mapq_threshold', 'qual_threshold', 'left_trim', 'right_trim', 'threads', 'jobs', 'species', 'keep_duplicates', 'keep_improper_pairs',
                         'remove_individual_bcfs', 'haploid', 'reference_bias', 'conversion', 'contig_list', 'contig_pool_limit', 'benchmark_mode'),
             'extract': ('extract_dir', 'jobs', 'allow_het', 'phred_threshold', 'min_inform', 'strand_specific', 'min_bc', 'make_cpg', 'make_non_cpg', 'make_bedmethyl',

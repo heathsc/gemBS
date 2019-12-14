@@ -141,6 +141,7 @@ class Index(BasicPipeline):
         ## required parameters
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads. By default GEM indexer will use the maximum available on the system.',default=None)
         parser.add_argument('-s', '--sampling-rate', dest="sampling_rate", help='Text sampling rate.  Increasing will decrease index size at the expense of slower mapping performance.',default=None)
+        parser.add_argument('-p', '--populate-cache', dest="populate_cache", help='Populate reference cache if required (for CRAM).',action="store_true",required=False,default=None)
         parser.add_argument('-d', '--list-dbSNP-files',dest="list_dbSNP_files",nargs="+",metavar="FILES",
                             help="List of dbSNP files (can be compressed) to create an index to later use it at the bscall step. The bed files should have the name of the SNP in column 4.",default=[])
 
@@ -157,39 +158,48 @@ class Index(BasicPipeline):
 
         fasta_input, fasta_input_ok = db_data['reference']
         extra_fasta_files = jsonData.check(section='index',key='extra_references',arg=None,list_type=True,default=[])
+        populate_cache = jsonData.check(section='index',key='populate_cache',arg=args.populate_cache, boolean=True)
         index_name, index_ok = db_data['index']
         nonbs_index_name, nonbs_index_ok = db_data.get('nonbs_index',(None, 0))
         csizes, csizes_ok = db_data['contig_sizes']
         greference, greference_ok = db_data['gembs_reference']
+        contig_md5, contig_md5_ok = db_data['contig_md5']
+
+        # We trigger a regeneration of the contig_md5 file if we want to check/populate the cache
+        if populate_cache:
+            contig_md5_ok = False
         dbsnp_index, dbsnp_ok = db_data.get('dbsnp_idx',(None, 0))
         self.threads = jsonData.check(section='index',key='threads',arg=args.threads)
         args.sampling_rate = jsonData.check(section='index',key='sampling_rate',arg=args.sampling_rate)
         args.list_dbSNP_files = jsonData.check(section='index',key='dbsnp_files',arg=args.list_dbSNP_files,list_type=True,default=[])
         if not fasta_input: raise ValueError('No input reference file specified for Index command')
+        if extra_fasta_files == []:
+            extra_fasta_files = None
         if greference_ok == 1:
             logging.warning("gemBS reference {} already exists, skipping creation".format(greference))
         else:
-            ret = mk_gembs_reference(fasta_input, greference, extra_fasta_files=extra_fasta_files, threads=self.threads)
+            ret = mk_gembs_reference(fasta_input, greference, contig_md5, extra_fasta_files=extra_fasta_files, threads=self.threads, populate_cache=populate_cache)
             if ret:
                 self.command = 'mk_gembs_reference'
                 self.log_parameter()
                 
                 logging.gemBS.gt("gemBS reference done: {}".format(greference))
                 db.check_index()
+                if contig_md5 != None:
+                    logging.gemBS.gt("Contig md5 file created: {}".format(contig_md5))
+                    contig_md5_ok = True
         
         if index_ok == 1:
             logging.warning("Bisulphite Index {} already exists, skipping indexing".format(index_name))
         else:
             self.command = 'index'
             self.log_parameter()
-        
-            ret = index(fasta_input, index_name, extra_fasta_files=extra_fasta_files, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=os.path.dirname(index_name))
+            ret = index(index_name, greference, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=os.path.dirname(index_name))
             if os.path.exists(csizes):
                 os.remove(csizes)
                 csizes_ok = 0
             if ret:
                 logging.gemBS.gt("Index done: {}".format(index))
-                db.check_index()
 
         if nonbs_index_name != None:
             if nonbs_index_ok == 1:
@@ -197,11 +207,13 @@ class Index(BasicPipeline):
             else:
                 self.command = 'nonbs index'
                 self.log_parameter()
-        
-                ret = index(fasta_input, nonbs_index_name, nonbs_flag=True, extra_fasta_files=extra_fasta_files, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=os.path.dirname(index_name))
+                ret = index(nonbs_index_name, greference, nonbs_flag=True, threads=self.threads, sampling_rate=args.sampling_rate, tmpDir=os.path.dirname(index_name))
                 if ret:
                     logging.gemBS.gt("Non-bisulfite index done: {}".format(index))
-
+        if not contig_md5_ok:
+            ret = mk_contig_md5(contig_md5, greference, populate_cache)
+            if ret:
+                logging.gemBS.gt("Contig md5 file created: {}".format(contig_md5))
         if dbsnp_index != None:
             if args.list_dbSNP_files:
                 if dbsnp_ok:
@@ -347,7 +359,6 @@ class Mapping(BasicPipeline):
         self.overconversion_sequence = self.jsonData.check(section='mapping',key='overconversion_sequence',arg=args.overconversion_sequence)
 
         self.input_dir = self.jsonData.check(section='mapping',key='sequence_dir',arg=None,default='.',dir_type=True)
-
         self.db = database(self.jsonData)
         self.db.check_index()
         self.mem_db = self.db.mem_db()
@@ -361,7 +372,18 @@ class Mapping(BasicPipeline):
         for ix_type in ('index', 'nonbs_index'):
             c.execute("SELECT file, status FROM indexing WHERE type = '{}'".format(ix_type))
             self.index_status[ix_type] = c.fetchone()
-            
+        for fname, ftype, status in c.execute("SELECT * FROM indexing"):
+            if ftype == 'contig_md5':
+                if status != 1:
+                    raise CommandException("contig md5 file {} not found.  Run 'gemBS index' or correct configuration file and rerun".format(fname))
+                else:                
+                    self.contig_md5 = fname;
+            elif ftype == 'gembs_reference':
+                if status != 1:
+                    raise CommandException("gemBS reference {} not found.  Run 'gemBS index' or correct configuration file and rerun".format(fname))
+                else:
+                    self.fasta_reference = fname            
+        
         #Check Temp Directory
         if self.tmp_dir and not os.path.isdir(self.tmp_dir):
             raise CommandException("Temporary directory %s does not exists or is not a directory." %(self.tmp_dir))
@@ -589,7 +611,7 @@ class Mapping(BasicPipeline):
                               outfile=outfile,paired=self.paired,tmpDir=tmp,
                               map_threads=self.map_threads,sort_threads=self.sort_threads,sort_memory=self.sort_memory,
                               under_conversion=self.underconversion_sequence,over_conversion=self.overconversion_sequence,
-                              benchmark_mode=self.benchmark_mode) 
+                              benchmark_mode=self.benchmark_mode, contig_md5=self.contig_md5, greference=self.fasta_reference) 
         
                 if ret:
                     logging.gemBS.gt("Bisulfite Mapping done. Output File: %s" %(ret))
@@ -651,7 +673,8 @@ class Mapping(BasicPipeline):
                                 desc = "merge {}".format(smp)
                                 self.json_commands[desc] = task
                         else:
-                            ret = merging(inputs = inputs, sample = sample, threads = self.merge_threads, outname = outfile, benchmark_mode=self.benchmark_mode)
+                            ret = merging(inputs = inputs, sample = sample, threads = self.merge_threads, outname = outfile,
+                                          benchmark_mode=self.benchmark_mode, greference=self.fasta_reference)
                             if ret:
                                 logging.gemBS.gt("Merging process done for {}. Output files generated: {}".format(sample, ','.join(ret)))
                                 
@@ -787,6 +810,13 @@ class Merging(Mapping):
             self.db.copy_to_mem()
 
         c = self.db.cursor()
+        for fname, ftype, status in c.execute("SELECT * FROM indexing"):
+            if ftype == 'gembs_reference':
+                if status != 1:
+                    raise CommandException("gemBS reference {} not found.  Run 'gemBS index' or correct configuration file and rerun".format(fname))
+                else:
+                    self.fasta_reference = fname            
+        
         if args.sample:
             ret = c.execute("SELECT * from mapping WHERE sample = ?", (args.sample,))
         else:
