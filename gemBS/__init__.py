@@ -561,7 +561,7 @@ def mk_gembs_reference(input_name, greference, contig_md5, extra_fasta_files=Non
                     os.remove(md5_contig)
                     raise ValueError("Error while making gemBS reference")
         
-    process = run_tools([[executables['samtools'],'faidx',greference]], name='samtools faidx', output = 'greference.fai')
+    process = run_tools([[executables['samtools'],'faidx',greference]], name='samtools faidx', output = None)
     if process.wait() != 0:
         for f in [greference + '.fai', greference + '.gzi']:
             if os.path.exists(f):
