@@ -13,10 +13,8 @@ CC=gcc
 
 ROOT_PATH=..
 
-TOOLS=gemBS_cat readNameClean
-
+TOOLS=gemBS_cat readNameClean md5_fasta
 FOLDER_BIN=../bin
-TOOLS_SRC=$(addsuffix .c, $(TOOLS))
 TOOLS_BIN=$(addprefix $(FOLDER_BIN)/, $(TOOLS))
 LIBS:= -lm
 
@@ -30,5 +28,17 @@ static: $(TOOLS_BIN)
 debug: TOOLS_FLAGS=-O0 $(GENERAL_FLAGS) $(ARCH_FLAGS) $(DEBUG_FLAGS)
 debug: $(TOOLS_BIN)
 
-$(TOOLS_BIN): $(TOOLS_SRC)
-	$(CC) --std=c99  $(TOOLS_FLAGS) -o $@ $(notdir $@).c $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LIBS) $(EXTRA_LIBS)
+clean: 
+	rm -f *~ *.o *.a
+
+utils.o: utils.c utils.h
+	$(CC) $(TOOLS_FLAGS) -c utils.c
+
+$(FOLDER_BIN)/gemBS_cat: gemBS_cat.c utils.o
+	$(CC) $(TOOLS_FLAGS) -o $@ gemBS_cat.c utils.o $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LIBS) $(EXTRA_LIBS)
+
+$(FOLDER_BIN)/md5_fasta: md5_fasta.c utils.o
+	$(CC) $(TOOLS_FLAGS) -o $@ md5_fasta.c utils.o $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LIBS) $(EXTRA_LIBS)-lcrypto
+
+$(FOLDER_BIN)/readNameClean: readNameClean.c utils.o
+	$(CC) $(TOOLS_FLAGS) -o $@ readNameClean.c utils.o $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LIBS) $(EXTRA_LIBS)

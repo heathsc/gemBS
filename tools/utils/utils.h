@@ -40,6 +40,7 @@ typedef struct {
     free(x);                                                                   \
   }
 
+tokens *tokenize(char *s, const int ch, tokens *tok);
 char *find_prog(const char *prog, const char *path);
 FILE *_open_readfile(const char *fname, bool *flag, bool chk_flag);
 int child_open_rw(int fd[2],const char *filterprog,char *const argv[]);
