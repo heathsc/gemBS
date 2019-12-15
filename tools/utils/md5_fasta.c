@@ -190,6 +190,10 @@ static void process_file(FILE * const fp, FILE * const fout, const bool stream, 
 			MD5_Init(&ctx);
 			tlen = 0;
 		} else {
+			if(!ctg) {
+				fprintf(stderr,"md5_fasta:no header found");
+				exit(-1);
+			}
 			// First, strip characters not between 33 and 126, and convert to upper case.
 			char *p = buf, *p1 = buf;
 			while(*p) {
