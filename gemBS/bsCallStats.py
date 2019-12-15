@@ -1148,7 +1148,7 @@ class QCDistribution(DistributionPlot,StatsMother):
             
             pngFile -- png plot file
             concept -- Plot Concept
-            typeDistribution -- Can be: "FisherStrand" | "QualityByDepth" | "RMSMappingQuality" | "GoodnessOfFit"
+            typeDistribution -- Can be: "FisherStrand" | "QualityByDepth" | "RMSMappingQuality" 
             typeBaseLocation -- Can be: "" | "Variant" | "NonVariant"
         """
         DistributionPlot.__init__(self,pngFile=pngFile,concept=concept)
@@ -1162,9 +1162,6 @@ class QCDistribution(DistributionPlot,StatsMother):
         else:
             self.y_legend += "%s Sites" %(typeBaseLocation)
             
-        #Number of Locations to be recovered in order to have the same axis for variants and non variants
-        self.gof_locations = 0
-        
     def setAxisXLabel(self,newLabel=""):
         """
             Updates X Label
@@ -1222,13 +1219,13 @@ class QCDistribution(DistributionPlot,StatsMother):
         else:
             return other_locations
             
-    def setNumberOfLocations(self,locationsToRecover):
-        """
-            Updates the number of locations to be recovered
-            
-            locationsToRecover - New Locations Value
-        """            
-        self.gof_locations = locationsToRecover
+#    def setNumberOfLocations(self,locationsToRecover):
+#        """
+#            Updates the number of locations to be recovered
+#            
+#            locationsToRecover - New Locations Value
+#        """            
+#        self.gof_locations = locationsToRecover
                  
     def getUnifiedVectorToPlot(self,locationsToRecover):
         """From Dictionary Get Vector of Y values to be bar plotted
@@ -1254,8 +1251,6 @@ class QCDistribution(DistributionPlot,StatsMother):
         
         if self.type_distribution == "FisherStrand" or self.type_distribution == "QualityByDepth":
             yValues = self.getVectorToPlot(cleanTail=True)
-        elif self.type_distribution == "GoodnessOfFit":
-            yValues = self.getUnifiedVectorToPlot(locationsToRecover=self.gof_locations)
         else: 
             yValues = self.getVectorToPlot(cleanTail=False)
                 
@@ -1335,8 +1330,7 @@ class VCFFilterStats(StatsMother):
         vector_table.append(["","","","","","",""])
         #6.ROW FILTERED MOTIVES
         filtered_citerias = ["q20","qd2","q20,qd2", "fs60","q20,fs60","qd2,fs60","q20,qd2,fs60","mq40","q20,mq40","qd2,mq40","q20,qd2,mq40","fs60,mq40","q20,fs60,mq40",
-                              "qd2,fs60,mq40","q20,qd2,fs60,mq40","gof20","q20,gof20","qd2,gof20","q20,qd2,gof20","fs60,gof20","q20,fs60,gof20","qd2,fs60,gof20","q20,qd2,fs60,gof20",
-                              "mq40,gof20","q20,mq40,gof20","qd2,mq40,gof20","q20,qd2,mq40,gof20","fs60,mq40,gof20","q20,fs60,mq40,gof20","qd2,fs60,mq40,gof20","q20,qd2,fs60,mq40,gof20"]
+                              "qd2,fs60,mq40","q20,qd2,fs60,mq40"]
          
         tuples_vector = []                     
         for filtered_criteria in filtered_citerias:

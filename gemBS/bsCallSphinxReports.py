@@ -375,7 +375,7 @@ class SphinxBsGenotypeCalls(SphinxBsCallReport):
         
             stats_vector - Vector of BsCallStats to build HtmlBsGenotypeCalls 
                            [totalStats,vcfFilterStats,variantCoverage,dbSnpCoverage,qualityVariant,
-                            [fsVariant,qdVariant,qdNonVariant,rmsmqVariant,rmsmqNonVariant,gofVariant,gofNonVariant],
+                            [fsVariant,qdVariant,qdNonVariant,rmsmqVariant,rmsmqNonVariant],
                             mutations]
         """
         self.total_stats = stats_vector[0]
@@ -389,8 +389,6 @@ class SphinxBsGenotypeCalls(SphinxBsCallReport):
         self.qdNonVariant = stats_vector[5][2]
         self.rmsmqVariant = stats_vector[5][3]
         self.rmsmqNonVariant = stats_vector[5][4]
-        self.gofVariant = stats_vector[5][5]
-        self.gofNonVariant = stats_vector[5][6]        
                 
         self.mutations = stats_vector[6]
         
@@ -455,12 +453,8 @@ class SphinxBsGenotypeCalls(SphinxBsCallReport):
         #5.4 GoodnessOfFit Variant NonVariant
         self.addSubSubSection(ident=ident,title="Phred scaled goodness of fit. Variants.")
         self.contents.append("\n")
-        self.buildImage(pathImage=self.gofVariant.relativeSphinxPathImage)
-        self.contents.append("\n") 
         self.addSubSubSection(ident=ident,title="Phred scaled goodness of fit. Non-Variants.")
         self.contents.append("\n")
-        self.buildImage(pathImage=self.gofNonVariant.relativeSphinxPathImage)
-        self.contents.append("\n")         
         #6. Mutation All 
         self.addSubSection(ident=ident,title="Mutation All")
         self.contents.append("\n")

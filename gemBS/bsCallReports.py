@@ -335,7 +335,7 @@ class HtmlBsGenotypeCalls(HtmlBsCallReport):
         
             stats_vector - Vector of BsCallStats to build HtmlBsGenotypeCalls 
                            [totalStats,vcfFilterStats,variantCoverage,dbSnpCoverage,qualityVariant,
-                            [fsVariant,qdVariant,qdNonVariant,rmsmqVariant,rmsmqNonVariant,gofVariant,gofNonVariant],
+                            [fsVariant,qdVariant,qdNonVariant,rmsmqVariant,rmsmqNonVariant],
                             mutations]
         """
         self.total_stats = stats_vector[0]
@@ -349,14 +349,7 @@ class HtmlBsGenotypeCalls(HtmlBsCallReport):
         self.qdNonVariant = stats_vector[5][2]
         self.rmsmqVariant = stats_vector[5][3]
         self.rmsmqNonVariant = stats_vector[5][4]
-        self.gofVariant = stats_vector[5][5]
-        self.gofNonVariant = stats_vector[5][6] 
         
-        #Set GoF Axis X Equal for both
-        number_locations_gof = self.gofVariant.selectTotalNumberLocations(self.gofNonVariant)
-        self.gofVariant.setNumberOfLocations(locationsToRecover=number_locations_gof)
-        self.gofNonVariant.setNumberOfLocations(locationsToRecover=number_locations_gof)
-                
         self.mutations = stats_vector[6]
         
     def createPage(self):
@@ -388,11 +381,6 @@ class HtmlBsGenotypeCalls(HtmlBsCallReport):
         self.createSetPlots(stats_objects=[self.rmsmqVariant,self.rmsmqNonVariant],color="green",
                             titles=["Root Mean Square of the mapping quality of reads. Variants.",
                                     "Root Mean Square of the mapping quality of reads. Non-Variants."])      
-        #5.4 GoodnessOfFit Variant NonVariant
-        self.createSetPlots(stats_objects=[self.gofVariant,self.gofNonVariant],color="blue",
-                            titles=["Phred scaled goodness of fit to the diploid model. Variants.",
-                                    "Phred scaled goodness of fit to the diploid model. Non-Variants."])        
-        
         #6. Mutation All 
         self.space()
         self.createTable(color="green",values=self.mutations.getTableMutationProfile(),tableTitle="Mutations")        
@@ -526,8 +514,6 @@ class HtmlIndexBsCall(HtmlBsCallReport):
         qdNonVariant = QCDistribution(concept="QualityByDepthNonVariant",typeDistribution="QualityByDepth",typeBaseLocation="NonVariant",pngFile=os.path.join(self.output_dir,'IMG',"{}_qd_nonvariant.png".format(sample)))
         rmsmqVariant = QCDistribution(concept="RMSMappingQualityVariant",typeDistribution="RMSMappingQuality",typeBaseLocation="Variant",pngFile=os.path.join(self.output_dir,'IMG',"{}_rmsmq_variant.png".format(sample)))
         rmsmqNonVariant = QCDistribution(concept="RMSMappingQualityNonVariant",typeDistribution="RMSMappingQuality",typeBaseLocation="NonVariant",pngFile=os.path.join(self.output_dir,'IMG',"{}_rmsmq_nonvariant.png".format(sample)))
-        gofVariant = QCDistribution(concept="GoodnessOfFitVariant",typeDistribution="GoodnessOfFit",typeBaseLocation="Variant",pngFile=os.path.join(self.output_dir,'IMG',"{}_gof_variant.png".format(sample)))
-        gofNonVariant = QCDistribution(concept="GoodnessOfFitNonVariant",typeDistribution="GoodnessOfFit",typeBaseLocation="NonVariant",pngFile=os.path.join(self.output_dir,'IMG',"{}_gof_nonvariant.png".format(sample)))
         #VCF Filter Stats
         vcfFilterStats = VCFFilterStats()
         #Mutations
@@ -574,8 +560,6 @@ class HtmlIndexBsCall(HtmlBsCallReport):
                     qdNonVariant.add(data["totalStats"]["QCDistributions"]["QualityByDepth"])
                     rmsmqVariant.add(data["totalStats"]["QCDistributions"]["RMSMappingQuality"])
                     rmsmqNonVariant.add(data["totalStats"]["QCDistributions"]["RMSMappingQuality"])
-                    gofVariant.add(data["totalStats"]["QCDistributions"]["GoodnessOfFit"])
-                    gofNonVariant.add(data["totalStats"]["QCDistributions"]["GoodnessOfFit"])  
                     #VCF Filter Stats
                     vcfFilterStats.add(data["totalStats"]["VCFFilterStats"])                
                     #Mutations
@@ -614,7 +598,7 @@ class HtmlIndexBsCall(HtmlBsCallReport):
         #DataSet Per Samples
         sample_stats = {"mappingCoverage": [readLevelStats,baseLevelStats,allCoverage,gcCoverage,qualityAll,nonCpGReadProfile],
                             "calls": [totalStats,vcfFilterStats,variantCoverage,dbSnpCoverage,qualityVariant,
-                            [fsVariant,qdVariant,qdNonVariant,rmsmqVariant,rmsmqNonVariant,gofVariant,gofNonVariant],
+                            [fsVariant,qdVariant,qdNonVariant,rmsmqVariant,rmsmqNonVariant],
                             mutationsStats],
                             "methylation": [totalStats,refCpGcoverage,refCpGInfCoverage,nonRefCpGcoverage,nonRefCpGinfCoverage,
                             qualityRefCpG,qualityNonRefCpG,plotMethylation,summaryMethylation]

@@ -32,14 +32,14 @@ or check the installation of several packages.
 
   a) gcc with development libraries
   b) python3, pip3, matplotlib, multiprocess
-  c) zlib, gsl, libncurses
+  c) zlib, lzma, openssl, libcurl, libncurses, wget, pigz
   
 If you are working on a clean (fairly recent) Ubuntu installation, you
 can install everything required with the followiwg commands:
 
     sudo apt-get update
     sudo apt-get install -y python3 build-essential git python3-pip wget pigz
-    sudo apt-get install -y zlib1g-dev libbz2-dev gsl-bin libgsl0-dev
+    sudo apt-get install -y zlib1g-dev libbz2-dev
     sudo apt-get install -y libncurses5-dev liblzma-dev libssl-dev libcurl4-openssl-dev
     pip3 install matplotlib multiprocess
 
@@ -58,29 +58,12 @@ To install to the user's home directory:
 
     ``python3 setup.py install --user``
 
-Note that gemBS requires that GSL (GNU scientific library) is
-installed prior to the installation of gemBS.  If GSL has been
-installed on your system to the standard system location then the
-above procedure should work without modification.  If, however, GSL
-has been installed to a non-standard location then then --gsl-path
-option to install can be used.  Fo example, if the installation prefix
-for GSL is /opt/local (so the libraries are in /opt/local/lib and the
-include directory gsl is in /opt/local/include) then the following
-install command should be used:
-
-    ``python3 setup.py install --gsl-path=/opt/local``
-
-or
-
-    ``python3 setup.py install --gsl-path=/opt/local --user``
-
 -----------------------
 Check your installation
 -----------------------
 
 For checking your installation follow this
 [worked example](http://statgen.cnag.cat/gemBS/UserGuide/_build/html/example.html).
-
 
 -------------
 Documentation
@@ -92,6 +75,9 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.4.3 Remove calculation of the goodness of filter (GOF) as this is expensive, non-standard and unreliable.  Removing this
+	       removes the dependency on GSL.
+	 3.4.3 Add autodetection of output format to bs_call (unless explicitly specified on the command line)
     3.4.2 Add CRAM support (via make_cram option in configuration file)
     3.4.1 Add benchmark-mode that does not write date or program version numbers into SAM/BAM or VCF/BCF files
 	       Switch to samtools, bcftools and htslib v1.10
