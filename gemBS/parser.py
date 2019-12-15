@@ -133,12 +133,16 @@ class gembsConfigParse:
                     state = 0
                     
         known_var = {
-            'mapping': ('tmp_dir', 'threads', 'non_stranded', 'reverse_conversion', 'remove_individual_bams', 'underconversion_sequence', 'overconversion_sequence', 'bam_dir', 'sequence_dir', 'benchmark_mode', 'make_cram'),
-            'index': ('index', 'index_dir', 'reference', 'extra_references', 'reference_basename', 'nonbs_index', 'contig_sizes', 'threads', 'dbsnp_files', 'dbsnp_index', 'sampling_rate', 'populate_cache'),
-            'calling': ('bcf_dir', 'mapq_threshold', 'qual_threshold', 'left_trim', 'right_trim', 'threads', 'jobs', 'species', 'keep_duplicates', 'keep_improper_pairs',
+            'mapping': ('tmp_dir', 'threads', 'non_stranded', 'reverse_conversion', 'remove_individual_bams',
+                        'underconversion_sequence', 'overconversion_sequence', 'bam_dir', 'sequence_dir', 'benchmark_mode',
+                        'make_cram', 'map_threads', 'sort_threads', 'merge_threads', 'sort_memory'),
+            'index': ('index', 'index_dir', 'reference', 'extra_references', 'reference_basename', 'nonbs_index', 'contig_sizes',
+                      'threads', 'dbsnp_files', 'dbsnp_index', 'sampling_rate', 'populate_cache'),
+            'calling': ('bcf_dir', 'mapq_threshold', 'qual_threshold', 'left_trim', 'right_trim', 'threads', 'jobs', 'species',
+                        'keep_duplicates', 'keep_improper_pairs', 'call_threads', 'merge_threads',
                         'remove_individual_bcfs', 'haploid', 'reference_bias', 'conversion', 'contig_list', 'contig_pool_limit', 'benchmark_mode'),
-            'extract': ('extract_dir', 'jobs', 'allow_het', 'phred_threshold', 'min_inform', 'strand_specific', 'min_bc', 'make_cpg', 'make_non_cpg', 'make_bedmethyl',
-                        'make_bigwig', 'make_snps', 'snp_list', 'snp_db', 'reference_bias'),
+            'extract': ('extract_dir', 'jobs', 'allow_het', 'phred_threshold', 'min_inform', 'strand_specific', 'min_bc', 'make_cpg', 'make_non_cpg',
+                        'make_bedmethyl', 'make_bigwig', 'make_snps', 'snp_list', 'snp_db', 'reference_bias'),
             'report': ('project', 'report_dir', 'threads')
         }
         # Check if variables are used
