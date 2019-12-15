@@ -550,15 +550,15 @@ def mk_gembs_reference(input_name, greference, contig_md5, extra_fasta_files=Non
                 bgzip_command.extend(['-@', str(threads)]);
             process = run_tools([md5_fasta,bgzip_command], name='md5_fasta', output = greference)
             if process.wait() != 0:
-                for f in [greference, md5_contig]:
+                for f in [greference, contig_md5]:
                     if os.path.exists(f):
                         os.remove(f)
                 raise ValueError("Error while making gemBS reference")
         else:
             process = run_tools([md5_fasta], name='md5_fasta', output = None)
             if process.wait() != 0:
-                if os.path.exists(md5_contig):
-                    os.remove(md5_contig)
+                if os.path.exists(contig_md5):
+                    os.remove(contig_md5)
                     raise ValueError("Error while making gemBS reference")
         
     process = run_tools([[executables['samtools'],'faidx',greference]], name='samtools faidx', output = None)
