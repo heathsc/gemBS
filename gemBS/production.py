@@ -140,7 +140,7 @@ class Index(BasicPipeline):
     def register(self, parser):
         ## required parameters
         parser.add_argument('-t', '--threads', dest="threads", help='Number of threads. By default GEM indexer will use the maximum available on the system.',default=None)
-        parser.add_argument('-s', '--sampling-rate', dest="sampling_rate", help='Text sampling rate.  Increasing will decrease index size at the expense of slower mapping performance.',default=None)
+        parser.add_argument('-s', '--sampling-rate', dest="sampling_rate", help='Text sampling rate.  Increasing will decrease index size at the expense of slower  performance.',default=None)
         parser.add_argument('-p', '--populate-cache', dest="populate_cache", help='Populate reference cache if required (for CRAM).',action="store_true",required=False,default=None)
         parser.add_argument('-d', '--list-dbSNP-files',dest="list_dbSNP_files",nargs="+",metavar="FILES",
                             help="List of dbSNP files (can be compressed) to create an index to later use it at the bscall step. The bed files should have the name of the SNP in column 4.",default=[])
@@ -628,6 +628,7 @@ class Mapping(BasicPipeline):
     
     def do_merge(self, sample, inputs, fname):
         if inputs:
+            inputs.sort()
             self.db.isolation_level = None
             c = self.db.cursor()
             try_get_exclusive(c)
@@ -645,7 +646,7 @@ class Mapping(BasicPipeline):
                         c.execute("COMMIT")
                         # Register output files and db cleanup in case of failure
                         odir = os.path.dirname(outfile)
-                        ixfile = os.path.join(odir, smp + '.bai')
+                        ixfile = os.path.join(odir, smp + '.csi')
                         md5file = outfile + '.md5'
                         database.reg_db_com(outfile, "UPDATE mapping SET status = 0 WHERE filepath = '{}'".format(outfile), [outfile, ixfile, md5file])
                         if self.dry_run or self.dry_run_json:

@@ -195,7 +195,10 @@ class JSONdata:
             ret = default
         if ret != None:
             if boolean:
-                ret = json.loads(str(ret).lower())
+                try:
+                    ret = json.loads(str(ret).lower())
+                except json.decoder.JSONDecodeError:
+                    ret = False
             elif int_type:
                 ret = int(ret)
             elif dir_type:
