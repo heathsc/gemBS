@@ -1344,6 +1344,7 @@ def bsConcat(list_bcfs=None,sample=None,threads=None,bcfSample=None,benchmark_mo
         concat.extend(['--threads', threads])
     if benchmark_mode:
         concat.append('--no-version')
+    list_bcfs.sort()
     concat.extend(list_bcfs)
      
     process = run_tools([concat],name="Concatenation Calls",logfile=logfile)
