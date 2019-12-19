@@ -75,17 +75,20 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.4.4 Sort input bcf files to bcftools concat stage to ensure reproducibility.
+    3.4.4 Add extra sort keys when generating pools to ensure stability of pool membership in the event of multiple contigs
+          having the same size
     3.4.3 Remove calculation of the goodness of filter (GOF) as this is expensive, non-standard and unreliable.  Removing this
-	       removes the dependency on GSL.
-	 3.4.3 Add autodetection of output format to bs_call (unless explicitly specified on the command line)
+          removes the dependency on GSL.
+    3.4.3 Add autodetection of output format to bs_call (unless explicitly specified on the command line)
     3.4.2 Add CRAM support (via make_cram option in configuration file)
     3.4.1 Add benchmark-mode that does not write date or program version numbers into SAM/BAM or VCF/BCF files
-	       Switch to samtools, bcftools and htslib v1.10
+          Switch to samtools, bcftools and htslib v1.10
     3.4.0 Move to new bs_call version (2.1.0) which is more efficient
           in memory use and can read BAMs and write BCFs natively.
           The new bs_call requires a faidx indexed reference, so gemBS
           no creates this during indexing.
-	 3.4.0 Add switches to give more control to threads and memory
+    3.4.0 Add switches to give more control to threads and memory
           usage in mapping and calling stages
     3.3.3 Remove legacy pathway for config files with no header line (fix issue 'error in gemBS index #65)
     3.3.2 Fix error where header line for wig files could be omitted

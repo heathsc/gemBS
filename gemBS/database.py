@@ -402,8 +402,8 @@ class database(sqlite3.Connection):
                 while pname(ix) in pools_used: ix += 1
                 pools.append([pname(ix), [], 0])
                 ix += 1
-            for ctg in sorted(small_contigs, key = lambda x: -contig_size[x]):
-                pl = sorted(pools, key = lambda x: x[2])[0]
+            for ctg in sorted(small_contigs, key = lambda x: (-contig_size[x], ctg)):
+                pl = sorted(pools, key = lambda x: (x[2], x[0]))[0]
                 sz = contig_size[ctg]
                 pl[1].append(ctg)
                 pl[2] = pl[2] + sz
