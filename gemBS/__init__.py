@@ -1179,7 +1179,7 @@ def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=No
     return " ".join(list(sample_bam.keys()))
 
             
-def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=False,cpg=False,non_cpg=False,allow_het=False,
+def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=False,bw_strand_specific=False,cpg=False,non_cpg=False,allow_het=False,
                          inform=1,phred=20,min_nc=1,bedMethyl=False,bigWig=False,contig_list=None,contig_size_file=None,
                          snps=None,snp_list=None,snp_db=None,ref_bias=None,extract_threads=None):
     
@@ -1218,6 +1218,8 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         mextr.extend(['--inform',str(inform),'--threshold',str(phred),'--tabix'])
     if strand_specific:
         mextr.extend(['--mode', 'strand-specific'])
+    if bw_strand_specific:
+        mextr.extend(['--bw-mode', 'strand-specific'])
     if allow_het:
         mextr.extend(['--select', 'het'])
     mextr.append(bcfFile);

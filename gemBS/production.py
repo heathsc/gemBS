@@ -1344,7 +1344,8 @@ class MethylationFiltering(BasicPipeline):
         parser.add_argument('-j','--jobs', dest="jobs", type=int, help='Number of parallel jobs')
         parser.add_argument('-n','--sample-name',dest="sample_name",metavar="SAMPLE_NAME",help="Name of sample to be filtered")  
         parser.add_argument('-b','--barcode',dest="sample",metavar="SAMPLE_BARCODE",help="Barcode of sample to be filtered")  
-        parser.add_argument('-s','--strand-specific', dest="strand_specific", action="store_true", default=False, help="Output separate lines in CpG file and/or bigWig file for each strand.")
+        parser.add_argument('-s','--strand-specific', dest="strand_specific", action="store_true", default=False, help="Output separate lines in CpG file for each strand.")
+        parser.add_argument('-W','--bigwig-strand-specific', dest="bw_strand_specific", action="store_true", default=False, help="Output separate bigWig files for each strand.")
         parser.add_argument('-q','--phred-threshold', dest="phred", help="Min threshold for genotype phred score.")
         parser.add_argument('-I','--min-inform', dest="inform", help="Min threshold for informative reads.")
         parser.add_argument('-M','--min-nc', dest="min_nc", help="Min threshold for non-converted reads for non CpG sites.")
@@ -1381,6 +1382,7 @@ class MethylationFiltering(BasicPipeline):
         self.ref_bias = self.jsonData.check(section='extract',key='reference_bias',arg=args.ref_bias)
 #        self.bigWig = self.jsonData.check(section='extract',key='make_bigwig',arg=args.bigWig,boolean=True,default=False)
         self.strand_specific = self.jsonData.check(section='extract',key='strand_specific',arg=args.strand_specific,boolean=True,default=False)
+        self.bw_strand_specific = self.jsonData.check(section='extract',key='bigwig_strand_specific',arg=args.bw_strand_specific,boolean=True,default=False)
         self.phred = self.jsonData.check(section='extract',key='phred_threshold',arg=args.phred, default = '20')
         self.inform = self.jsonData.check(section='extract',key='min_inform',arg=args.inform, default = 1, int_type=True)
         self.min_nc = self.jsonData.check(section='extract',key='min_nc',arg=args.inform, default = 1, int_type=True)
@@ -1514,10 +1516,14 @@ class MethylationFiltering(BasicPipeline):
                     files.extend([filebase + '_non_cpg.txt.gz', filebase + '_non_cpg.txt.gz.tbi', filebase + '_non_cpg.txt.gz.md5'])
                 if self.bedMethyl and not (sm & 192):
                     bedMethyl = True
-                    for x in ('cpg', 'chg', 'chh') :
+                    for x in ('cpg', 'chg', 'chh'):
                         files.extend([filebase + "_{}.bed.gz".format(x), filebase + "_{}.bed.gz.md5".format(x), 
                                       filebase + "_{}.bb".format(x), filebase + "_{}.bb.md5".format(x)])
-                    files.extend([filebase + '.bw', filebase + '.bw.md5'])
+                    if self.bw_strand_specific:
+                        for x in ('pos', 'neg'):
+                            files.extend([filebase + '_{}.bw'.format(x), filebase + '_{}.bw.md5'.format(x)])
+                    else:
+                        files.extend([filebase + '.bw', filebase + '.bw.md5'])
                         
                 if self.snps and not(sm & 768):
                     snps = True
@@ -1533,7 +1539,8 @@ class MethylationFiltering(BasicPipeline):
                         if Mapping.gemBS_json != '.gemBS/gemBS.json':
                             com.extend(['-j',Mapping.gemBS_json])
                     com.extend(['extract','-b',sample])
-                    if args.strand_specific: com.append('-x')
+                    if args.strand_specific: com.append('-s')
+                    if args.bw_strand_specific: com.append('-W')
                     if args.phred: com.extend(['-q', args.phred])
                     if args.inform: com.extend(['-I', args.inform])
                     if args.min_nc: com.extend(['-M', args.min_nc])
@@ -1567,7 +1574,7 @@ class MethylationFiltering(BasicPipeline):
                     database.reg_db_com(filebase, "UPDATE extract SET status = 0 WHERE filepath = '{}'".format(filebase), files)                
 
                     #Call methylation extract
-                    ret = methylationFiltering(bcfFile=bcf_file,outbase=filebase,name=sample,strand_specific=self.strand_specific,
+                    ret = methylationFiltering(bcfFile=bcf_file,outbase=filebase,name=sample,strand_specific=self.strand_specific,bw_strand_specific=self.bw_strand_specific,
                                                cpg=cpg,non_cpg=non_cpg,contig_list=self.contig_list,allow_het=self.allow_het,
                                                inform=self.inform,phred=self.phred,min_nc=self.min_nc,bedMethyl=bedMethyl,
                                                bigWig=bigWig,contig_size_file=self.contig_size_file,ref_bias=self.ref_bias,
