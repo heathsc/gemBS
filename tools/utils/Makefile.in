@@ -13,13 +13,18 @@ CC=gcc
 
 ROOT_PATH=..
 
-TOOLS=gemBS_cat readNameClean md5_fasta
+TOOLS=gemBS_cat readNameClean md5_fasta mextr
 FOLDER_BIN=../bin
 TOOLS_BIN=$(addprefix $(FOLDER_BIN)/, $(TOOLS))
 LIBS:= -lm
 
+MEXTR_INC = @HTSINC@
+MEXTR_LIBS = @HTSLIBS@ -lz -lbz2 -lpthread $(LIBS)
 
-all: TOOLS_FLAGS=-O3 $(GENERAL_FLAGS) $(ARCH_FLAGS) $(SUPPRESS_CHECKS) $(OPTIMIZTION_FLAGS) $(ARCH_FLAGS_OPTIMIZTION_FLAGS)
+MEXTR_SRC=mextr.c calc_gt_prob.c output.c output_utils.c output_headers.c command_line.c init_params.c files.c \
+          stats.c unpack.c rec.c bbi.c
+
+all: TOOLS_FLAGS=-O3 -g $(GENERAL_FLAGS) $(ARCH_FLAGS) $(SUPPRESS_CHECKS) $(OPTIMIZTION_FLAGS) $(ARCH_FLAGS_OPTIMIZTION_FLAGS)
 all: $(TOOLS_BIN)
 	
 static: TOOLS_FLAGS=-O3 $(GENERAL_FLAGS) $(ARCH_FLAGS) $(SUPPRESS_CHECKS) $(OPTIMIZTION_FLAGS) $(ARCH_FLAGS_OPTIMIZTION_FLAGS) -static
@@ -30,6 +35,9 @@ debug: $(TOOLS_BIN)
 
 clean: 
 	rm -f *~ *.o *.a
+
+distclean: clean
+	rm -f Makefile config.status
 
 utils.o: utils.c utils.h
 	$(CC) $(TOOLS_FLAGS) -c utils.c
@@ -42,3 +50,7 @@ $(FOLDER_BIN)/md5_fasta: md5_fasta.c utils.o
 
 $(FOLDER_BIN)/readNameClean: readNameClean.c utils.o
 	$(CC) $(TOOLS_FLAGS) -o $@ readNameClean.c utils.o $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LIBS) $(EXTRA_LIBS)
+
+$(FOLDER_BIN)/mextr: $(MEXTR_SRC) mextr.h bbi.h bbi_defs.h bbi_structs.h utils.o
+	$(CC) $(TOOLS_FLAGS) -o $@ $(MEXTR_SRC) utils.o $(MEXTR_INC) $(MEXTR_LIBS)
+
