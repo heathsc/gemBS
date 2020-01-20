@@ -68,9 +68,11 @@ int main(int argc, char **argv) {
 	fill_base_prob_table();
 	pthread_t read_thr;
 	pthread_create(&read_thr, NULL, read_thread, &args);
+	// If we are generating bigBed and bigWig files, we will take half of the threads for the compression stage
+	if(args.bedmethyl && args.threads > 1) args.threads = (args.threads + 1) >> 1;
 	int nt = 1;
 	// If the user has asked for more threads we will take one extra thread for the bcf unpacking - more than this is rarely useful
-	if(args.threads > 1) {
+	if(args.threads > 4) {
 		nt++;
 		args.threads--;
 	}

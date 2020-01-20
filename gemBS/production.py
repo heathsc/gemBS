@@ -1321,11 +1321,11 @@ class MethylationFiltering(BasicPipeline):
 
   A second set of extracted outputs that correspond to the ENCODE WGBS pipeline are also available using the --bed-methyl and --bigwig options.
   The --bed-methyl option will produce three files per sample for all covered sites in CpG, CHG and CHH context in BED9+5 format.  Each of 
-  the files will also be generated in bigBed format for display in genome browsers.  The --bigwig option will produce a bigWig file giving
-  the methylation percentage at all covered cytosine sites (informative coverage > 0).  For the ENCODE output files, not further filtering 
-  is performed.
+  the files will also be generated in bigBed format for display in genome browsers.  In addition a bigWig format file will be generated giving
+  the methylation percentage at all covered cytosine sites (informative coverage > 0).  If the --strand-specific option is given then two bigWig
+  files will be geenrated - one for each strand.  For the ENCODE output files, not further filtering is performed.
 
-  In addition to the methylation result, SNP genotypes can also be extract with the --snps options.  By default, this will return a file
+  In addition to the methylation result, SNP genotypes can also be extracted with the --snps options.  By default, this will return a file
   with genotypes on all SNPs covered by the experiment that were in the dbSNP_idx file used for the calling stage.  This selection can
   be refined uwing the --snp-list option, which is a file with a list of SNP ids, one id per line.  An alternate dbSNP_idx file can also be supplied
   using the --snp-db option, allowing SNPs that were not in the original dbSNP_idx file used for calling to be extracted.
@@ -1344,7 +1344,7 @@ class MethylationFiltering(BasicPipeline):
         parser.add_argument('-j','--jobs', dest="jobs", type=int, help='Number of parallel jobs')
         parser.add_argument('-n','--sample-name',dest="sample_name",metavar="SAMPLE_NAME",help="Name of sample to be filtered")  
         parser.add_argument('-b','--barcode',dest="sample",metavar="SAMPLE_BARCODE",help="Barcode of sample to be filtered")  
-        parser.add_argument('-s','--strand-specific', dest="strand_specific", action="store_true", default=False, help="Output separate lines for each strand.")
+        parser.add_argument('-s','--strand-specific', dest="strand_specific", action="store_true", default=False, help="Output separate lines in CpG file and/or bigWig file for each strand.")
         parser.add_argument('-q','--phred-threshold', dest="phred", help="Min threshold for genotype phred score.")
         parser.add_argument('-I','--min-inform', dest="inform", help="Min threshold for informative reads.")
         parser.add_argument('-M','--min-nc', dest="min_nc", help="Min threshold for non-converted reads for non CpG sites.")
@@ -1353,8 +1353,8 @@ class MethylationFiltering(BasicPipeline):
         parser.add_argument('-c','--cpg', dest="cpg", action="store_true", help="Output gemBS bed with cpg sites.")
         parser.add_argument('-N','--non-cpg', dest="non_cpg", action="store_true", help="Output gemBS bed with non-cpg sites.")
         parser.add_argument('-B','--bed-methyl', dest="bedMethyl", action="store_true", help="Output bedMethyl files (bed and bigBed)")
-        parser.add_argument('-w','--bigwig', dest="bigWig", action="store_true", help="Output bigWig file")
         parser.add_argument('-S','--snps', dest="snps", action="store_true",help="Output SNPs")
+        parser.add_argument('--extract-threads', dest="extract_threads", metavar="THREADS", help='Number of extra threads for extract step')
         parser.add_argument('--snp-list', dest="snp_list", help="List of SNPs to output")
         parser.add_argument('--snp-db', dest="snp_db", help="dbSNP_idx processed SNP idx")
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
@@ -1368,6 +1368,8 @@ class MethylationFiltering(BasicPipeline):
         # JSON data
         self.jsonData = JSONdata(Mapping.gemBS_json)
 
+        self.threads = self.jsonData.check(section='extract',key='threads')
+        self.extract_threads = self.jsonData.check(section='extract',key='extract_threads',arg=args.extract_threads,default=self.threads)
         self.jobs = self.jsonData.check(section='extract',key='jobs',arg=args.jobs,default=1,int_type=True)
         self.allow_het = self.jsonData.check(section='extract',key='allow_het',arg=args.allow_het,boolean=True,default=False)
         self.cpg = self.jsonData.check(section='extract',key='make_cpg',arg=args.cpg,boolean=True,default=False)
@@ -1377,7 +1379,7 @@ class MethylationFiltering(BasicPipeline):
         self.non_cpg = self.jsonData.check(section='extract',key='make_non_cpg',arg=args.non_cpg,boolean=True,default=False)
         self.bedMethyl = self.jsonData.check(section='extract',key='make_bedmethyl',arg=args.bedMethyl,boolean=True,default=False)
         self.ref_bias = self.jsonData.check(section='extract',key='reference_bias',arg=args.ref_bias)
-        self.bigWig = self.jsonData.check(section='extract',key='make_bigwig',arg=args.bigWig,boolean=True,default=False)
+#        self.bigWig = self.jsonData.check(section='extract',key='make_bigwig',arg=args.bigWig,boolean=True,default=False)
         self.strand_specific = self.jsonData.check(section='extract',key='strand_specific',arg=args.strand_specific,boolean=True,default=False)
         self.phred = self.jsonData.check(section='extract',key='phred_threshold',arg=args.phred, default = '20')
         self.inform = self.jsonData.check(section='extract',key='min_inform',arg=args.inform, default = 1, int_type=True)
@@ -1406,7 +1408,7 @@ class MethylationFiltering(BasicPipeline):
         if self.cpg: self.mask |= 3
         if self.non_cpg: self.mask |= 12
         if self.bedMethyl: self.mask |= 48
-        if self.bigWig: self.mask |= 192
+#        if self.bigWig: self.mask |= 192
         if self.snps: self.mask |= 768
         self.mask1 = self.mask & 341
         
@@ -1506,18 +1508,17 @@ class MethylationFiltering(BasicPipeline):
                 cpg, non_cpg, bigWig, bedMethyl, snps = (False, False, False, False, False)
                 if self.cpg and not (sm & 3):
                     cpg = True
-                    files.extend([filebase + '_cpg.txt.gz', filebase + '_cpg.txt.gz.tbi'])
+                    files.extend([filebase + '_cpg.txt.gz', filebase + '_cpg.txt.gz.tbi', filebase + '_cpg.txt.gz.md5'])
                 if self.non_cpg and not (sm & 12):
                     non_cpg = True
-                    files.extend([filebase + '_non_cpg.txt.gz', filebase + '_non_cpg.txt.gz.tbi'])
-                if self.bigWig and not (sm & 48):
-                    bigWig = True
-                    files.append(filebase + '.bw')
+                    files.extend([filebase + '_non_cpg.txt.gz', filebase + '_non_cpg.txt.gz.tbi', filebase + '_non_cpg.txt.gz.md5'])
                 if self.bedMethyl and not (sm & 192):
                     bedMethyl = True
                     for x in ('cpg', 'chg', 'chh') :
-                        files.extend([filebase + "_{}.bed.gz".format(x), filebase + "_{}.bed.tmp".format(x),
-                                      filebase + "_{}.bb".format(x)])
+                        files.extend([filebase + "_{}.bed.gz".format(x), filebase + "_{}.bed.gz.md5".format(x), 
+                                      filebase + "_{}.bb".format(x), filebase + "_{}.bb.md5".format(x)])
+                    files.extend([filebase + '.bw', filebase + '.bw.md5'])
+                        
                 if self.snps and not(sm & 768):
                     snps = True
                     files.extend([filebase + '_snps.txt.gz', filebase + '_snps.txt.gz_tbi'])
@@ -1538,9 +1539,10 @@ class MethylationFiltering(BasicPipeline):
                     if args.min_nc: com.extend(['-M', args.min_nc])
                     if args.ref_bias: com.extend(['--reference-bias', args.ref_bias])
                     if args.allow_het: com.extend(['-H', args.allow_het])
+                    if args.extract_threads: com.extend(['-@', args.extract_threads])
                     if cpg: com.append('--cpg')
                     if non_cpg: com.append('--non-cpg')
-                    if bigWig: com.append('--bigwig')
+#                    if bigWig: com.append('--bigwig')
                     if bedMethyl: com.append('--bed-methyl')
                     if snps:
                         com.append('--snps')
@@ -1569,7 +1571,7 @@ class MethylationFiltering(BasicPipeline):
                                                cpg=cpg,non_cpg=non_cpg,contig_list=self.contig_list,allow_het=self.allow_het,
                                                inform=self.inform,phred=self.phred,min_nc=self.min_nc,bedMethyl=bedMethyl,
                                                bigWig=bigWig,contig_size_file=self.contig_size_file,ref_bias=self.ref_bias,
-                                               snps=snps,snp_list=self.snp_list,snp_db=self.snp_db)
+                                               snps=snps,snp_list=self.snp_list,snp_db=self.snp_db,extract_threads=self.extract_threads)
                     if ret:
                         logging.gemBS.gt("Results extraction for {} done, results located in: {}".format(bcf_file, ret))
 

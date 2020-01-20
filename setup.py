@@ -64,9 +64,7 @@ def _install_bundle(install_dir, inst):
         os.mkdir(gemBSbin_dir)
 
     # copy tools/bin
-    bins = ['gemBS_cat', 'readNameClean', 'md5_fasta']
-    if not (inst.minimal or inst.no_kent):
-        bins.extend(['wigToBigWig', 'bedToBigBed'])
+    bins = ['gemBS_cat', 'readNameClean', 'md5_fasta', 'mextr']
     for file in bins:
         f = os.path.join('tools/bin', file)
         if os.path.exists(f):
@@ -154,20 +152,18 @@ def _install_bundle(install_dir, inst):
 class install(_install):
     _install.user_options.extend([
         ('no-samtools', None, "Do not install samtools"),
-        ('no-kent', None, "Do not install kent tools (bedToBigBed, wigToBigWig)"),
         ('no-gem3', None, "Do not install gem3 mapper"),
         ('no-bscall', None, "Do not install bscall"),
         ('minimal', None,
-         "Perform minimal install (equivalent to --no-samtools --no-kent --no-gem3 --no-bscall)"),
+         "Perform minimal install (equivalent to --no-samtools --no-gem3 --no-bscall)"),
         ('disable-cuda', None, "Do not build GPU support for GEM3 (default)"),
         ('enable-cuda', None, "Try to build GPU support for GEM3"),
     ])
-    _install.boolean_options.extend(['no-samtools','no-kent','no-gem3','no-bscall','minimal'])
+    _install.boolean_options.extend(['no-samtools','no-gem3','no-bscall','minimal'])
 
     def initialize_options(self):
         self.minimal = False
         self.no_samtools = False
-        self.no_kent = False
         self.no_gem3 = False
         self.no_bscall = False
         self.disable_cuda = False
@@ -179,8 +175,6 @@ class install(_install):
         if not self.minimal:
             if not self.no_samtools:
                 options.append('_samtools')
-            if not self.no_kent:
-                options.append('kent')
             if not self.no_gem3:
                 options.append('gem3')
             if not self.no_bscall:

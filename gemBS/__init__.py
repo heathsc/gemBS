@@ -88,11 +88,10 @@ executables = execs_dict({
     "gem-indexer": "gem-indexer",
     "gem-mapper": "gem-mapper",
     "bs_call": "bs_call",
-    "wigToBigWig": "wigToBigWig",
-    "bedToBigBed": "bedToBigBed",
     "dbSNP_idx": "dbSNP_idx",
     "gemBS_cat": "gemBS_cat",
     "md5_fasta": "md5_fasta",
+    "mextr": "mextr",
     "samtools": "samtools",
     "bcftools": "bcftools",
     "bgzip": "bgzip",
@@ -1182,7 +1181,7 @@ def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=No
             
 def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=False,cpg=False,non_cpg=False,allow_het=False,
                          inform=1,phred=20,min_nc=1,bedMethyl=False,bigWig=False,contig_list=None,contig_size_file=None,
-                         snps=None,snp_list=None,snp_db=None,ref_bias=None):
+                         snps=None,snp_list=None,snp_db=None,ref_bias=None,extract_threads=None):
     
     """ Filters bcf methylation calls file 
 
@@ -1203,9 +1202,9 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         for ctg, size in contig_list:
             f.write("{}\t0\t{}\n".format(ctg, size))
 
-    bcftools = [executables['bcftools'],'view','-R',contig_bed,'-Ou',bcfFile]
-    mextr_com = [executables['bcftools'],'+mextr','--','-z']
-    mextr = []
+    mextr = [executables['mextr'], '-z', '--md5', '-R', contig_bed]
+    if extract_threads:
+        mextr.extend(['-@', extract_threads])
     if ref_bias:
         mextr.extend(['--reference-bias', ref_bias])       
     if cpg:
@@ -1214,27 +1213,19 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         mextr.extend(['--noncpgfile', outbase + '_non_cpg.txt', '--min-nc', str(min_nc)])
     if bedMethyl:
         mextr.extend(['-b', outbase])
-    if bigWig:
-        mextr.extend(['-w', '-'])
-        wig2bigwig = [executables['wigToBigWig'], '/dev/stdin', contig_size_file, outbase + '.bw']
         
     if cpg or non_cpg:
-        mextr.extend(['--inform',str(inform),'--threshold',str(phred)])
+        mextr.extend(['--inform',str(inform),'--threshold',str(phred),'--tabix'])
     if strand_specific:
         mextr.extend(['--mode', 'strand-specific'])
     if allow_het:
         mextr.extend(['--select', 'het'])
-
-    if mextr:
-        mextr_com.extend(mextr)
-        pipeline = [bcftools, mextr_com]
-        if bigWig:
-            pipeline.append(wig2bigwig)
-        
-        logfile = os.path.join(output_dir,"mextr_{}.err".format(name))
-        process = run_tools(pipeline, name="Methylation Extraction", logfile=logfile)
+    mextr.append(bcfFile);
+    logfile = os.path.join(output_dir,"mextr_{}.err".format(name))
+    process = run_tools([mextr], name="Methylation Extraction", logfile=logfile)
 
     if snps:
+        bcftools = [executables['bcftools'],'view','-R',contig_bed,'-Ou',bcfFile]
         snpxtr = [executables['bcftools'],'+snpxtr','--','-z','-o',outbase + '_snps.txt.gz']
         if snp_list:
             snpxtr.extend(['-s',snp_list])
@@ -1251,15 +1242,6 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
 
     os.remove(contig_bed)
 
-    # Now generate indexes and bigBed files if required
-    if cpg:
-        tfile = "{}_cpg.txt.gz.tbi".format(outbase)
-        if os.path.exists(tfile):
-            os.remove(tfile)
-        logfile = os.path.join(output_dir,"tabix_{}_cpg.err".format(name))
-        tabix = [executables['tabix'], '-p', 'bed', '-S', '1', "{}_cpg.txt.gz".format(outbase)]
-        cpg_idx_proc = run_tools([tabix],name="Index Methylation CpG files", logfile=logfile)
-
     if snps:
         tfile = "{}_snp.txt.gz.tbi".format(outbase)
         if os.path.exists(tfile):
@@ -1268,53 +1250,6 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
         tabix = [executables['tabix'], '-S', '1', '-s' '1', '-b', '2', '-e', '2', "{}_snps.txt.gz".format(outbase)]
         snp_idx_proc = run_tools([tabix],name="Index SNP files", logfile=logfile)
         
-    if non_cpg:
-        tfile = "{}_non_cpg.txt.gz.tbi".format(outbase)
-        if os.path.exists(tfile):
-            os.remove(tfile)
-        logfile = os.path.join(output_dir,"tabix_{}_non_cpg.err".format(name))
-        tabix = [executables['tabix'], '-p', 'bed', '-S', '1', "{}_non_cpg.txt.gz".format(outbase)]
-        non_cpg_idx_proc = run_tools([tabix],name="Index Methylation non-CpG files", logfile=logfile)
-
-    if bedMethyl:
-        if pkg_resources.resource_exists("gemBS", "etc"):
-            etc_dir = pkg_resources.resource_filename("gemBS", "etc")
-        else:
-            raise CommandException("Couldn't locate gemBS etc directory")
-        
-        bm_proc = []
-        bm_tfile = []
-        for x in ('cpg', 'chg', 'chh'):
-            bfile = "{}_{}.bed.gz".format(outbase, x)
-            unzip = [executables['bgzip'], '-cd', bfile]
-
-            sed = ['sed', '1d']
-            ofile = "{}_{}.bed.tmp".format(outbase,x)
-            p = run_tools([unzip, sed],name='Make temp bed9+5 file',output=ofile)
-            bm_proc.append(p)
-            bm_tfile.append(ofile)
-        for p in bm_proc:
-            if p.wait() != 0:
-                raise ValueError("Error while uncompressing bed9+5 files.")
-        bm_proc = []
-        for ix, x in enumerate(['cpg', 'chg', 'chh']):
-            bed2bb = [executables['bedToBigBed'], '-type=bed9+5',"-as={}/bed9_5.as".format(etc_dir), '-tab', bm_tfile[ix],
-                      contig_size_file, "{}_{}.bb".format(outbase,x)]
-            logfile = os.path.join(output_dir,"bedToBigWig_{}_{}.err".format(name,x))
-            p = run_tools([bed2bb], name='Make bigBed file',logfile=logfile)
-            bm_proc.append(p)
-            
-    if cpg:
-        if cpg_idx_proc.wait() != 0:
-            raise ValueError("Error while indexing CpG calls.")
-    if non_cpg:
-        if non_cpg_idx_proc.wait() != 0:
-            raise ValueError("Error while indexing non-CpG calls.")
-    if bedMethyl:
-        for ix, p in enumerate(bm_proc):
-            if p.wait() != 0:
-                raise ValueError("Error while making bigBed files.")
-            os.remove(bm_tfile[ix])
     if snps:
         if snp_idx_proc.wait() != 0:
             raise ValueError("Error while indexing SNP calls.")

@@ -142,7 +142,7 @@ class gembsConfigParse:
                         'keep_duplicates', 'keep_improper_pairs', 'call_threads', 'merge_threads',
                         'remove_individual_bcfs', 'haploid', 'reference_bias', 'conversion', 'contig_list', 'contig_pool_limit', 'benchmark_mode'),
             'extract': ('extract_dir', 'jobs', 'allow_het', 'phred_threshold', 'min_inform', 'strand_specific', 'min_bc', 'make_cpg', 'make_non_cpg',
-                        'make_bedmethyl', 'make_bigwig', 'make_snps', 'snp_list', 'snp_db', 'reference_bias'),
+                        'make_bedmethyl', 'make_bigwig', 'make_snps', 'snp_list', 'snp_db', 'reference_bias', 'threads', 'extract_threads'),
             'report': ('project', 'report_dir', 'threads')
         }
         # Check if variables are used
