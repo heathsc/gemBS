@@ -40,7 +40,7 @@ const char *usage(void) {
 			"About: Extract CpG and nonCpG sites.\n"
 			"Usage: mextr [file] [regions]\n"
 			"Options:\n"
-			"   -o, --cpgfile            Output file for CpG sites (default = stdout)\n"
+			"   -o, --cpgfile            Output file for CpG sites (default, not output)\n"
 			"   -n, --noncpgfile         Output file for nonCpG sites (default, not output)\n"
 			"   -b, --bed-methyl        Output file base for bedMethly files. Not compatible with multi-sample files  (default, not output)\n"
 			"   -t, --bed-track-line    Track line for for bedMethly files (default, info taken from input VCF file)\n"

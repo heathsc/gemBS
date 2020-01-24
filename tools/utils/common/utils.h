@@ -4,7 +4,7 @@
 #define DEFAULT_PATH "/bin:/usr/bin:/usr/local/bin";
 #define READ 0
 #define WRITE 1
-
+/*
 #ifndef __unused__
 #if defined(__GNUC__)
 # define __unused__ __attribute__((unused))
@@ -12,7 +12,7 @@
 # define __unused__
 #endif
 #endif
-
+*/
 #define COMPRESS_GZIP 0
 #define COMPRESS_BZIP2 1
 #define COMPRESS_XZ 2

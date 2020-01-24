@@ -13,16 +13,35 @@ CC=gcc
 
 ROOT_PATH=..
 
-TOOLS=gemBS_cat readNameClean md5_fasta mextr
+TOOLS=gemBS_cat readNameClean md5_fasta mextr snpxtr
 FOLDER_BIN=../bin
 TOOLS_BIN=$(addprefix $(FOLDER_BIN)/, $(TOOLS))
 LIBS:= -lm
+GENERAL_FLAGS = -I. -Icommon
 
-MEXTR_INC = @HTSINC@
+MEXTR_INC = @HTSINC@ -Imextr 
 MEXTR_LIBS = @HTSLIBS@ -lz -lbz2 -lpthread $(LIBS)
 
-MEXTR_SRC=mextr.c calc_gt_prob.c output.c output_utils.c output_headers.c command_line.c init_params.c files.c \
+MEXTR=mextr.c calc_gt_prob.c output.c output_utils.c output_headers.c command_line.c init_params.c files.c \
           stats.c unpack.c rec.c bbi.c
+MEXTR_COMMON=utils.c
+MEXTR_DEPS=mextr.h bbi.h bbi_defs.h bbi_structs.h
+MEXTR_COMMON_DEPS=utils.h
+
+MEXTR_SRC=$(addprefix mextr/, $(MEXTR)) $(addprefix common/, $(MEXTR_COMMON))
+MEXTR_DEP=$(addprefix mextr/, $(MEXTR_DEPS)) $(addprefix common/, $(MEXTR_COMMON_DEPS))
+
+SNPXTR_INC = @HTSINC@ -Isnpxtr
+SNPXTR_LIBS = @HTSLIBS@ -lz -lbz2 -lpthread $(LIBS)
+
+SNPXTR=snpxtr.c init_params.c command_line.c snplist.c process.c files.c
+SNPXTR_COMMON=utils.c dbSNP.c
+
+SNPXTR_DEPS=snpxtr.h 
+SNPXTR_COMMON_DEPS=utils.h dbSNP.h
+
+SNPXTR_SRC=$(addprefix snpxtr/, $(SNPXTR)) $(addprefix common/, $(SNPXTR_COMMON))
+SNPXTR_DEP=$(addprefix snpxtr/, $(SNPXTR_DEPS)) $(addprefix common/, $(SNPXTR_COMMON_DEPS))
 
 all: TOOLS_FLAGS=-O3 -g $(GENERAL_FLAGS) $(ARCH_FLAGS) $(SUPPRESS_CHECKS) $(OPTIMIZTION_FLAGS) $(ARCH_FLAGS_OPTIMIZTION_FLAGS)
 all: $(TOOLS_BIN)
@@ -39,18 +58,18 @@ clean:
 distclean: clean
 	rm -f Makefile config.status
 
-utils.o: utils.c utils.h
-	$(CC) $(TOOLS_FLAGS) -c utils.c
+$(FOLDER_BIN)/gemBS_cat: gemBS_cat.c common/utils.c
+	$(CC) $(TOOLS_FLAGS) -o $@ gemBS_cat.c common/utils.c $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LIBS) $(EXTRA_LIBS)
 
-$(FOLDER_BIN)/gemBS_cat: gemBS_cat.c utils.o
-	$(CC) $(TOOLS_FLAGS) -o $@ gemBS_cat.c utils.o $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LIBS) $(EXTRA_LIBS)
+$(FOLDER_BIN)/md5_fasta: md5_fasta.c common/utils.c
+	$(CC) $(TOOLS_FLAGS) -o $@ md5_fasta.c common/utils.c $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LIBS) $(EXTRA_LIBS)-lcrypto
 
-$(FOLDER_BIN)/md5_fasta: md5_fasta.c utils.o
-	$(CC) $(TOOLS_FLAGS) -o $@ md5_fasta.c utils.o $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LIBS) $(EXTRA_LIBS)-lcrypto
+$(FOLDER_BIN)/readNameClean: readNameClean/readNameClean.c common/utils.c
+	$(CC) $(TOOLS_FLAGS) -o $@ readNameClean/readNameClean.c common/utils.c $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LIBS) $(EXTRA_LIBS)
 
-$(FOLDER_BIN)/readNameClean: readNameClean.c utils.o
-	$(CC) $(TOOLS_FLAGS) -o $@ readNameClean.c utils.o $(LIB_PATH_FLAGS) $(INCLUDE_FLAGS) $(LIBS) $(EXTRA_LIBS)
+$(FOLDER_BIN)/mextr: $(MEXTR_SRC) $(MEXTR_DEP)
+	$(CC) $(TOOLS_FLAGS) -o $@ $(MEXTR_SRC) $(MEXTR_INC) $(MEXTR_LIBS)
 
-$(FOLDER_BIN)/mextr: $(MEXTR_SRC) mextr.h bbi.h bbi_defs.h bbi_structs.h utils.o
-	$(CC) $(TOOLS_FLAGS) -o $@ $(MEXTR_SRC) utils.o $(MEXTR_INC) $(MEXTR_LIBS)
+$(FOLDER_BIN)/snpxtr: $(SNPXTR_SRC) $(SNPXTR_DEP)
+	$(CC) $(TOOLS_FLAGS) -o $@ $(SNPXTR_SRC) $(SNPXTR_INC) $(SNPXTR_LIBS)
 
