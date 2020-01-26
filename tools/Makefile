@@ -70,7 +70,7 @@ gem3-mapper/Makefile.mk: gem3-mapper/Makefile.mk.in gem3-mapper/configure
 $(SAMTOOLS_DIR)/config.mk:
 	cd $(SAMTOOLS_DIR); ./configure # --disable-lzma
 
-$(FOLDER_BIN)/bcftools: $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/plugins/mextr.c $(BCFTOOLS_DIR)/plugins/snpxtr.c
+$(FOLDER_BIN)/bcftools: $(BCFTOOLS_DIR) 
 	$(MAKE) --directory=$(BCFTOOLS_DIR) all
 
 $(BCFTOOLS_DIR)/config.h:
@@ -84,10 +84,6 @@ $(SAMTOOLS_DIR):
 $(BCFTOOLS_DIR): 
 	wget $(BCFTOOLS_URL) && tar -jxf $(BCFTOOLS_TAR) && rm -f $(BCFTOOLS_TAR)
 	mv bcftools-$(BCFTOOLS_VERSION) $(BCFTOOLS_DIR)
-
-$(BCFTOOLS_DIR)/plugins/%.c:
-	ln -sf ../../gemBS_plugins/$(notdir $@) $(BCFTOOLS_DIR)/plugins/ 
-	ln -sf ../../gemBS_plugins/$(basename $(notdir $@)).mk $(BCFTOOLS_DIR)/plugins/
 
 clean:
 	@rm -f *~
