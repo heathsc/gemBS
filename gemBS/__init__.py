@@ -1227,14 +1227,17 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
     process = run_tools([mextr], name="Methylation Extraction", logfile=logfile)
 
     if snps:
-        bcftools = [executables['bcftools'],'view','-R',contig_bed,'-Ou',bcfFile]
-        snpxtr = [executables['bcftools'],'+snpxtr','--','-z','-o',outbase + '_snps.txt.gz']
+        snpxtr = [executables['snpxtr'],'-zmx','-o',outbase + '_snps.txt.gz']
         if snp_list:
             snpxtr.extend(['-s',snp_list])
         if snp_db:
             snpxtr.extend(['-D',snp_db])
+        if extract_threads:
+            snpxtr.extend(['-@', extract_threads])
+
+        snpxtr.append(bcfFile);
         snp_logfile = os.path.join(output_dir,"snpxtr_{}.err".format(name))
-        process_snp = run_tools([bcftools, snpxtr], name="SNP Extraction",logfile=snp_logfile)
+        process_snp = run_tools([snpxtr], name="SNP Extraction",logfile=snp_logfile)
         if process_snp.wait() != 0:
             raise ValueError("Error while extracting SNP calls.")
 
@@ -1244,18 +1247,6 @@ def methylationFiltering(bcfFile=None,outbase=None,name=None,strand_specific=Fal
 
     os.remove(contig_bed)
 
-    if snps:
-        tfile = "{}_snp.txt.gz.tbi".format(outbase)
-        if os.path.exists(tfile):
-            os.remove(tfile)
-        logfile = os.path.join(output_dir,"tabix_{}_snps.err".format(name))
-        tabix = [executables['tabix'], '-S', '1', '-s' '1', '-b', '2', '-e', '2', "{}_snps.txt.gz".format(outbase)]
-        snp_idx_proc = run_tools([tabix],name="Index SNP files", logfile=logfile)
-        
-    if snps:
-        if snp_idx_proc.wait() != 0:
-            raise ValueError("Error while indexing SNP calls.")
-        
     return os.path.abspath(output_dir)
 
 def bsConcat(list_bcfs=None,sample=None,threads=None,bcfSample=None,benchmark_mode=False):

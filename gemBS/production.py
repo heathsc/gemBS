@@ -1527,7 +1527,7 @@ class MethylationFiltering(BasicPipeline):
                         
                 if self.snps and not(sm & 768):
                     snps = True
-                    files.extend([filebase + '_snps.txt.gz', filebase + '_snps.txt.gz_tbi'])
+                    files.extend([filebase + '_snps.txt.gz', filebase + '_snps.txt.gz_tbi', filebase + '_snps.txt.gz.md5'])
 
                 if self.dry_run or self.dry_run_json:
                     args = self.args

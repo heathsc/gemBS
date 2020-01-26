@@ -64,7 +64,7 @@ def _install_bundle(install_dir, inst):
         os.mkdir(gemBSbin_dir)
 
     # copy tools/bin
-    bins = ['gemBS_cat', 'readNameClean', 'md5_fasta', 'mextr']
+    bins = ['gemBS_cat', 'readNameClean', 'md5_fasta', 'mextr', 'snpxtr']
     for file in bins:
         f = os.path.join('tools/bin', file)
         if os.path.exists(f):
@@ -101,10 +101,9 @@ def _install_bundle(install_dir, inst):
     # copy samtools, bcftools and config files
     bin_dir = os.path.join(install_dir, "bin")
     lib_dir = os.path.join(install_dir, "lib")
-    plugins_dir = os.path.join(install_dir, "libexec", "bcftools")
     etc_dir = os.path.join(install_dir, "etc")
     config_dir = os.path.join(etc_dir, "gemBS_configs")
-    for dir in [bin_dir, lib_dir, plugins_dir, config_dir]:
+    for dir in [bin_dir, lib_dir, config_dir]:
         if not os.path.exists(dir):
             os.makedirs(dir)
     if not (inst.minimal or inst.no_samtools):
@@ -129,12 +128,6 @@ def _install_bundle(install_dir, inst):
         # print ("Copy binary: bcftools to {}".format(bin_dir))
         shutil.copy("tools/bcftools/bcftools", bin_dir)
         os.chmod(os.path.join(bin_dir, "bcftools"), 0o755)
-    plugins = [x for x in glob.glob("tools/bcftools/plugins/*.so")]
-    for file in plugins:
-        # print ("Copy plugin: {} to {}".format(file, plugins_dir))
-        shutil.copy(file, plugins_dir)
-        os.chmod(os.path.join(plugins_dir,os.path.basename(file)), 0o755)
-
     files = [x for x in os.listdir("gemBS/etc")]
     for file in files:
         if os.path.isfile(os.path.join("gemBS/etc",file)):

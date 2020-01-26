@@ -97,9 +97,6 @@ def gemBS_main():
         parser.add_argument('-j', '--json-file', dest="json", help="Location of gemBS JSON file")
         parser.add_argument('-d', '--dir', dest="wd", metavar="DIR",help="Set working directory")
         
-        if pkg_resources.resource_exists("gemBS", "libexec/bcftools"):
-            f = pkg_resources.resource_filename("gemBS", "libexec/bcftools")
-            os.environ["BCFTOOLS_PLUGINS"] = f
         if pkg_resources.resource_exists("gemBS", "bin"):
             f = pkg_resources.resource_filename("gemBS", "bin")
         path = os.environ.get("PATH")
