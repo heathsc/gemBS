@@ -130,7 +130,7 @@ void output_cpg(args_t *args, bcf1_t *rec, fmt_field_t *tags, gt_meth *sample_gt
       } else {
 	for(int pos = 0; pos < 2; pos++) {
 	  int *mq_p = tags[FMT_MQ].st[idx ^ pos].ne == ns ? tags[FMT_MQ].st[idx ^ pos].dat_p : NULL; 
-	  fprintf(fp,"%s\t%" PRId64 "\t%" PRId64 " \t%c", args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos + pos, rec->pos + pos + 1, cx_len >= 3 + pos ? cx[2 + pos] : '.');
+	  fprintf(fp,"%s\t%" PRId64 "\t%" PRId64 "\t%c", args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos + pos, rec->pos + pos + 1, cx_len >= 3 + pos ? cx[2 + pos] : '.');
 	  char *cx_p = tags[FMT_CX].st[idx].dat_p;
 	  for(int ix = 0; ix < ns; ix++, cx_p += cx_sz) {
 	    gt_meth *g = sample_gt[idx ^ pos]+ix;
