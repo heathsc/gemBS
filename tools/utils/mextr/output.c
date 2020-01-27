@@ -106,7 +106,7 @@ void output_cpg(args_t *const args, rec_t ** const lrec, const int idx) {
 				for(int pos = 0; pos < 2; pos++) {
 					rec_t *rec = lrec[idx ^ pos];
 					int *mq_p = rec->tags[FMT_MQ].ne == ns ? rec->tags[FMT_MQ].dat_p : NULL;
-					ksprintf(ks_clear(s), "%s\t%" PRId64 "\t%" PRId64 " \t%c", args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos + pos, rec->pos + pos + 1, rec->ref);
+					ksprintf(ks_clear(s), "%s\t%" PRId64 "\t%" PRId64 "\t%c", args->hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos + pos, rec->pos + pos + 1, rec->ref);
 					char *cx_p = rec->tags[FMT_CX].dat_p;
 					for(int ix = 0; ix < ns; ix++, cx_p += cx_sz) {
 						gt_meth *g = rec->sample_gt+ix;
