@@ -230,7 +230,9 @@ class Index(BasicPipeline):
         if csizes_ok == 1:
             logging.warning("Contig sizes file {} already exists, skipping indexing".format(csizes))
         else:
-            ret = makeChromSizes(index_name, csizes)
+            config = jsonData.config
+            omit = config['calling'].get('omit_contigs', [])
+            ret = makeChromSizes(index_name, csizes, omit)
             if ret:
                 logging.gemBS.gt("Contig sizes file done: {}".format(ret))
                 db.check()

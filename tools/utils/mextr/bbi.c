@@ -447,8 +447,8 @@ void *bbi_compress_thread(void *p) {
 	size_t comp_buf_size = 0;
 	cblock_buffer_t * const cbuf = &args->cblock_buf;
 	const int nb = cbuf->n_cblocks;
+	pthread_mutex_lock(&cbuf->mut);
 	for(;;) {
-		pthread_mutex_lock(&cbuf->mut);
 		for(;;) {
 			for(int i = 0; i < nb; i++, idx = (idx + 1) % nb) if(cbuf->cblocks[idx].state == cblock_uncompressed) break;
 			if(cbuf->cblocks[idx].state == cblock_uncompressed || cbuf->end_of_input) break;
@@ -475,6 +475,7 @@ void *bbi_compress_thread(void *p) {
 		ks_resize(buf, (size_t)compress_size);
 		memcpy(buf->s, comp_buf, (size_t)compress_size);
 		buf->l = (size_t)compress_size;
+		pthread_mutex_lock(&cbuf->mut);
 		cb->state = cblock_compressed;
 		pthread_cond_signal(&cbuf->cond[2]);
 		idx = (idx + 1) % nb;
@@ -533,8 +534,8 @@ void finish_bb_block(args_t * const args, const int ctg_id, const int ix) {
 		bp->ctg_id = ctg_id;
 		bp->block_idx = bdata->block_idx - 1;
 		bp->state = cblock_uncompressed;
-		pthread_mutex_unlock(&cbuf->mut);
 		pthread_cond_signal(&cbuf->cond[1]);
+		pthread_mutex_unlock(&cbuf->mut);
 		cbuf->pos = (pos + 1) % cbuf->n_cblocks;
 		if(gdata->first_time) {
 			gdata->first_ctg = ctg_id;

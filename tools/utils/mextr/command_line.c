@@ -164,7 +164,7 @@ void handle_command_line(int argc, char *argv[], args_t * const args) {
 	int c;
 	bool regions_file = false;
 	char *regions_list = NULL;
-	while ((c = getopt_long(argc, argv, "?QDxh:o:c:b:n:r:s:w:@:m:R:M:I:S:p:B:N:T:t:gzHah?",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "Q:Dxo:c:b:n:r:s:w:@:m:R:M:I:S:p:B:N:T:t:gzHah?",loptions,NULL)) >= 0) {
 		switch (c) {
 		case 'o':
 			args->cpgfilename = optarg;

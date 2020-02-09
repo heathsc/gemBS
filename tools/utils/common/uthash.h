@@ -1,1 +1,1 @@
-../../bs_call/include/uthash.h
+../resources/uthash.h

@@ -673,8 +673,7 @@ def dbSNP_index(list_dbSNP_files=[],dbsnp_index=""):
     
     return os.path.abspath(dbsnp_index)
 
-def makeChromSizes(index_name=None,output=None):
-
+def makeChromSizes(index_name=None,output=None, omit=[]):
 
     index_base = index_name[:-4] if index_name.endswith('.gem') else index_name
     print(index_name, index_base)
@@ -693,8 +692,16 @@ def makeChromSizes(index_name=None,output=None):
                         if new_sz > sz: chrom_sizes[chr] = new_sz
                     else:
                         chrom_sizes[chr] = new_sz
+        for pattern in omit:
+            if pattern == "": continue
+            r = re.compile(fnmatch.translate(pattern))
+            for c in list(chrom_sizes.keys()):
+                if r.search(c):
+                    del chrom_sizes[c]
+    
         with open(output, "w") as f:
             for chr, size in [(c, chrom_sizes[c]) for c in sorted(chrom_sizes, key=chrom_sizes.get, reverse=True)]:
+                
                 f.write("{}\t{}\n".format(chr,size))
         return os.path.abspath(output)
     else:
@@ -855,7 +862,7 @@ def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/",benc
 
 class BsCaller:
     def __init__(self,reference,species,right_trim=0,left_trim=5,keep_unmatched=False,
-                 keep_duplicates=False,ignore_duplicates=False,contig_size=None,dbSNP_index_file="",
+                 keep_duplicates=False,ignore_duplicates=False,contig_size=None,csizes=None,dbSNP_index_file="",
                  call_threads="1",merge_threads="1",mapq_threshold=None,bq_threshold=None,
                  haploid=False,conversion=None,ref_bias=None,sample_conversion=None,benchmark_mode=False):
         self.reference = reference
@@ -875,6 +882,7 @@ class BsCaller:
         self.ref_bias = ref_bias
         self.sample_conversion = sample_conversion
         self.contig_size = contig_size
+        self.csizes = csizes
         self.benchmark_mode = benchmark_mode
 
     def prepare(self, sample, input_bam, chrom_list, output_bcf, report_file, contig_bed):
@@ -883,10 +891,10 @@ class BsCaller:
             for chrom in chrom_list:
                 f.write("{}\t0\t{}\n".format(chrom, str(self.contig_size[chrom])))
                         
-        parameters_bscall = ['%s' %(executables["bs_call"]),'-r',self.reference,'-n',sample,'--contig-bed',contig_bed,'--report-file',report_file]
+        parameters_bscall = ['%s' %(executables["bs_call"]),'-r',self.reference,'-n',sample,'--contig-bed',contig_bed,'--contig-sizes',self.csizes,'--report-file',report_file]
     
         parameters_bscall.extend(['--right-trim', str(self.right_trim), '--left-trim', str(self.left_trim)])
-            
+        
         if self.keep_unmatched:
             parameters_bscall.append('-k')
         if self.keep_duplicates:
@@ -1151,15 +1159,16 @@ def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=No
     ret = c.fetchone()
     if not ret or ret[2] != 1:
         raise CommandException("Could not open contig sizes file.")
+    csizes = ret[0]
     contig_size = {}
-    with open (ret[0], "r") as f:
+    with open (csizes, "r") as f:
         for line in f:
             fd = line.split()
             if(len(fd) > 1):
                 contig_size[fd[0]] = int(fd[1])
 
     bsCall = BsCaller(reference=reference,species=species,right_trim=right_trim,left_trim=left_trim,
-                      keep_unmatched=keep_unmatched,keep_duplicates=keep_duplicates,ignore_duplicates=ignore_duplicates,contig_size=contig_size,
+                      keep_unmatched=keep_unmatched,keep_duplicates=keep_duplicates,ignore_duplicates=ignore_duplicates,contig_size=contig_size,csizes=csizes,
                       dbSNP_index_file=dbSNP_index_file,call_threads=call_threads,merge_threads=merge_threads,mapq_threshold=mapq_threshold,bq_threshold=bq_threshold,
                       haploid=haploid,conversion=conversion,ref_bias=ref_bias,sample_conversion=sample_conversion,benchmark_mode=benchmark_mode)
 
@@ -1267,7 +1276,7 @@ def bsConcat(list_bcfs=None,sample=None,threads=None,bcfSample=None,benchmark_mo
     logfile = os.path.join(output_dir,"bcf_concat_{}.err".format(sample))
    
     #Concatenation
-    concat = [executables['bcftools'],'concat','-O','b','-o',bcfSample]
+    concat = [executables['bcftools'],'concat','-O','b','-n','-o',bcfSample]
     if threads != None:
         concat.extend(['--threads', threads])
     if benchmark_mode:
@@ -1280,7 +1289,11 @@ def bsConcat(list_bcfs=None,sample=None,threads=None,bcfSample=None,benchmark_mo
         raise ValueError("Error while concatenating bcf calls.")
         
     #Indexing
-    indexing = [executables['bcftools'],'index',bcfSample]
+    indexing = [executables['bcftools'],'index']
+    if threads != None:
+        indexing.extend(['--threads', threads])
+    indexing.append(bcfSample)
+
     #md5sum
     md5sum = ['md5sum',bcfSample]
 

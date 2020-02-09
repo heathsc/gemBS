@@ -55,10 +55,17 @@ dbsnp_header_t *load_dbSNP_header(char * const fname) {
 		hdr->dbSNP_bufsize = td1[1];
 		ucomp_buf = malloc(td1[1]);
 		comp_buf = malloc(td1[2]);
-		sz = fread(comp_buf, 1, td1[2], file);
-		unsigned long size = td1[1];
-		if(sz != td1[2]) ok = false;
+		if(fseek(file, td1[0], SEEK_SET)) ok = false;
 		else {
+			sz = fread(comp_buf, 1, td1[2], file);
+			if(sz != td1[2]) ok = false;
+			else {
+				sz = fread(td, sizeof(uint32_t), 1, file);
+				if(sz != 1 || *td != 0xd7278434) ok = false;
+			}
+		}
+		unsigned long size = td1[1];
+		if(ok) {
 			int ret = uncompress(ucomp_buf, &size, comp_buf, td1[2]);
 			if(ret) ok = false;
 		}
@@ -86,15 +93,17 @@ dbsnp_header_t *load_dbSNP_header(char * const fname) {
 				}
 			}
 			uint32_t min_bin = 0, max_bin = 0;
+			uint64_t offset = 0;
 			for(int i = 0; ok && i < n_ctgs && p < p1; i++) {
-				if(p + 8 >= p1) ok = false;
+				if(p + 16 >= p1) ok = false;
 				else {
 					memcpy(&min_bin, p, sizeof(uint32_t));
 					memcpy(&max_bin, p + 4, sizeof(uint32_t));
+					memcpy(&offset, p + 8, sizeof(uint64_t));
 					if(max_bin < min_bin) {
 						ok = false;
 					}
-					else p += 8;
+					else p += 16;
 				}
 				if(!ok) break;
 				l = strlen(p);
@@ -102,6 +111,7 @@ dbsnp_header_t *load_dbSNP_header(char * const fname) {
 				else {
 					ctgs[i].min_bin = min_bin;
 					ctgs[i].max_bin = max_bin;
+					ctgs[i].file_offset = offset;
 					ctgs[i].name = malloc(l + 1);
 					memcpy(ctgs[i].name, p, l + 1);
 					p += l + 1;
@@ -109,26 +119,17 @@ dbsnp_header_t *load_dbSNP_header(char * const fname) {
 			}
 		}
 	}
-	if(!ok) {
-		free(hdr);
-		fclose(file);
-		return NULL;
-	}
-	fseek(file, td1[0], SEEK_SET);
-	for(int i = 0; i < n_ctgs; i++) {
-		size_t k = fread(&ctgs[i].file_offset, sizeof(uint64_t), 1, file);
-		if(k != 1) {
-			ok = false;
-			break;
+	if(ok) {
+		for(int i = 0; i < n_ctgs; i++) {
+			dbsnp_ctg_t *ctg;
+			HASH_FIND(hh, hdr->dbSNP, ctgs[i].name, strlen(ctgs[i].name), ctg);
+			if(ctg != NULL) {
+				fprintf(stderr,"Error in dbSNP file - duplicate contigs (%s)\n", ctgs[i].name);
+				ok = false;
+				break;
+			}
+			HASH_ADD_KEYPTR(hh, hdr->dbSNP, ctgs[i].name, strlen(ctgs[i].name), ctgs + i);
 		}
-		dbsnp_ctg_t *ctg;
-		HASH_FIND(hh, hdr->dbSNP, ctgs[i].name, strlen(ctgs[i].name), ctg);
-		if(ctg != NULL) {
-			fprintf(stderr,"Error in dbSNP file - duplicate contigs (%s)\n", ctgs[i].name);
-			ok = false;
-			break;
-		}
-		HASH_ADD_KEYPTR(hh, hdr->dbSNP, ctgs[i].name, strlen(ctgs[i].name), ctgs + i);
 	}
 	if(comp_buf) free(comp_buf);
 	if(ucomp_buf) free(ucomp_buf);
@@ -184,7 +185,7 @@ bool load_dbSNP_ctg(const dbsnp_header_t * const hdr, dbsnp_ctg_t * const ctg) {
 	void * const ucomp_buf = malloc(hdr->dbSNP_bufsize);
 	size_t comp_buf_size = 1 + hdr->dbSNP_bufsize * .75;
 	void *comp_buf = malloc(comp_buf_size);
-	fseek(file, ctg->file_offset, SEEK_SET);
+	if(fseek(file, ctg->file_offset, SEEK_SET)) ok = false;
 	uint16_t *entries = malloc(sizeof(uint16_t) * 64);
 	uint8_t *name_buf = malloc(sizeof(uint8_t) * 256 * 64);
 	int n_snps = 0, n_bins = 0;
@@ -250,10 +251,7 @@ bool load_dbSNP_ctg(const dbsnp_header_t * const hdr, dbsnp_ctg_t * const ctg) {
 				}
 				if(!ok) break;
 				curr_bin += bin_inc;
-				if(curr_bin > ctg->max_bin || bp >= bp_end) {
-					ok = false;
-					break;
-				}
+				if(curr_bin > ctg->max_bin || bp >= bp_end) break;
 				bins += bin_inc;
 			}
 			uint8_t x = *bp++;

@@ -33,10 +33,15 @@ int main(int argc, char **argv) {
 	int ns = bcf_hdr_nsamples(args.hdr);
 	assert(ns > 0);
 	if(args.snplistname) read_snplist(&args);
-	if(args.dbSNPfilename) args.dbSNP_hdr = load_dbSNP_header(args.dbSNPfilename);
-//	init_files(&args);
-	process_input(&args);
-	fprintf(stderr,"snpxtr: finished\n");
+	bool error = false;
+	if(args.dbSNPfilename) {
+		args.dbSNP_hdr = load_dbSNP_header(args.dbSNPfilename);
+		if(!args.dbSNP_hdr) error = true;
+	}
+	if(!error) {
+		process_input(&args);
+		fprintf(stderr,"snpxtr: finished\n");
+	}
 	bcf_sr_destroy(args.sr);
 	return 0;
 }
