@@ -1114,7 +1114,7 @@ class MethylationCall(BasicPipeline):
         mrg_bcf = {}
         for smp in sampleBam:
             ind_bcf[smp] = []
-        for fname, pool, smp, ftype, status in c.execute("SELECT * from calling"):
+        for fname, pool, smp, psize, ftype, status in c.execute("SELECT * from calling"):
             if self.ignore_db:
                 status = 0
             if smp in sampleBam:

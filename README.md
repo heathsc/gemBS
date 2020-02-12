@@ -75,6 +75,9 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.5.0 Make bs_call process contig pools from largest to smallest (this change alters the sqlite db format so
+          if you have a previously started gemBS run you should (a) remove the .gemBS directory, (b) redo the
+          'gemBS prepare' step to recreate the db file and (3) run 'gemBS db-sync'. 
     3.5.0 Switch bs_call and snpxtr to use the new dbSNP index format
     3.5.0 Add ability of dbSNP to read the new JSON and VCF  dbSNP format files
           that are now used for human and non-human species respectively

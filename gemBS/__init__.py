@@ -966,7 +966,7 @@ class MethylationCallIter:
             mrg_file = ""
             mrg_ok = False if self.no_merge else True
             list_bcfs = []
-            for fname, pool, ftype, status in c.execute("SELECT filepath, poolid, type, status FROM calling WHERE sample = ?", (sample,)):
+            for fname, pool, ftype, status in c.execute("SELECT filepath, poolid, type, status FROM calling WHERE sample = ? ORDER BY poolsize DESC", (sample,)):
                 if self.ignore_db:
                     status = self.status.get(fname, 0)
                 if ftype == 'POOL_BCF':
@@ -1145,7 +1145,7 @@ def methylationCalling(reference=None,species=None,sample_bam=None,output_bcf=No
     sample_conversion - per sample conversion rates (calculated if conversion == 'auto')
     benchmark_mode - remove version and date information from header
     """
-    
+
     for snp, pl in output_bcf.items():
         for v in pl:
             odir = os.path.dirname(v[0])
