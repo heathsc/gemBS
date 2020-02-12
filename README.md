@@ -75,6 +75,16 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.5.0 Switch bs_call and snpxtr to use the new dbSNP index format
+    3.5.0 Add ability of dbSNP to read the new JSON and VCF  dbSNP format files
+          that are now used for human and non-human species respectively
+    3.5.0 Add multithreading to dbSNP_idx
+    3.5.0 Change format of dbSNP index to allow (a) efficient loading
+          of SNP data for individual contigs and (b) parallel index creation 
+    3.5.0 Rewrite mextr and snpxtr as standalone tools rather than
+          bcftools plugins.  Now multithreaded and (relatively) memoryefficient
+    3.5.0 Replace bedToBigBed and wigToBigWig to reduce memory usage
+          and improve speed
     3.4.4 Sort input bcf files to bcftools concat stage to ensure reproducibility.
     3.4.4 Add extra sort keys when generating pools to ensure stability of pool membership in the event of multiple contigs
           having the same size
