@@ -215,15 +215,15 @@ class Index(BasicPipeline):
             if ret:
                 logging.gemBS.gt("Contig md5 file created: {}".format(contig_md5))
         if dbsnp_index != None:
-            if args.list_dbSNP_files:
-                if dbsnp_ok:
-                    logging.warning("dbSNP Index {} already exists, skipping indexing".format(dbsnp_index))
-                else:
+            if dbsnp_ok:
+                logging.warning("dbSNP Index {} already exists, skipping indexing".format(dbsnp_index))
+            else:
+                if args.list_dbSNP_files:
                     ret = dbSNP_index(list_dbSNP_files=args.list_dbSNP_files,dbsnp_index=dbsnp_index)
                     if ret:
                         logging.gemBS.gt("dbSNP index done: {}".format(ret))
-            else:
-                raise CommandException("No inputs files for dbSNP index must be specified using the -d option or the dbsnp_files configuration key.")
+                else:
+                    raise CommandException("No input files for dbSNP index must be specified using the -d option or the dbsnp_files configuration key.")
         elif args.list_dbSNP_files:
             raise CommandException("The dbSNP Index file must be specified using the configuration parameter dbSNP_index.")
 
