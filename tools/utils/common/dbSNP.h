@@ -13,6 +13,7 @@
 
 typedef struct {
 	uint64_t mask;
+	uint64_t fq_mask;
 	int n_entries;
 	uint16_t *entries;
 	uint8_t *name_buf;
@@ -40,6 +41,6 @@ typedef struct {
 dbsnp_header_t * load_dbSNP_header(char * const filename);
 bool load_dbSNP_ctg(const dbsnp_header_t * const hdr, dbsnp_ctg_t * const ctg);
 void unload_dbSNP_ctg(dbsnp_ctg_t * const ctg);
-bool dbSNP_lookup_name(const dbsnp_header_t *const hdr, const dbsnp_ctg_t * ctg, char * const rs, size_t * const rs_len, const uint32_t x);
+uint8_t dbSNP_lookup_name(const dbsnp_header_t *const hdr, const dbsnp_ctg_t * ctg, char * const rs, size_t * const rs_len, const uint32_t x);
 
 #endif /* INCLUDE_DBSNP_H_ */

@@ -14,16 +14,13 @@
 #include "uthash.h"
 #include "dbSNP.h"
 
-static void store_dbsnp_entries(dbsnp_bin_t *bin, int n_entries, int name_buf_sz, uint16_t *entries, uint8_t *name_buf) {
+static void store_dbsnp_entries(dbsnp_bin_t *bin, int n_entries, int name_buf_sz, uint16_t *entries, uint8_t *name_buf, const uint64_t mask[2]) {
 	bin->entries = malloc(sizeof(uint16_t) * n_entries);
 	bin->name_buf = malloc((size_t)name_buf_sz);
 	bin->n_entries = n_entries;
-	uint64_t msk = (uint64_t)0;
-	for(int i = 0; i < n_entries; i++) {
-		bin->entries[i] = entries[i];
-		msk |= ((uint64_t)1 << (entries[i] & 63));
-	}
-	bin->mask = msk;
+	for(int i = 0; i < n_entries; i++) bin->entries[i] = entries[i];
+	bin->mask = mask[0];
+	bin->fq_mask = mask[1];
 	memcpy(bin->name_buf, name_buf, name_buf_sz);
 }
 
@@ -217,6 +214,7 @@ bool load_dbSNP_ctg(const dbsnp_header_t * const hdr, dbsnp_ctg_t * const ctg) {
 		int n_entries = 0, name_buf_ptr = 0;
 		bool end_of_bin = false;
 		int prev_ix = -1;
+		uint64_t mask[2] = {0, 0};
 		while(ok && bp < bp_end) {
 			if(!n_entries) {
 				uint32_t bin_inc = 0;
@@ -269,23 +267,28 @@ bool load_dbSNP_ctg(const dbsnp_header_t * const hdr, dbsnp_ctg_t * const ctg) {
 			else {
 				prev_ix = x & 63;
 				int k = name_buf_ptr;
-				while((*bp) > 1 && sl++ < 256 && bp < bp_end) {
+				while((*bp) > 3 && sl++ < 256 && bp < bp_end) {
 					name_buf[name_buf_ptr++] = db_tab[(int)(*bp++)];
 				}
 				k = name_buf_ptr - k;
-				if(*bp > 1) ok = false;
+				if(*bp > 3) ok = false;
 				else {
-					if(*bp++ == 1) end_of_bin = true;
+					const uint64_t msk = (uint64_t)1 << prev_ix;
+					mask[0] |= msk;
+					uint8_t tm = *bp++;
+					if(tm & 2) mask[1] |= msk;
+					if(tm & 1) end_of_bin = true;
 					if(n_entries == 64) ok = false;
 					else entries[n_entries++] = (k << 8) | (uint16_t)x;
 				}
 			}
 			if(!ok) break;
 			if(end_of_bin) {
-				store_dbsnp_entries(bins, n_entries, name_buf_ptr, entries, name_buf);
+				store_dbsnp_entries(bins, n_entries, name_buf_ptr, entries, name_buf, mask);
 				n_bins++;
 				n_snps += n_entries;
 				n_entries = 0;
+				mask[0] = mask[1] = 0;
 				name_buf_ptr = 0;
 				prev_ix = -1;
 				end_of_bin = false;
@@ -300,9 +303,9 @@ bool load_dbSNP_ctg(const dbsnp_header_t * const hdr, dbsnp_ctg_t * const ctg) {
 	return ok;
 }
 
-bool dbSNP_lookup_name(const dbsnp_header_t *const hdr, const dbsnp_ctg_t * ctg, char * const rs, size_t * const rs_len, const uint32_t x) {
+uint8_t dbSNP_lookup_name(const dbsnp_header_t *const hdr, const dbsnp_ctg_t * ctg, char * const rs, size_t * const rs_len, const uint32_t x) {
 	static char dtab[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 0, 0, 0, 0, 0, 0 };
-	bool found = false;
+	uint8_t res = 0;
 	rs[0] = 0;
 	if(ctg != NULL) {
 		int bn = x >> 6;
@@ -311,6 +314,7 @@ bool dbSNP_lookup_name(const dbsnp_header_t *const hdr, const dbsnp_ctg_t * ctg,
 			int ix = x & 63;
 			uint64_t mk = (uint64_t)1 << ix;
 			if(b->mask & mk) {
+				res = (b->fq_mask & mk) ? 3 : 1;
 				uint64_t mk1 = b->mask & (mk - (uint64_t)1);
 				int i = 0, j = 0;
 				while(mk1) {
@@ -339,9 +343,8 @@ bool dbSNP_lookup_name(const dbsnp_header_t *const hdr, const dbsnp_ctg_t * ctg,
 				}
 				*tp = 0;
 				if(rs_len) *rs_len = tp - rs;
-				found = true;
 			}
 		}
 	}
-	return found;
+	return res;
 }
