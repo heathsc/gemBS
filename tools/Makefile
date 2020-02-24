@@ -12,14 +12,18 @@ ROOT_PATH=$(CURDIR)
 # samtools and bcftools definitions
 SAMTOOLS_VERSION=1.10
 BCFTOOLS_VERSION=1.10.2
+HTSLIB_VERSION=1.10.2
 SAMTOOLS_DIR=samtools
 BCFTOOLS_DIR=bcftools
+HTSLIB_DIR=htslib
 SAMTOOLS=$(SAMTOOLS_DIR)/samtools
 BCFTOOLS=$(BCFTOOLS_DIR)/bcftools
-SAMTOOLS_TAR=samtools-$(SAMTOOLS_VERSION).tar.bz2
-BCFTOOLS_TAR=bcftools-$(BCFTOOLS_VERSION).tar.bz2
-SAMTOOLS_URL=https://github.com/samtools/samtools/releases/download/$(SAMTOOLS_VERSION)/$(SAMTOOLS_TAR)
-BCFTOOLS_URL=https://github.com/samtools/bcftools/releases/download/$(BCFTOOLS_VERSION)/$(BCFTOOLS_TAR)
+SAMTOOLS_TAR=samtools.tar.gz
+BCFTOOLS_TAR=bcftools.tar.gz
+HTSLIB_TAR=htslib.tar.gz
+SAMTOOLS_URL=https://github.com/samtools/samtools/archive/$(SAMTOOLS_VERSION).tar.gz
+BCFTOOLS_URL=https://github.com/samtools/bcftools/archive/$(BCFTOOLS_VERSION).tar.gz
+HTSLIB_URL=https://github.com/samtools/htslib/archive/$(HTSLIB_VERSION).tar.gz
 
 MACHTYPE:=$(shell uname -m)
 ifneq (,$(findstring -,$(MACHTYPE)))
@@ -34,10 +38,10 @@ all_static: setup gem3-static _samtools _bcftools _bs_call _utils
 
 all_debug: setup gem3-debug _samtools _bcftools _bs_call _utils
 
-_samtools: $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk 
+_samtools: $(HTSLIB_DIR) $(SAMTOOLS_DIR) $(SAMTOOLS_DIR)/config.mk 
 	$(MAKE) --directory=$(SAMTOOLS_DIR) all all-htslib
 
-_bcftools: $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
+_bcftools: $(HTSLIB_DIR) $(BCFTOOLS_DIR) $(BCFTOOLS_DIR)/config.h
 	$(MAKE) $(FOLDER_BIN)/bcftools
 
 _bs_call: bs_call/src/Makefile.mk
@@ -47,13 +51,13 @@ _utils: utils/Makefile
 	$(MAKE) --directory=utils
 
 utils/Makefile: utils/Makefile.in utils/configure _samtools
-	cd utils; ./configure --with-htslib=../${SAMTOOLS_DIR}/htslib-${SAMTOOLS_VERSION}
+	cd utils; ./configure --with-htslib=../${HTSLIB_DIR}
 
 setup:
 	@mkdir -p $(FOLDER_BIN) 
 
 bs_call/src/Makefile.mk: bs_call/src/Makefile.mk.in bs_call/gt/Makefile.mk.in bs_call/configure _samtools
-	cd bs_call; ./configure ${BS_CALL_CONFIG} --with-htslib=../../${SAMTOOLS_DIR}/htslib-${SAMTOOLS_VERSION}
+	cd bs_call; ./configure ${BS_CALL_CONFIG} --with-htslib=../../${HTSLIB_DIR}
 
 gem3: gem3-mapper/Makefile.mk
 	$(MAKE) --directory=gem3-mapper
@@ -77,13 +81,20 @@ $(BCFTOOLS_DIR)/config.h:
 	cd $(BCFTOOLS_DIR); ./configure # --disable-lzma
 	touch $(BCFTOOLS_DIR)/config.h
 
+$(HTSLIB_DIR):
+	wget -O $(HTSLIB_TAR) $(HTSLIB_URL) && tar -zxf $(HTSLIB_TAR) && rm -f $(HTSLIB_TAR)
+	mv htslib-$(HTSLIB_VERSION) $(HTSLIB_DIR)
+	(cd $(HTSLIB_DIR) && cat ../patches/*.patch | patch && autoheader && autoconf && ./configure)
+
 $(SAMTOOLS_DIR):
-	wget $(SAMTOOLS_URL) && tar -jxf $(SAMTOOLS_TAR) && rm -f $(SAMTOOLS_TAR)
+	wget -O $(SAMTOOLS_TAR) $(SAMTOOLS_URL) && tar -zxf $(SAMTOOLS_TAR) && rm -f $(SAMTOOLS_TAR)
 	mv samtools-$(SAMTOOLS_VERSION) $(SAMTOOLS_DIR)
+	(cd $(SAMTOOLS_DIR) && autoreconf)
 
 $(BCFTOOLS_DIR): 
-	wget $(BCFTOOLS_URL) && tar -jxf $(BCFTOOLS_TAR) && rm -f $(BCFTOOLS_TAR)
+	wget -O $(BCFTOOLS_TAR) $(BCFTOOLS_URL) && tar -zxf $(BCFTOOLS_TAR) && rm -f $(BCFTOOLS_TAR)
 	mv bcftools-$(BCFTOOLS_VERSION) $(BCFTOOLS_DIR)
+	(cd $(BCFTOOLS_DIR) && autoheader && autoconf)
 
 clean:
 	@rm -f *~

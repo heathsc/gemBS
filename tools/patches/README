@@ -1,0 +1,3 @@
+These patches are from the devel branch of htslib in github and
+correct a bug in htslib that affected the --write-index option in
+samtools 1.10 and could cause contigs to be skipped from the index.
