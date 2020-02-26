@@ -849,9 +849,9 @@ def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/",benc
         if bam_filename.endswith('.cram'):
             bammerging.extend(['-O', 'CRAM']);
             if not benchmark_mode:
-                bamSort.extend(['--reference', greference, '--threads', threads]);
+                bammerging.extend(['--reference', greference, '--threads', threads]);
         else:
-            bamSort.extend(['--threads', threads]);
+            bammerging.extend(['--threads', threads]);
             
         bammerging.extend(["-f",bam_filename])
         for bamFile in inputs:
