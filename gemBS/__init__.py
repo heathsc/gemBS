@@ -793,7 +793,7 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,filetyp
     readNameClean = [executables['readNameClean'], contig_md5]
          
     #BAM SORT
-    bamSort = [executables['samtools'],"sort","-T",os.path.join(tmpDir,name),"-@",sort_threads,"-m",sort_memory,"-o",outfile]
+    bamSort = [executables['samtools'],"sort","-T",os.path.join(tmpDir,name),"-m",sort_memory,"-o",outfile]
     if filetype == 'SINGLE_BAM':
         bamSort.append("--write-index")
     if benchmark_mode:
@@ -801,7 +801,10 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,filetyp
     if outfile.endswith('.cram'):
         bamSort.extend(['-O', 'CRAM']);
         if not benchmark_mode:
-            bamSort.extend(['--reference', greference ]);
+            bamSort.extend(['--reference', greference, "-@", sort_threads]);
+    else:
+        bamSort.extend(["-@", sort_threads]);
+        
     bamSort.append('-');
     
     tools = [mapping,readNameClean,bamSort]
@@ -840,13 +843,16 @@ def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/",benc
 
     return_info = []
     if inputs:
-        bammerging.extend([executables['samtools'],"merge","--threads",threads,"--write-index"])
+        bammerging.extend([executables['samtools'],"merge","--write-index"])
         if benchmark_mode:
             bammerging.append("--no-PG")
         if bam_filename.endswith('.cram'):
             bammerging.extend(['-O', 'CRAM']);
             if not benchmark_mode:
-                bamSort.extend(['--reference', greference ]);
+                bamSort.extend(['--reference', greference, '--threads', threads]);
+        else:
+            bamSort.extend(['--threads', threads]);
+            
         bammerging.extend(["-f",bam_filename])
         for bamFile in inputs:
             bammerging.append(bamFile)
