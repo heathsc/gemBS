@@ -10,7 +10,7 @@ From: ubuntu:16.04
 %post
 	 (mkdir /ext && cd /ext && mkdir disk1 disk2 disk3 disk4 disk5 disk6 disk7 disk8 disk9)
     apt-get update
-	 apt-get install -y python3 build-essential git python3-pip wget lbzip2
+	 apt-get install -y python3 build-essential git autoconf python3-pip wget lbzip2
     apt-get install -y zlib1g-dev libbz2-dev gsl-bin libgsl0-dev
     apt-get install -y libncurses5-dev liblzma-dev libssl-dev libcurl4-openssl-dev
     pip3 install 'matplotlib<3.0' multiprocess
