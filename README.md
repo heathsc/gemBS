@@ -88,6 +88,7 @@ Changelog:
           bcftools plugins.  Now multithreaded and (relatively) memoryefficient
     3.5.0 Replace bedToBigBed and wigToBigWig to reduce memory usage
           and improve speed
+    3.4.5 Fix crash when using the -k (keep-mismatch) flag, and fix rare hangs at end of processing
     3.4.4 Sort input bcf files to bcftools concat stage to ensure reproducibility.
     3.4.4 Add extra sort keys when generating pools to ensure stability of pool membership in the event of multiple contigs
           having the same size
