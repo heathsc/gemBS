@@ -773,6 +773,7 @@ class Merging(Mapping):
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
         parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
         parser.add_argument('--ignore-db', dest="ignore_db", action="store_true",help="Ignore database for --dry-run and --json commands")
+        parser.add_argument('--benchmark-mode', dest="benchmark_mode", action="store_true",help="Omit dates etc. to make file comparison simpler", required=False)
         
     def run(self, args):
         self.command = 'merge-bams'
@@ -782,6 +783,7 @@ class Merging(Mapping):
         self.threads = self.jsonData.check(section='mapping',key='threads',arg=args.threads,default='1')
         self.merge_threads = self.jsonData.check(section='mapping',key='merge_threads',arg=args.threads,default=self.threads)
         self.remove = self.jsonData.check(section='mapping',key='remove_individual_bams',arg=args.remove, boolean=True)
+        self.benchmark_mode = self.jsonData.check(section='mapping',key='benchmark_mode',arg=args.benchmark_mode, boolean=True)
         self.dry_run = args.dry_run
         self.dry_run_json = args.dry_run_json
         if self.dry_run or self.dry_run_json:
@@ -1265,6 +1267,7 @@ class BsCallConcatenate(MethylationCall):
         parser.add_argument('--json', dest="dry_run_json",metavar="JSON FILE",help="Output JSON file with details of pending commands")
         parser.add_argument('--ignore-db', dest="ignore_db", action="store_true",help="Ignore database for --dry-run and --json commands")
         parser.add_argument('--ignore-dep', dest="ignore_dep", action="store_true",help="Ignore dependencies for --dry-run and --json commands")
+        parser.add_argument('--benchmark-mode', dest="benchmark_mode", action="store_true",help="Omit dates etc. to make file comparison simpler", required=False)
     
     def run(self,args):
 
