@@ -1,5 +1,5 @@
-BootStrap: library
-From: ubuntu:16.04
+BootStrap: docker
+From: ubuntu:xenial
 
 %runscript
     exec /usr/local/bin/gemBS $@
