@@ -799,9 +799,9 @@ def mapping(name=None,index=None,fliInfo=None,inputFiles=None,ftype=None,filetyp
     if benchmark_mode:
         bamSort.append("--no-PG")
     if outfile.endswith('.cram'):
-        bamSort.extend(['-O', 'CRAM']);
+        bamSort.extend(['-O', 'CRAM', "-@", sort_threads]);
         if not benchmark_mode:
-            bamSort.extend(['--reference', greference, "-@", sort_threads]);
+            bamSort.extend(['--reference', greference]);
     else:
         bamSort.extend(["-@", sort_threads]);
         
@@ -847,9 +847,9 @@ def merging(inputs=None,sample=None,threads="1",outname=None,tmpDir="/tmp/",benc
         if benchmark_mode:
             bammerging.append("--no-PG")
         if bam_filename.endswith('.cram'):
-            bammerging.extend(['-O', 'CRAM']);
+            bammerging.extend(['-O', 'CRAM', '--threads', threads]);
             if not benchmark_mode:
-                bammerging.extend(['--reference', greference, '--threads', threads]);
+                bammerging.extend(['--reference', greference]);
         else:
             bammerging.extend(['--threads', threads]);
             

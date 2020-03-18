@@ -989,7 +989,7 @@ class MethylationCall(BasicPipeline):
             if len(self.contig_list) == 1:
                 if os.path.isfile(self.contig_list[0]):
                     #Check if contig_list is a file or just a list of chromosomes
-                    #Parse file to extract chromosme list 
+                    #Parse file to extract chromosome list 
                     tmp_list = []
                     with open(self.contig_list[0] , 'r') as chromFile:
                         for line in chromFile:
@@ -1360,7 +1360,7 @@ class MethylationFiltering(BasicPipeline):
         parser.add_argument('-N','--non-cpg', dest="non_cpg", action="store_true", help="Output gemBS bed with non-cpg sites.")
         parser.add_argument('-B','--bed-methyl', dest="bedMethyl", action="store_true", help="Output bedMethyl files (bed and bigBed)")
         parser.add_argument('-S','--snps', dest="snps", action="store_true",help="Output SNPs")
-        parser.add_argument('--extract-threads', dest="extract_threads", metavar="THREADS", help='Number of extra threads for extract step')
+        parser.add_argument('-t','--extract-threads', dest="extract_threads", metavar="THREADS", help='Number of extra threads for extract step')
         parser.add_argument('--snp-list', dest="snp_list", help="List of SNPs to output")
         parser.add_argument('--snp-db', dest="snp_db", help="dbSNP_idx processed SNP idx")
         parser.add_argument('--dry-run', dest="dry_run", action="store_true", help="Output mapping commands without execution")
