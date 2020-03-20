@@ -111,7 +111,7 @@ def _install_bundle(install_dir, inst):
             # print ("Copy binary: samtools to {}".format(bin_dir))
             shutil.copy("tools/samtools/samtools", bin_dir)
             os.chmod(os.path.join(bin_dir, "samtools"), 0o755)
-        for htslib in glob.glob("tools/samtools/htslib*"):
+        for htslib in glob.glob("tools/htslib"):
             if os.path.isdir(htslib):
                 for file in ["htsfile", "tabix", "bgzip"]:
                     if os.path.exists(os.path.join(htslib,file)):
