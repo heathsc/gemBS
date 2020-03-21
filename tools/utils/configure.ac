@@ -1,5 +1,6 @@
 AC_INIT([gemBS_utils],[1.0])
 
+AC_PROG_CC_STDC
 AC_ARG_WITH(htslib,
 [AS_HELP_STRING([--with-htslib=PATH],
 		[specify prefix directory for installed htslib library.])])

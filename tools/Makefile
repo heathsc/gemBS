@@ -110,6 +110,7 @@ distclean:
 	@rm -rf $(FOLDER_BIN) 
 	if [ -f $(SAMTOOLS_DIR)/Makefile ]; then cd $(SAMTOOLS_DIR); $(MAKE) clean; rm -f config.h config.log config.status config.mk; fi
 	if [ -f $(BCFTOOLS_DIR)/Makefile ]; then cd $(BCFTOOLS_DIR); $(MAKE) clean; rm -f config.h config.log config.status config.mk; fi
+	if [ -f $(HTSLIB_DIR)/Makefile ]; then cd $(HTSLIB_DIR); $(MAKE) clean; rm -f config.h config.log config.status config.mk; fi
 	if [ -f "gem3-mapper/Makefile.mk" ]; then $(MAKE) --directory=gem3-mapper distclean; fi
 	if [ -f "bs_call/src/Makefile.mk" ]; then $(MAKE) --directory=bs_call distclean; fi
 	if [ -f "utils/Makefile" ]; then $(MAKE) --directory=utils distclean; fi

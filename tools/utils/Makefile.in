@@ -9,14 +9,14 @@
 
 # Definitions
 
-CC=gcc
+CC=@CC@
 
 ROOT_PATH=..
 
 TOOLS=gemBS_cat readNameClean md5_fasta mextr snpxtr
 FOLDER_BIN=../bin
 TOOLS_BIN=$(addprefix $(FOLDER_BIN)/, $(TOOLS))
-LIBS:= -lm
+LIBS:= $(LDFLAGS) -lm
 GENERAL_FLAGS = -I. -Icommon
 
 MEXTR_INC = @HTSINC@ -Imextr 
