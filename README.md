@@ -75,6 +75,8 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.5.1 Check if C compiler requires --std=c99 flag for standards conformant behaviour
+    3.5.1 Make sure bgzip is copied correctly during installation
     3.5.0 Make bs_call process contig pools from largest to smallest (this change alters the sqlite db format so
           if you have a previously started gemBS run you should (a) remove the .gemBS directory, (b) redo the
           'gemBS prepare' step to recreate the db file and (3) run 'gemBS db-sync'. 
