@@ -10,9 +10,9 @@
 ROOT_PATH=$(CURDIR)
 
 # samtools and bcftools definitions
-SAMTOOLS_VERSION=1.10
-BCFTOOLS_VERSION=1.10.2
-HTSLIB_VERSION=1.10.2
+SAMTOOLS_VERSION=1.11
+BCFTOOLS_VERSION=1.11
+HTSLIB_VERSION=1.11
 SAMTOOLS_DIR=samtools
 BCFTOOLS_DIR=bcftools
 HTSLIB_DIR=htslib
@@ -33,8 +33,6 @@ endif
 FOLDER_BIN=bin
 
 all: setup gem3 _samtools _bcftools _bs_call _utils
-
-all_static: setup gem3-static _samtools _bcftools _bs_call _utils
 
 all_debug: setup gem3-debug _samtools _bcftools _bs_call _utils
 
@@ -84,7 +82,6 @@ $(BCFTOOLS_DIR)/config.h:
 $(HTSLIB_DIR):
 	wget -O $(HTSLIB_TAR) $(HTSLIB_URL) && tar -zxf $(HTSLIB_TAR) && rm -f $(HTSLIB_TAR)
 	mv htslib-$(HTSLIB_VERSION) $(HTSLIB_DIR)
-	(cd $(HTSLIB_DIR) && cat ../patches/*.patch | patch && autoheader && autoconf && ./configure)
 
 $(SAMTOOLS_DIR):
 	wget -O $(SAMTOOLS_TAR) $(SAMTOOLS_URL) && tar -zxf $(SAMTOOLS_TAR) && rm -f $(SAMTOOLS_TAR)

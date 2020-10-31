@@ -189,7 +189,7 @@ void fill_base_prob_table(void);
 void print_headers(args_t *args);
 int calc_phred(double z);
 double *get_prob_dist(int ns, double *Q[]);
-char trans_base[256];
+extern char trans_base[256];
 
 #define ks_output(fp, s) { \
 	int r; \
