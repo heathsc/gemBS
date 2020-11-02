@@ -75,6 +75,8 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.5.3 Allow for read end specific trimming in bs_call
+    3.5.3 Enable range checks and asserts in bs_call all target; add bs_call debug target
     3.5.2 Correct problems with gcc10.  Move to htslib/samtools/bcftools version 1.11
     3.5.1 Check if C compiler requires --std=c99 flag for standards conformant behaviour
     3.5.1 Make sure bgzip is copied correctly during installation
