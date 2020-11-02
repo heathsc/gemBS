@@ -17,3 +17,9 @@ tools/bin/
 *.[oa]
 *.so
 *junk*
+autom4te*
+config.log
+config.status
+.project
+.cproject
+.settings
