@@ -18,7 +18,6 @@
 
 #include "htslib/hfile.h"
 #include "htslib/khash_str2int.h"
-
 #include "utils.h"
 #include "mextr.h"
 
@@ -29,10 +28,10 @@ typedef struct {
 	hts_pos_t start, end;
 } region1_t;
 
-struct _region_t {
+typedef struct bcf_sr_region_t {
 	region1_t *regs;
 	int nregs, mregs, creg;
-};
+} region_t;
 
 const char *usage(void) {
 	return
@@ -297,11 +296,11 @@ void handle_command_line(int argc, char *argv[], args_t * const args) {
 		if(!nr) error("None of the requested contigs are present in the input file\n");
 		qsort_r(ix, nr, sizeof(int), cmp_reg, reg);
 		char **tseq = malloc(sizeof(char *) * nr);
-		struct _region_t *treg = malloc(sizeof(struct _region_t) * nr);
+		region_t *treg = malloc(sizeof(region_t) * nr);
 		for(int i = 0; i < nr; i++) {
 			const int j = ix[i];
 			tseq[i] = reg->seq_names[j];
-			memcpy(treg + i, reg->regs + j, sizeof(struct _region_t));
+			memcpy(treg + i, reg->regs + j, sizeof(region_t));
 			khash_str2int_set(reg->seq_hash, tseq[i], i);
 		}
 		free(reg->seq_names);
@@ -335,7 +334,7 @@ void handle_command_line(int argc, char *argv[], args_t * const args) {
 			reg->prev_start = reg->prev_end = reg->prev_seq = -1;
 			reg->seq_hash = khash_str2int_init();
 			reg->seq_names = calloc(nctgs, sizeof(char *));
-			reg->regs = calloc(nctgs, sizeof(struct _region_t));
+			reg->regs = calloc(nctgs, sizeof(region_t));
 			for(int i = 0; i < nctgs; i++) {
 				reg->nseqs++;
 				reg->seq_names[i] = ctgs[i].name;

@@ -29,10 +29,10 @@ typedef struct {
 	hts_pos_t start, end;
 } region1_t;
 
-struct _region_t {
+struct bcf_sr_region_t {
 	region1_t *regs;
 	int nregs, mregs, creg;
-};
+} region_t;
 
 const char *usage(void) {
 	return
