@@ -75,6 +75,7 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.5.2 Correct problems with gcc10.  Move to htslib/samtools/bcftools version 1.11
     3.5.1 Check if C compiler requires --std=c99 flag for standards conformant behaviour
     3.5.1 Make sure bgzip is copied correctly during installation
     3.5.0 Make bs_call process contig pools from largest to smallest (this change alters the sqlite db format so
