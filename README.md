@@ -75,6 +75,8 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.5.4 Fix bug in the output of strand specific cpg txt files (not
+          encode Bed files) where the 'C' entry was not being printed
     3.5.3 Allow for read end specific trimming in bs_call
     3.5.3 Enable range checks and asserts in bs_call all target; add bs_call debug target
     3.5.2 Correct problems with gcc10.  Move to htslib/samtools/bcftools version 1.11

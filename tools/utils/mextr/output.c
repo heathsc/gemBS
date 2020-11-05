@@ -102,6 +102,7 @@ void output_cpg(args_t *const args, rec_t ** const lrec, const int idx) {
 					}
 				}
 				kputc('\n', s);
+				ks_output(fp, s);
 			} else {
 				for(int pos = 0; pos < 2; pos++) {
 					rec_t *rec = lrec[idx ^ pos];
@@ -142,9 +143,9 @@ void output_cpg(args_t *const args, rec_t ** const lrec, const int idx) {
 						}
 					}
 					kputc('\n', s);
+					ks_output(fp, s);
 				}
 			}
-			ks_output(fp, s);
 		}
 	}
 }
