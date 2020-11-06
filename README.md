@@ -75,6 +75,7 @@ Documentation can be found at
 ----------
 Changelog:
 ----------
+    3.5.5 Fix logging bug caused by trimming change in 3.5.3
     3.5.4 Fix bug in the output of strand specific cpg txt files (not
           encode Bed files) where the 'C' entry was not being printed
     3.5.3 Allow for read end specific trimming in bs_call

@@ -1229,8 +1229,8 @@ class MethylationCall(BasicPipeline):
         printer("----------- Methylation Calling --------")
         printer("Reference       : %s", self.fasta_reference)
         printer("Species         : %s", self.species)
-        printer("Right Trim      : %i", self.right_trim)
-        printer("Left Trim       : %i", self.left_trim)
+        printer("Right Trim      : %s", self.right_trim)
+        printer("Left Trim       : %s", self.left_trim)
         printer("Chromosomes     : %s", self.contig_list)
         printer("Threads         : %s", self.threads)
         if self.dbSNP_index_file:
