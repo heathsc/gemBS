@@ -63,14 +63,14 @@ Check your installation
 -----------------------
 
 For checking your installation follow this
-[worked example](http://statgen.cnag.cat/gemBS/UserGuide/_build/html/example.html).
+[worked example](http://statgen.cnag.cat/gemBS/v3/UserGuide/_build/html/example.html).
 
 -------------
 Documentation
 -------------
 
 Documentation can be found at
-[gemBS](http://statgen.cnag.cat/gemBS/)
+[gemBS](http://statgen.cnag.cat/gemBS/v3/UserGuide/_build/html/index.html).
 
 ----------
 Changelog:
