@@ -1,6 +1,6 @@
 News
 ====
-First release of gemBS-rs a complete rewrite of the gemBS pipeline (apart from the mapper) in Rust bringing increased
+First release of gemBS-rs, a complete rewrite of the gemBS pipeline (apart from the mapper) in Rust bringing increased
 stability while maintaining the high performance of gemBS: https://github.com/heathsc/gemBS-rs.git
 
 gemBS
