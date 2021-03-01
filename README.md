@@ -1,6 +1,10 @@
+News
+====
+First release of gemBS-rs a complete rewrite of the gemBS pipeline (apart from the mapper) in Rust bringing increased
+stability while maintaining the high performance of gemBS: https://github.com/heathsc/gemBS-rs.git
+
 gemBS
 =====
-
 gemBS is a high performance bioinformatic pipeline designed for highthroughput analysis
 of DNA methylation data from whole genome bisulfites sequencing data
 (WGBS). It combines GEM3, a high performance read aligner and
