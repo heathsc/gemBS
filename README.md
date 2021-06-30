@@ -9,7 +9,7 @@ gemBS is a high performance bioinformatic pipeline designed for highthroughput a
 of DNA methylation data from whole genome bisulfites sequencing data
 (WGBS). It combines GEM3, a high performance read aligner and
 bs_call, a high performance variant and methyation caller, into a streamlined and efficient pipeline for
-bisulfite sueqnce analysis.
+bisulfite sequence analysis.
 
 The manuscript describing the pipeline is available [here](https://www.biorxiv.org/content/early/2017/10/11/201988)
 
