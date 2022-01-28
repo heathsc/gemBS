@@ -1,0 +1,48 @@
+#==================================================================================================
+# PROJECT: bs_call
+# FILE: Makefile.mk
+# DATE: 25/01/2018
+# AUTHOR(S): Simon Heath (simon.heath@gmail.com) and Marcos Fernandez (marcos.fernandez@cnag.crg.eu)
+# DESCRIPTION: Makefile definitions' file
+#==================================================================================================
+
+
+# Utilities
+CC=@CC@
+AR=ar
+
+# Folders
+FOLDER_BIN=../bin
+FOLDER_INCLUDE=../include
+
+# Gem tools library
+GEM_TOOLS = 
+
+# Flags
+ARCH_FLAGS = -D__LINUX__
+HAVE_ZLIB = @HAVE_ZLIB@
+HAVE_BZLIB = @HAVE_BZLIB@
+GEMTOOLS_INC = -I../gt/include
+GEMTOOLS_LIBS = -L../gt/lib -lgemtools
+
+GENERAL_FLAGS=-fPIC -Wall
+ifeq ($(HAVE_ZLIB),1)
+GENERAL_FLAGS:=$(GENERAL_FLAGS) -DHAVE_ZLIB
+endif
+ifeq ($(HAVE_BZLIB),1)
+GENERAL_FLAGS:=$(GENERAL_FLAGS) -DHAVE_BZLIB
+endif
+
+OPTIMIZATION_FLAGS=-O3
+ARCH_FLAGS_OPTIMIZATION_FLAGS= # -msse3 -mssse3 -msse4.2
+
+BS_CALL_INCLUDE_FLAGS=-I$(FOLDER_INCLUDE) $(GEMTOOLS_INC) @HTSINC@
+DBSNP_INCLUDE_FLAGS=-I$(FOLDER_INCLUDE) @HTSINC@
+
+BS_CALL_LIB_PATH_FLAGS=$(GEMTOOLS_LIBS) $(LDFLAGS) @HTSLIBS@ -lm
+DBSNP_LIB_PATH_FLAGS=
+
+SUPPRESS_CHECKS=-DNDEBUG -DGT_NO_CONSISTENCY_CHECKS
+DEBUG_FLAGS=-g -ggdb3 -rdynamic -DGT_DEBUG
+
+PLATFORM=$(shell uname)
